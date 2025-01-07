@@ -5,6 +5,9 @@ use serde::Deserialize;
 
 use image::ImageReader;
 use std::io::Cursor;
+use std::sync::mpsc::sync_channel;
+use std::thread;
+
 const KEY: &'static str = "***REMOVED***";
 const BASE: &'static str = "***REMOVED***";
 
@@ -17,38 +20,44 @@ struct WithId {
     type_: String,
 }
 fn main() {
-    let client = reqwest::blocking::Client::new();
+    let (send, recv) = sync_channel(1);
 
-    let mut res: Vec<WithId> = client
-        .get(format!("{}/api/assets/random", BASE))
-        .header("x-api-key", format!("{}", KEY))
-        .send()
-        .unwrap()
-        .json()
-        .unwrap();
-    println!("Found randoms");
+    thread::spawn(move || {
+        let client = reqwest::blocking::Client::new();
+        loop {
+            let mut res: Vec<WithId> = client
+                .get(format!("{}/api/assets/random", BASE))
+                .header("x-api-key", format!("{}", KEY))
+                .send()
+                .unwrap()
+                .json()
+                .unwrap();
+            println!("Found randoms");
 
-    let i = res.pop().unwrap();
-    let data = client
-        .get(format!(
-            "{}/api/assets/{}/thumbnail?size=preview",
-            BASE, i.id
-        ))
-        .header("x-api-key", KEY)
-        .send()
-        .unwrap()
-        .bytes()
-        .unwrap();
-    println!(
-        "Downloaded random preview: {} ({})",
-        i.original_file_name, i.type_
-    );
-    let img = ImageReader::new(Cursor::new(data))
-        .with_guessed_format()
-        .unwrap()
-        .decode()
-        .unwrap();
-    println!("{}x{}", img.width(), img.height());
+            let i = res.pop().unwrap();
+            let data = client
+                .get(format!(
+                    "{}/api/assets/{}/thumbnail?size=preview",
+                    BASE, i.id
+                ))
+                .header("x-api-key", KEY)
+                .send()
+                .unwrap()
+                .bytes()
+                .unwrap();
+            println!(
+                "Downloaded random preview: {} ({})",
+                i.original_file_name, i.type_
+            );
+            let img = ImageReader::new(Cursor::new(data))
+                .with_guessed_format()
+                .unwrap()
+                .decode()
+                .unwrap();
+            println!("{}x{}", img.width(), img.height());
+            send.send(img).unwrap();
+        }
+    });
 
-    render::start(img);
+    render::start(recv);
 }
