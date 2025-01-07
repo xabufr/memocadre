@@ -60,10 +60,10 @@ impl Stage {
 
         #[rustfmt::skip]
         let vertices: [Vertex; 4] = [
-            Vertex { pos : Vec2 { x: -0.5, y: -0.5 }, uv: Vec2 { x: 0., y: 1. } },
-            Vertex { pos : Vec2 { x:  0.5, y: -0.5 }, uv: Vec2 { x: 1., y: 1. } },
-            Vertex { pos : Vec2 { x:  0.5, y:  0.5 }, uv: Vec2 { x: 1., y: 0. } },
-            Vertex { pos : Vec2 { x: -0.5, y:  0.5 }, uv: Vec2 { x: 0., y: 0. } },
+            Vertex { pos : Vec2 { x: -1., y: -1. }, uv: Vec2 { x: 0., y: 1. } },
+            Vertex { pos : Vec2 { x:  1., y: -1. }, uv: Vec2 { x: 1., y: 1. } },
+            Vertex { pos : Vec2 { x:  1., y:  1. }, uv: Vec2 { x: 1., y: 0. } },
+            Vertex { pos : Vec2 { x: -1., y:  1. }, uv: Vec2 { x: 0., y: 0. } },
         ];
         let vertex_buffer = ctx.new_buffer(
             BufferType::VertexBuffer,
@@ -143,7 +143,7 @@ impl EventHandler for Stage {
 
             self.ctx
                 .apply_uniforms(UniformsSource::table(&shader::Uniforms {
-                    offset: (t.sin() as f32 * 0.5, (t * 3.).cos() as f32 * 0.5),
+                    offset: (0., 0.),
                 }));
             self.ctx.draw(0, 6, 1);
         }
