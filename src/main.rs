@@ -1,3 +1,4 @@
+mod graphics;
 mod render;
 
 use serde::Deserialize;

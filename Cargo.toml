@@ -8,6 +8,7 @@ edition = "2021"
 # strip = true
 
 [dependencies]
+glam = "0.29.2"
 image = { version = "0.25.5", features = ["default-formats"], default-features = false }
 miniquad = "0.4.7"
 reqwest = { version = "0.12.12", default-features = false,  features = ["json", "blocking", "http2", "rustls-tls"] }
