@@ -1,5 +1,6 @@
-use glium::Surface;
-use image::DynamicImage;
+use glium::{backend::Facade, CapabilitiesSource, Surface};
+use glam::Vec2;
+use image::{DynamicImage, GenericImageView};
 use std::cell::Cell;
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::{Duration, Instant};
@@ -9,7 +10,8 @@ use crate::support::{ApplicationContext, State};
 use crate::graphics::ImageDisplay;
 
 struct Stage {
-    image: Option<ImageDisplay>,
+    image: ImageDisplay,
+    current_texture: Option<glium::Texture2d>,
     image_display_start: Instant,
     recv: Receiver<DynamicImage>,
     counter: FPSCounter,
@@ -50,7 +52,8 @@ impl ApplicationContext for Stage {
     const WINDOW_TITLE: &'static str = "test";
     fn new(display: &glium::Display<glutin::surface::WindowSurface>) -> Self {
         Self {
-            image: None,
+            image: ImageDisplay::new(display),
+            current_texture: None,
             image_display_start: Instant::now(),
             recv: RECV.take().unwrap(),
             counter: FPSCounter::new(),
@@ -61,13 +64,32 @@ impl ApplicationContext for Stage {
         let mut frame = display.draw();
         let n = Instant::now();
 
-        if self.image.is_none() || self.image_display_start.elapsed() >= Duration::from_secs(3) {
+        if self.current_texture.is_none()
+            || self.image_display_start.elapsed() >= Duration::from_secs(3)
+        {
             match self.recv.try_recv() {
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => {}
-                Ok(next) => {
-                    self.image = Some(ImageDisplay::new(display, &next));
-                    self.image_display_start = n;
+                Ok(image) => {
+                    let (width, height) = image.dimensions();
+                    let max = display.get_context().get_capabilities().max_texture_size as u32;
+                    let max = 512;
+                    let image = if std::cmp::max(width, height) > max {
+                        image.resize(max, max, image::imageops::FilterType::Lanczos3)
+                    } else {
+                        image
+                    };
+                    let dims = image.dimensions();
+                    self.current_texture = glium::Texture2d::new(
+                        display,
+                        glium::texture::RawImage2d::from_raw_rgb(
+                            image.into_rgb8().into_raw(),
+                            dims,
+                        ),
+                    )
+                    .unwrap()
+                    .into();
+                    self.image_display_start = Instant::now();
                 }
             }
         }
@@ -75,7 +97,9 @@ impl ApplicationContext for Stage {
         self.counter.count_frame();
 
         frame.clear_color(0.0, 0.0, 0.0, 0.0);
-        self.image.as_ref().inspect(|img| img.draw(&mut frame));
+        self.current_texture
+            .as_ref()
+            .inspect(|texture| self.image.draw(&mut frame, Vec2::ZERO, texture));
         frame.finish().unwrap();
     }
 }
