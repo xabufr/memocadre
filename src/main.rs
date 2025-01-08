@@ -1,5 +1,10 @@
+#[macro_use]
+extern crate glium;
+
 mod graphics;
 mod render;
+mod support;
+// mod triangle;
 
 use serde::Deserialize;
 
@@ -60,4 +65,5 @@ fn main() {
     });
 
     render::start(recv);
+    // triangle::start();
 }
