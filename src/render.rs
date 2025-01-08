@@ -1,8 +1,10 @@
-use glium::{backend::Facade, CapabilitiesSource, Surface};
 use glam::Vec2;
+use glium::{backend::Facade, CapabilitiesSource, Surface};
 use image::{DynamicImage, GenericImageView};
 use std::cell::Cell;
+use std::sync::mpsc::sync_channel;
 use std::sync::mpsc::{Receiver, TryRecvError};
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use crate::support::{ApplicationContext, State};
@@ -15,6 +17,7 @@ struct Stage {
     image_display_start: Instant,
     recv: Receiver<DynamicImage>,
     counter: FPSCounter,
+    worker: JoinHandle<()>,
 }
 
 struct FPSCounter {
@@ -45,18 +48,29 @@ impl FPSCounter {
     }
 }
 
-thread_local! {
-  pub static RECV: Cell<Option<Receiver<DynamicImage>>> = Cell::new(None);
-}
 impl ApplicationContext for Stage {
     const WINDOW_TITLE: &'static str = "test";
     fn new(display: &glium::Display<glutin::surface::WindowSurface>) -> Self {
+        let (send, recv) = sync_channel(1);
+        let worker = thread::spawn(move || {
+            use crate::galery::{Galery, ImmichGalery};
+            let mut immich = ImmichGalery::new(
+                "***REMOVED***",
+                "***REMOVED***",
+            );
+            loop {
+                let img = immich.get_next_image();
+                send.send(img).unwrap();
+            }
+        });
+
         Self {
             image: ImageDisplay::new(display),
             current_texture: None,
             image_display_start: Instant::now(),
-            recv: RECV.take().unwrap(),
+            recv,
             counter: FPSCounter::new(),
+            worker,
         }
     }
 
@@ -104,7 +118,6 @@ impl ApplicationContext for Stage {
     }
 }
 
-pub fn start(recv: Receiver<DynamicImage>) {
-    RECV.set(Some(recv));
+pub fn start() {
     State::<Stage>::run_loop();
 }
