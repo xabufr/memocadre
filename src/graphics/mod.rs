@@ -18,10 +18,10 @@ pub struct ImageDisplay {
 
 #[rustfmt::skip]
 const VERTICES: [Vertex; 4] = [
-    Vertex { pos : [ 0., 0. ], uv: [ 0.,  0. ] },
-    Vertex { pos : [  1., 0. ], uv: [ 1.,  0. ] },
-    Vertex { pos : [  1.,  1. ], uv: [ 1.,  1. ] },
-    Vertex { pos : [ 0.,  1. ], uv: [ 0.,  1. ] },
+    Vertex { pos : [ 0., 0. ], uv: [ 0., 0. ] },
+    Vertex { pos : [ 1., 0. ], uv: [ 1., 0. ] },
+    Vertex { pos : [ 1., 1. ], uv: [ 1., 1. ] },
+    Vertex { pos : [ 0., 1. ], uv: [ 0., 1. ] },
 ];
 const INDICES: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
