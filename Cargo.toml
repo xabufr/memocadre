@@ -16,7 +16,6 @@ glutin = { version = "0.32.1", default-features = false, features = ["egl", "x11
 glutin-winit = { version = "0.5.0", default-features = false, features = ["egl", "x11"] }
 image = { version = "0.25.5", features = ["default-formats"], default-features = false }
 log = "0.4.22"
-obj = "0.10.2"
 raw-window-handle = "0.6.2"
 reqwest = { version = "0.12.12", features = ["blocking", "charset", "json", "rustls-tls"], default-features = false }
 serde = { version = "1.0.217", features = ["derive"] }
