@@ -105,6 +105,10 @@ impl ApplicationContext for Application {
                     let texture = self.blurr.blur(display, &texture);
                     self.current_texture = Some(texture);
                     self.image_display_start = Instant::now();
+                    println!(
+                        "free mem: {:?}",
+                        display.get_context().get_free_video_memory()
+                    );
                 }
             }
         }
@@ -112,9 +116,10 @@ impl ApplicationContext for Application {
         self.counter.count_frame();
 
         frame.clear_color(0.0, 0.0, 0.0, 0.0);
-        self.current_texture
-            .as_ref()
-            .inspect(|texture| self.image.draw(&mut frame, Vec2::ZERO, texture));
+        self.current_texture.as_ref().inspect(|texture| {
+            self.image.draw(&mut frame, texture, Vec2::ZERO);
+            //
+        });
         frame.finish().unwrap();
     }
 }

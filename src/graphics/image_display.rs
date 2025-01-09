@@ -41,7 +41,7 @@ impl ImageDisplay {
         }
     }
 
-    pub fn draw<S>(&self, surface: &mut S, position: Vec2, texture: &glium::Texture2d)
+    pub fn draw<S>(&self, surface: &mut S, texture: &glium::Texture2d, position: Vec2, )
     where
         S: Surface,
     {
