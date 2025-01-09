@@ -14,10 +14,8 @@ glutin = { version = "0.32.1", default-features = false, features = ["egl", "x11
 glutin-winit = { version = "0.5.0", default-features = false, features = ["egl", "x11"] }
 image = { version = "0.25.5", features = ["default-formats"], default-features = false }
 minreq = { version = "2.13.0", features = ["https-rustls", "json-using-serde", "punycode", "serde", "serde_json"] }
-# miniquad = "0.4.7"
 obj = "0.10.2"
 raw-window-handle = "0.6.2"
-reqwest = { version = "0.12.12", default-features = false,  features = ["json", "blocking", "http2", "rustls-tls"] }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.134"
 winit = { version = "0.30.8", default-features = false, features = ["x11"] }
