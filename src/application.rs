@@ -2,6 +2,7 @@ use glam::Vec2;
 use glium::{backend::Facade, CapabilitiesSource, Surface};
 use image::imageops::FilterType;
 use image::{DynamicImage, GenericImageView};
+use log::debug;
 use std::sync::mpsc::sync_channel;
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::thread::{self, JoinHandle};
@@ -35,7 +36,7 @@ impl FPSCounter {
             self.last_fps = self.frames;
             self.last_instant = now;
             self.frames = 0;
-            println!("FPS: {}", self.last_fps);
+            debug!("FPS: {}", self.last_fps);
         }
         self.frames += 1;
     }
@@ -52,7 +53,10 @@ impl FPSCounter {
 impl ApplicationContext for Application {
     const WINDOW_TITLE: &'static str = "test";
     fn new(display: &glium::Display<glutin::surface::WindowSurface>) -> Self {
-        println!("{:?}", display.get_context().get_opengl_version_string());
+        debug!(
+            "Starting with {}",
+            display.get_context().get_opengl_version_string(),
+        );
         let (send, recv) = sync_channel(1);
         let worker = thread::spawn(move || {
             use crate::galery::{Galery, ImmichGalery};
