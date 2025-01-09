@@ -8,11 +8,11 @@ use std::time::{Duration, Instant};
 
 use crate::support::{ApplicationContext, State};
 
-use crate::graphics::{blur::ImageBlurrer, ImageDisplay};
+use crate::graphics::{blur::ImageBlurr, ImageDisplay};
 
 struct Stage {
     image: ImageDisplay,
-    blurrer: ImageBlurrer,
+    blurr: ImageBlurr,
     current_texture: Option<glium::Texture2d>,
     image_display_start: Instant,
     recv: Receiver<DynamicImage>,
@@ -67,7 +67,7 @@ impl ApplicationContext for Stage {
 
         Self {
             image: ImageDisplay::new(display),
-            blurrer: ImageBlurrer::new(display),
+            blurr: ImageBlurr::new(display),
             current_texture: None,
             image_display_start: Instant::now(),
             recv,
@@ -102,7 +102,7 @@ impl ApplicationContext for Stage {
                         ),
                     )
                     .unwrap();
-                    let texture = self.blurrer.blur(display, &texture);
+                    let texture = self.blurr.blur(display, &texture);
                     self.current_texture = Some(texture);
                     self.image_display_start = Instant::now();
                 }

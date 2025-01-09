@@ -14,7 +14,7 @@ struct Vertex {
 }
 implement_vertex!(Vertex, pos, uv);
 
-pub struct ImageBlurrer {
+pub struct ImageBlurr {
     vertex_buffer: VertexBuffer<Vertex>,
     index_buffer: glium::IndexBuffer<u16>,
     program: glium::Program,
@@ -29,7 +29,7 @@ const VERTICES: [Vertex; 4] = [
 ];
 const INDICES: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
-impl ImageBlurrer {
+impl ImageBlurr {
     pub fn new<F>(facade: &F) -> Self
     where
         F: Facade,
