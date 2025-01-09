@@ -3,12 +3,12 @@ use glissade::Keyframes;
 use glium::{backend::Facade, CapabilitiesSource, Surface};
 use image::imageops::FilterType;
 use image::{DynamicImage, GenericImageView};
-use log::debug;
-use reqwest::header::X_FRAME_OPTIONS;
+use log::{debug, error};
 use std::sync::mpsc::sync_channel;
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
+use thread_priority::{set_current_thread_priority, ThreadPriority};
 
 use crate::support::{ApplicationContext, State};
 
@@ -72,6 +72,9 @@ impl ApplicationContext for Application {
         let (send, recv) = sync_channel(1);
         let worker = thread::spawn(move || {
             use crate::galery::{Galery, ImmichGalery};
+            if !set_current_thread_priority(ThreadPriority::Min).is_ok() {
+                error!("Cannot change worker thread priority to minimal");
+            }
             let mut immich = ImmichGalery::new(
                 "***REMOVED***",
                 "***REMOVED***",
