@@ -88,7 +88,6 @@ impl ApplicationContext for Stage {
                 Ok(image) => {
                     let (width, height) = image.dimensions();
                     let max = display.get_context().get_capabilities().max_texture_size as u32;
-                    // let max = 512;
                     let image = if std::cmp::max(width, height) > max {
                         image.resize(max, max, image::imageops::FilterType::Lanczos3)
                     } else {

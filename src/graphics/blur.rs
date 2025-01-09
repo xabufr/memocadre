@@ -1,7 +1,9 @@
 use std::time::Instant;
 
 use glam::{Mat4, Quat, Vec2, Vec3};
-use glium::{backend::Facade, CapabilitiesSource, Surface, VertexBuffer};
+use glium::{
+    backend::Facade, BlitMask, BlitTarget, CapabilitiesSource, Rect, Surface, VertexBuffer,
+};
 use image::{DynamicImage, GenericImageView};
 
 #[repr(C)]
@@ -51,54 +53,25 @@ impl ImageBlurrer {
     }
 
     pub fn blur(&self, facade: &impl Facade, texture: &glium::Texture2d) -> glium::Texture2d {
-        let start = Instant::now();
+        use glium::framebuffer::SimpleFrameBuffer;
         let textures = [
             glium::Texture2d::empty(facade, texture.width(), texture.height()).unwrap(),
             glium::Texture2d::empty(facade, texture.width(), texture.height()).unwrap(),
         ];
         let mut fbos = [
-            glium::framebuffer::SimpleFrameBuffer::new(facade, &textures[0]).unwrap(),
-            glium::framebuffer::SimpleFrameBuffer::new(facade, &textures[1]).unwrap(),
+            SimpleFrameBuffer::new(facade, &textures[0]).unwrap(),
+            SimpleFrameBuffer::new(facade, &textures[1]).unwrap(),
         ];
+        let mut source_texture = texture;
 
         let radius: f32 = 6.0;
         let size = (texture.width() as f32, texture.height() as f32);
-        let uniforms = uniform! {
-          tex_size: size,
-          tex: texture,
-          dir: (radius, 0.),
-        };
-        fbos[0]
-            .draw(
-                &self.vertex_buffer,
-                &self.index_buffer,
-                &self.program,
-                &uniforms,
-                &Default::default(),
-            )
-            .unwrap();
-
-        let uniforms = uniform! {
-          tex_size: size,
-          tex: &textures[0],
-          dir: (0., radius),
-        };
-        fbos[1]
-            .draw(
-                &self.vertex_buffer,
-                &self.index_buffer,
-                &self.program,
-                &uniforms,
-                &Default::default(),
-            )
-            .unwrap();
         let passes = 6;
-        for i in 1..=passes {
-            println!("pass {}", i);
+        for i in 0..=passes {
             let radius = radius * (passes - i) as f32 / (passes as f32);
             let uniforms = uniform! {
               tex_size: size,
-              tex: &textures[1],
+              tex: source_texture,
               dir: (radius, 0.),
             };
             fbos[0]
@@ -110,10 +83,11 @@ impl ImageBlurrer {
                     &Default::default(),
                 )
                 .unwrap();
+            source_texture = &textures[0];
 
             let uniforms = uniform! {
               tex_size: size,
-              tex: &textures[0],
+              tex: source_texture,
               dir: (0., radius),
             };
             fbos[1]
@@ -125,11 +99,10 @@ impl ImageBlurrer {
                     &Default::default(),
                 )
                 .unwrap();
+            source_texture = &textures[1];
         }
 
-      println!("blur time: {:?}", start.elapsed());
-        let [texture, _] = textures;
-        println!("{:?}", texture);
+        let [_, texture] = textures;
         return texture;
     }
 }
