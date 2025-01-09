@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use crate::support::{ApplicationContext, State};
 
-use crate::graphics::{blur::ImageBlurr, ImageDisplay};
+use crate::graphics::{ImageBlurr, ImageDisplay};
 
 struct Stage {
     image: ImageDisplay,

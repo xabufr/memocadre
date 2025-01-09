@@ -1,31 +1,19 @@
-use std::time::Instant;
+use glium::{backend::Facade, Surface, VertexBuffer};
 
-use glam::{Mat4, Quat, Vec2, Vec3};
-use glium::{
-    backend::Facade, BlitMask, BlitTarget, CapabilitiesSource, Rect, Surface, VertexBuffer,
-};
-use image::{DynamicImage, GenericImageView};
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct Vertex {
-    pos: [f32; 2],
-    uv: [f32; 2],
-}
-implement_vertex!(Vertex, pos, uv);
+use super::Vertex2dUv;
 
 pub struct ImageBlurr {
-    vertex_buffer: VertexBuffer<Vertex>,
+    vertex_buffer: VertexBuffer<Vertex2dUv>,
     index_buffer: glium::IndexBuffer<u16>,
     program: glium::Program,
 }
 
 #[rustfmt::skip]
-const VERTICES: [Vertex; 4] = [
-    Vertex { pos : [ -1., -1. ], uv: [ 0., 0. ] },
-    Vertex { pos : [  1., -1. ], uv: [ 1., 0. ] },
-    Vertex { pos : [  1.,  1. ], uv: [ 1., 1. ] },
-    Vertex { pos : [ -1.,  1. ], uv: [ 0., 1. ] },
+const VERTICES: [Vertex2dUv; 4] = [
+    Vertex2dUv { pos : [ -1., -1. ], uv: [ 0., 0. ] },
+    Vertex2dUv { pos : [  1., -1. ], uv: [ 1., 0. ] },
+    Vertex2dUv { pos : [  1.,  1. ], uv: [ 1., 1. ] },
+    Vertex2dUv { pos : [ -1.,  1. ], uv: [ 0., 1. ] },
 ];
 const INDICES: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
