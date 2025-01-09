@@ -1,5 +1,5 @@
 pub use blur::ImageBlurr;
-pub use image_display::ImageDisplay;
+pub use image_display::{ImageDrawer, Sprite};
 
 mod blur;
 mod image_display;

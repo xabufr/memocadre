@@ -8,12 +8,12 @@ use std::time::{Duration, Instant};
 
 use crate::support::{ApplicationContext, State};
 
-use crate::graphics::{ImageBlurr, ImageDisplay};
+use crate::graphics::{ImageBlurr, ImageDrawer, Sprite};
 
 struct Application {
-    image: ImageDisplay,
-    blurr: ImageBlurr,
-    current_texture: Option<glium::Texture2d>,
+    image_drawer: ImageDrawer,
+    image_blurr: ImageBlurr,
+    current_sprite: Option<Sprite>,
     image_display_start: Instant,
     recv: Receiver<DynamicImage>,
     counter: FPSCounter,
@@ -66,9 +66,9 @@ impl ApplicationContext for Application {
         });
 
         Self {
-            image: ImageDisplay::new(display),
-            blurr: ImageBlurr::new(display),
-            current_texture: None,
+            image_drawer: ImageDrawer::new(display),
+            image_blurr: ImageBlurr::new(display),
+            current_sprite: None,
             image_display_start: Instant::now(),
             recv,
             counter: FPSCounter::new(),
@@ -79,7 +79,7 @@ impl ApplicationContext for Application {
     fn draw_frame(&mut self, display: &glium::Display<glutin::surface::WindowSurface>) {
         let mut frame = display.draw();
 
-        if self.current_texture.is_none()
+        if self.current_sprite.is_none()
             || self.image_display_start.elapsed() >= Duration::from_secs(3)
         {
             match self.recv.try_recv() {
@@ -102,13 +102,12 @@ impl ApplicationContext for Application {
                         ),
                     )
                     .unwrap();
-                    let texture = self.blurr.blur(display, &texture);
-                    self.current_texture = Some(texture);
+                    let texture = self.image_blurr.blur(display, &texture);
+                    let mut sprite = Sprite::new(texture);
+                    let (width, height) = display.get_framebuffer_dimensions();
+                    sprite.resize_respecting_ratio(Vec2::new(width as _, height as _));
+                    self.current_sprite = Some(sprite);
                     self.image_display_start = Instant::now();
-                    println!(
-                        "free mem: {:?}",
-                        display.get_context().get_free_video_memory()
-                    );
                 }
             }
         }
@@ -116,8 +115,8 @@ impl ApplicationContext for Application {
         self.counter.count_frame();
 
         frame.clear_color(0.0, 0.0, 0.0, 0.0);
-        self.current_texture.as_ref().inspect(|texture| {
-            self.image.draw(&mut frame, texture, Vec2::ZERO);
+        self.current_sprite.as_ref().inspect(|sprite| {
+            self.image_drawer.draw_sprite(&mut frame, sprite);
             //
         });
         frame.finish().unwrap();
