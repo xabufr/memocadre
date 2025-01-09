@@ -1,7 +1,7 @@
+use glium::Texture2d;
 use std::rc::Rc;
 
 pub use blur::ImageBlurr;
-use glium::Texture2d;
 pub use image_display::{ImageDrawer, Sprite};
 
 mod blur;

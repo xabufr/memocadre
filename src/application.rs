@@ -1,18 +1,17 @@
 use glam::Vec2;
 use glissade::Keyframes;
 use glium::{backend::Facade, CapabilitiesSource, Surface};
-use image::imageops::FilterType;
-use image::{DynamicImage, GenericImageView};
+use image::{imageops::FilterType, DynamicImage, GenericImageView};
 use log::{debug, error};
-use std::sync::mpsc::sync_channel;
-use std::sync::mpsc::{Receiver, TryRecvError};
-use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::{
+    sync::mpsc::{sync_channel, Receiver, TryRecvError},
+    thread::{self, JoinHandle},
+    time::{Duration, Instant},
+};
 use thread_priority::{set_current_thread_priority, ThreadPriority};
 
-use crate::support::{ApplicationContext, State};
-
 use crate::graphics::{ImageBlurr, ImageDrawer, SharedTexture2d, Sprite};
+use crate::support::{ApplicationContext, State};
 
 struct Application {
     image_drawer: ImageDrawer,
