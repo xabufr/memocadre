@@ -10,8 +10,11 @@ use std::{
 };
 use thread_priority::{set_current_thread_priority, ThreadPriority};
 
-use crate::graphics::{ImageBlurr, ImageDrawer, SharedTexture2d, Sprite};
+use glyph_brush::{Section, Text};
+
 use crate::support::{ApplicationContext, State};
+
+use crate::graphics::{ImageBlurr, ImageDrawer, SharedTexture2d, Sprite, TextDisplay};
 
 struct Application {
     image_drawer: ImageDrawer,
@@ -21,6 +24,7 @@ struct Application {
     image_display_start: Instant,
     recv: Receiver<DynamicImage>,
     counter: FPSCounter,
+    text_display: TextDisplay,
     _worker: JoinHandle<()>,
 }
 
@@ -60,7 +64,6 @@ impl FPSCounter {
         }
     }
 }
-
 impl ApplicationContext for Application {
     const WINDOW_TITLE: &'static str = "test";
     fn new(display: &glium::Display<glutin::surface::WindowSurface>) -> Self {
@@ -69,6 +72,7 @@ impl ApplicationContext for Application {
             display.get_context().get_opengl_version_string(),
         );
         let (send, recv) = sync_channel(1);
+
         let worker = thread::spawn(move || {
             use crate::galery::{Galery, ImmichGalery};
             if !set_current_thread_priority(ThreadPriority::Min).is_ok() {
@@ -92,6 +96,7 @@ impl ApplicationContext for Application {
             image_display_start: Instant::now(),
             recv,
             counter: FPSCounter::new(),
+            text_display: TextDisplay::new(display),
             _worker: worker,
         }
     }
@@ -145,6 +150,20 @@ impl ApplicationContext for Application {
                 self.current_slide = self.next_slide.take().map(|a| a.slide);
             }
         }
+        self.text_display.queue(
+            Section::new()
+                .add_text(
+                    Text::new(&format!(
+                        "FPS: {} ({} frames)",
+                        self.counter.last_fps, self.counter.frames
+                    ))
+                    .with_scale(28.)
+                    .with_color((1., 1., 1., 1.)),
+                )
+                .with_screen_position((100., 200.)),
+        );
+        self.text_display.update(display);
+        self.text_display.draw(&mut frame);
         frame.finish().unwrap();
     }
 }

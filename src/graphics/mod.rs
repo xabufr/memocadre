@@ -3,9 +3,11 @@ use std::rc::Rc;
 
 pub use blur::ImageBlurr;
 pub use image_display::{ImageDrawer, Sprite};
+pub use text_display::TextDisplay;
 
 mod blur;
 mod image_display;
+mod text_display;
 
 #[repr(C)]
 #[derive(Clone, Copy)]

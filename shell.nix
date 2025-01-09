@@ -1,8 +1,8 @@
 let pkgs = import <nixpkgs> { };
 in pkgs.mkShell {
   buildInputs = with pkgs; [
-    rustc
-    cargo
+    # rustc
+    # cargo
 
     libGL
     xorg.libX11
@@ -15,7 +15,7 @@ in pkgs.mkShell {
   shellHook = ''
     export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${
       with pkgs;
-      pkgs.lib.makeLibraryPath [ libGL xorg.libX11 xorg.libXrender xorg.libXcursor xorg.libXi libxkbcommon ]
+      pkgs.lib.makeLibraryPath [ libGL xorg.libX11 xorg.libXrender xorg.libXcursor xorg.libXi libxkbcommon xorg.libxcb ]
     }"
   '';
 }
