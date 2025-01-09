@@ -1,7 +1,7 @@
 use glam::{Mat4, Quat, Vec2, Vec3};
 use glium::{backend::Facade, Surface, VertexBuffer};
 
-use super::Vertex2dUv;
+use super::{SharedTexture2d, Vertex2dUv};
 
 pub struct ImageDrawer {
     vertex_buffer: VertexBuffer<Vertex2dUv>,
@@ -10,16 +10,20 @@ pub struct ImageDrawer {
 }
 
 pub struct Sprite {
-    pub texture: glium::Texture2d,
+    pub texture: SharedTexture2d,
+    // Position of the sprite in pixels on the screen
+    // By default, this is (0, 0)
     pub position: Vec2,
-    pub scale: Vec2,
+    // Size of the sprite in pixels
+    // By default, this is the size of the texture
+    pub size: Vec2,
 }
 
 impl Sprite {
-    pub fn new(texture: glium::Texture2d) -> Self {
+    pub fn new(texture: SharedTexture2d) -> Self {
         Self {
             position: Vec2::ZERO,
-            scale: Vec2::new(texture.width() as _, texture.height() as _),
+            size: Vec2::new(texture.width() as _, texture.height() as _),
             texture,
         }
     }
@@ -30,7 +34,7 @@ impl Sprite {
         let ratio = target_size / tex_size;
         let min = ratio.min_element();
         let ratio = if min < 1. { min } else { ratio.max_element() };
-        self.scale = tex_size * ratio;
+        self.size = tex_size * ratio;
     }
 
     pub fn get_texture_size(&self) -> Vec2 {
@@ -74,7 +78,7 @@ impl ImageDrawer {
     where
         S: Surface,
     {
-        self.draw(surface, &sprite.texture, sprite.position, sprite.scale);
+        self.draw(surface, &sprite.texture, sprite.position, sprite.size);
     }
 
     pub fn draw<S>(&self, surface: &mut S, texture: &glium::Texture2d, position: Vec2, scale: Vec2)
