@@ -11,7 +11,7 @@ pub struct AssetResponse {
     // pub r#type: AssetType,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum AssetType {
     IMAGE,
@@ -28,7 +28,7 @@ pub struct SearchRandomRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub size: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub r#type: Option<String>,
+    pub r#type: Option<AssetType>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub person_ids: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
