@@ -1,8 +1,10 @@
 use glam::Vec2;
+use glissade::Keyframes;
 use glium::{backend::Facade, CapabilitiesSource, Surface};
 use image::imageops::FilterType;
 use image::{DynamicImage, GenericImageView};
 use log::debug;
+use reqwest::header::X_FRAME_OPTIONS;
 use std::sync::mpsc::sync_channel;
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::thread::{self, JoinHandle};
@@ -15,11 +17,21 @@ use crate::graphics::{ImageBlurr, ImageDrawer, SharedTexture2d, Sprite};
 struct Application {
     image_drawer: ImageDrawer,
     image_blurr: ImageBlurr,
-    current_sprites: Option<Vec<Sprite>>,
+    current_slide: Option<Slide>,
+    next_slide: Option<TransitionningSlide>,
     image_display_start: Instant,
     recv: Receiver<DynamicImage>,
     counter: FPSCounter,
     _worker: JoinHandle<()>,
+}
+
+struct Slide {
+    sprites: Vec<Sprite>,
+}
+
+struct TransitionningSlide {
+    slide: Slide,
+    animation: Box<dyn glissade::Animated<f32, Instant>>,
 }
 
 struct FPSCounter {
@@ -73,7 +85,8 @@ impl ApplicationContext for Application {
         Self {
             image_drawer: ImageDrawer::new(display),
             image_blurr: ImageBlurr::new(display),
-            current_sprites: None,
+            current_slide: None,
+            next_slide: None,
             image_display_start: Instant::now(),
             recv,
             counter: FPSCounter::new(),
@@ -84,35 +97,61 @@ impl ApplicationContext for Application {
     fn draw_frame(&mut self, display: &glium::Display<glutin::surface::WindowSurface>) {
         let mut frame = display.draw();
 
-        if self.current_sprites.is_none()
-            || self.image_display_start.elapsed() >= Duration::from_millis(500)
+        if self.current_slide.is_none()
+            || (self.image_display_start.elapsed() >= Duration::from_secs_f32(3.)
+                && self.next_slide.is_none())
         {
             match self.recv.try_recv() {
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => {}
                 Ok(image) => {
-                    self.load_next_sprite(display, image);
+                    let slide = self.load_next_frame(display, image);
+                    self.image_display_start = Instant::now();
+                    if self.current_slide.is_none() {
+                        self.current_slide = Some(slide);
+                    } else {
+                        let animation = glissade::keyframes::from(0. as f32)
+                            .ease_to(
+                                1.,
+                                Duration::from_secs_f32(1.),
+                                glissade::Easing::QuarticInOut,
+                            )
+                            .run(self.image_display_start);
+                        self.next_slide = Some(TransitionningSlide {
+                            slide,
+                            animation: Box::new(animation),
+                        });
+                    }
                 }
             }
         }
 
+        let frame_time = Instant::now();
         self.counter.count_frame();
 
         frame.clear_color(0.0, 0.0, 0.0, 0.0);
-        self.current_sprites.as_deref().inspect(|sprites| {
-            for sprite in sprites.iter() {
-                self.image_drawer.draw_sprite(&mut frame, sprite);
+        if let Some(slide) = &self.current_slide {
+            slide.draw(&mut frame, &self.image_drawer);
+        }
+        if let Some(next_slide) = &mut self.next_slide {
+            let alpha = next_slide.animation.get(frame_time);
+            for s in next_slide.slide.sprites.iter_mut() {
+                s.opacity = alpha;
             }
-        });
+            next_slide.slide.draw(&mut frame, &self.image_drawer);
+            if next_slide.animation.is_finished(frame_time) {
+                self.current_slide = self.next_slide.take().map(|a| a.slide);
+            }
+        }
         frame.finish().unwrap();
     }
 }
 impl Application {
-    fn load_next_sprite(
-        &mut self,
+    fn load_next_frame(
+        &self,
         display: &glium::Display<glutin::surface::WindowSurface>,
         image: DynamicImage,
-    ) {
+    ) -> Slide {
         let image = soft_resize_image_if_necessary(display, image, FilterType::Lanczos3);
 
         let texture = SharedTexture2d::new(image_to_texture(display, image));
@@ -146,8 +185,15 @@ impl Application {
         }
         sprites.push(sprite);
 
-        self.current_sprites = Some(sprites);
-        self.image_display_start = Instant::now();
+        return Slide { sprites };
+    }
+}
+
+impl Slide {
+    pub fn draw(&self, surface: &mut impl Surface, image_drawer: &ImageDrawer) {
+        for sprite in self.sprites.iter() {
+            image_drawer.draw_sprite(surface, sprite);
+        }
     }
 }
 

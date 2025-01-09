@@ -1,5 +1,5 @@
 use glam::{Mat4, Quat, Vec2, Vec3};
-use glium::{backend::Facade, Surface, VertexBuffer};
+use glium::{backend::Facade, Blend, DrawParameters, Surface, VertexBuffer};
 
 use super::{SharedTexture2d, Vertex2dUv};
 
@@ -17,6 +17,8 @@ pub struct Sprite {
     // Size of the sprite in pixels
     // By default, this is the size of the texture
     pub size: Vec2,
+    //
+    pub opacity: f32,
 }
 
 impl Sprite {
@@ -25,6 +27,7 @@ impl Sprite {
             position: Vec2::ZERO,
             size: Vec2::new(texture.width() as _, texture.height() as _),
             texture,
+            opacity: 1.,
         }
     }
 
@@ -78,11 +81,23 @@ impl ImageDrawer {
     where
         S: Surface,
     {
-        self.draw(surface, &sprite.texture, sprite.position, sprite.size);
+        self.draw(
+            surface,
+            &sprite.texture,
+            sprite.position,
+            sprite.size,
+            sprite.opacity,
+        );
     }
 
-    pub fn draw<S>(&self, surface: &mut S, texture: &glium::Texture2d, position: Vec2, scale: Vec2)
-    where
+    pub fn draw<S>(
+        &self,
+        surface: &mut S,
+        texture: &glium::Texture2d,
+        position: Vec2,
+        scale: Vec2,
+        opacity: f32,
+    ) where
         S: Surface,
     {
         let (width, height) = surface.get_dimensions();
@@ -96,6 +111,7 @@ impl ImageDrawer {
           model: model.to_cols_array_2d(),
           view: view.to_cols_array_2d(),
           tex: texture,
+          opacity: opacity,
         };
         surface
             .draw(
@@ -103,7 +119,10 @@ impl ImageDrawer {
                 &self.index_buffer,
                 &self.program,
                 &uniforms,
-                &Default::default(),
+                &DrawParameters {
+                    blend: Blend::alpha_blending(),
+                    ..Default::default()
+                },
             )
             .unwrap();
     }
@@ -128,8 +147,9 @@ mod shader {
     varying lowp vec2 texcoord;
 
     uniform sampler2D tex;
+    uniform lowp float opacity;
 
     void main() {
-        gl_FragColor = texture2D(tex, texcoord);
+        gl_FragColor = vec4(texture2D(tex, texcoord).xyz, opacity);
     }"#;
 }

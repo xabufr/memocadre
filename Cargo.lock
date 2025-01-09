@@ -716,6 +716,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc46dd3ec48fdd8e693a98d2b8bafae273a2d54c1de02a2a7e3d57d501f39677"
 
 [[package]]
+name = "glissade"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc11ddc6e80570beba7279b5f636608c736bf50bb7eb182c8ac9af80c4c98e79"
+
+[[package]]
 name = "glium"
 version = "0.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1676,6 +1682,7 @@ dependencies = [
  "bytes",
  "env_logger",
  "glam",
+ "glissade",
  "glium",
  "glutin",
  "glutin-winit",
