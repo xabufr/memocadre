@@ -1,7 +1,6 @@
 use glam::Vec2;
 use glium::{backend::Facade, CapabilitiesSource, Surface};
 use image::{DynamicImage, GenericImageView};
-use std::cell::Cell;
 use std::sync::mpsc::sync_channel;
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::thread::{self, JoinHandle};
@@ -9,10 +8,11 @@ use std::time::{Duration, Instant};
 
 use crate::support::{ApplicationContext, State};
 
-use crate::graphics::ImageDisplay;
+use crate::graphics::{blur::ImageBlurrer, ImageDisplay};
 
 struct Stage {
     image: ImageDisplay,
+    blurrer: ImageBlurrer,
     current_texture: Option<glium::Texture2d>,
     image_display_start: Instant,
     recv: Receiver<DynamicImage>,
@@ -51,6 +51,7 @@ impl FPSCounter {
 impl ApplicationContext for Stage {
     const WINDOW_TITLE: &'static str = "test";
     fn new(display: &glium::Display<glutin::surface::WindowSurface>) -> Self {
+        println!("{:?}", display.get_context().get_opengl_version_string());
         let (send, recv) = sync_channel(1);
         let worker = thread::spawn(move || {
             use crate::galery::{Galery, ImmichGalery};
@@ -66,6 +67,7 @@ impl ApplicationContext for Stage {
 
         Self {
             image: ImageDisplay::new(display),
+            blurrer: ImageBlurrer::new(display),
             current_texture: None,
             image_display_start: Instant::now(),
             recv,
@@ -76,7 +78,6 @@ impl ApplicationContext for Stage {
 
     fn draw_frame(&mut self, display: &glium::Display<glutin::surface::WindowSurface>) {
         let mut frame = display.draw();
-        let n = Instant::now();
 
         if self.current_texture.is_none()
             || self.image_display_start.elapsed() >= Duration::from_secs(3)
@@ -87,22 +88,23 @@ impl ApplicationContext for Stage {
                 Ok(image) => {
                     let (width, height) = image.dimensions();
                     let max = display.get_context().get_capabilities().max_texture_size as u32;
-                    let max = 512;
+                    // let max = 512;
                     let image = if std::cmp::max(width, height) > max {
                         image.resize(max, max, image::imageops::FilterType::Lanczos3)
                     } else {
                         image
                     };
                     let dims = image.dimensions();
-                    self.current_texture = glium::Texture2d::new(
+                    let texture = glium::Texture2d::new(
                         display,
                         glium::texture::RawImage2d::from_raw_rgb(
                             image.into_rgb8().into_raw(),
                             dims,
                         ),
                     )
-                    .unwrap()
-                    .into();
+                    .unwrap();
+                    let texture = self.blurrer.blur(display, &texture);
+                    self.current_texture = Some(texture);
                     self.image_display_start = Instant::now();
                 }
             }

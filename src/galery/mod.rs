@@ -32,12 +32,11 @@ struct WithId {
 
 impl Galery for ImmichGalery {
     fn get_next_image(&mut self) -> image::DynamicImage {
-        let mut next = minreq::get(format!("{}/api/assets/random", self.base_url))
+        let next = minreq::get(format!("{}/api/assets/random", self.base_url))
             .with_header("x-api-key", &self.api_key)
             .send()
-            .unwrap()
-            .json::<Vec<WithId>>()
             .unwrap();
+        let mut next = next.json::<Vec<WithId>>().unwrap();
         let img = next.pop().unwrap();
         let img_data = minreq::get(format!(
             "{}/api/assets/{}/thumbnail?size=preview",

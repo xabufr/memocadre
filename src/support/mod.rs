@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 use glium::Display;
+use glutin::config::Api;
+use glutin::context::Version;
 use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
 use glutin::surface::WindowSurface;
@@ -199,7 +201,11 @@ impl<T: ApplicationContext + 'static> State<T> {
         let (window, gl_config) = display_builder
             .build(event_loop, config_template_builder, |mut configs| {
                 // Just use the first configuration since we don't have any special preferences here
-                configs.next().unwrap()
+                let configs: Vec<_> = configs.collect();
+                for config in &configs {
+                    println!("config: {:?}", config);
+                }
+                configs.into_iter().next().unwrap()
             })
             .unwrap();
         let window = window.unwrap();
@@ -210,10 +216,11 @@ impl<T: ApplicationContext + 'static> State<T> {
         let window_handle = window
             .window_handle()
             .expect("couldn't obtain window handle");
-        let context_attributes =
-            glutin::context::ContextAttributesBuilder::new().build(Some(window_handle.into()));
+        let context_attributes = glutin::context::ContextAttributesBuilder::new()
+            .with_context_api(glutin::context::ContextApi::Gles(Version::new(2, 0).into()))
+            .build(Some(window_handle.into()));
         let fallback_context_attributes = glutin::context::ContextAttributesBuilder::new()
-            .with_context_api(glutin::context::ContextApi::Gles(None))
+            .with_context_api(glutin::context::ContextApi::Gles(Version::new(2, 0).into()))
             .build(Some(window_handle.into()));
 
         let not_current_gl_context = Some(unsafe {

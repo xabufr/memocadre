@@ -1,6 +1,7 @@
 use glam::{Mat4, Quat, Vec2, Vec3};
 use glium::{backend::Facade, CapabilitiesSource, Surface, VertexBuffer};
 use image::{DynamicImage, GenericImageView};
+pub mod blur;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
