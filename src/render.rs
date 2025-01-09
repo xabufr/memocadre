@@ -10,7 +10,7 @@ use crate::support::{ApplicationContext, State};
 
 use crate::graphics::{ImageBlurr, ImageDisplay};
 
-struct Stage {
+struct Application {
     image: ImageDisplay,
     blurr: ImageBlurr,
     current_texture: Option<glium::Texture2d>,
@@ -48,7 +48,7 @@ impl FPSCounter {
     }
 }
 
-impl ApplicationContext for Stage {
+impl ApplicationContext for Application {
     const WINDOW_TITLE: &'static str = "test";
     fn new(display: &glium::Display<glutin::surface::WindowSurface>) -> Self {
         println!("{:?}", display.get_context().get_opengl_version_string());
@@ -120,5 +120,5 @@ impl ApplicationContext for Stage {
 }
 
 pub fn start() {
-    State::<Stage>::run_loop();
+    State::<Application>::run_loop();
 }
