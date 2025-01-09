@@ -81,7 +81,7 @@ impl ApplicationContext for Application {
         let mut frame = display.draw();
 
         if self.current_sprites.is_none()
-            || self.image_display_start.elapsed() >= Duration::from_secs(3)
+            || self.image_display_start.elapsed() >= Duration::from_millis(500)
         {
             match self.recv.try_recv() {
                 Err(TryRecvError::Empty) => {}
