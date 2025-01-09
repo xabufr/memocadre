@@ -1,12 +1,12 @@
 #[macro_use]
 extern crate glium;
 
+mod application;
 mod galery;
 mod graphics;
-mod render;
 mod support;
 
 fn main() {
     env_logger::init();
-    render::start();
+    application::start();
 }
