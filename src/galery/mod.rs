@@ -1,8 +1,5 @@
-use bytes::Bytes;
 use image::ImageReader;
 use log::debug;
-use reqwest::Method;
-use serde::{Deserialize, Serialize};
 use std::{io::Cursor, time::Instant};
 
 mod immich_client;
@@ -32,7 +29,7 @@ impl Galery for ImmichGalery {
         let next = if let Some(id) = self.next_ids.pop() {
             id
         } else {
-            let mut next_batch = self.client.search_random(SearchRandomRequest {
+            let next_batch = self.client.search_random(SearchRandomRequest {
                 r#type: Some(AssetType::IMAGE),
                 ..Default::default()
             });

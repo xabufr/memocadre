@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use log::{debug, trace};
+use log::trace;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 

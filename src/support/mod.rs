@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 use glium::Display;
-use glutin::config::Api;
 use glutin::context::Version;
 use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
@@ -112,11 +111,7 @@ impl<T: ApplicationContext + 'static> State<T> {
         let (window, gl_config) = display_builder
             .build(event_loop, config_template_builder, |mut configs| {
                 // Just use the first configuration since we don't have any special preferences here
-                let configs: Vec<_> = configs.collect();
-                for config in &configs {
-                    println!("config: {:?}", config);
-                }
-                configs.into_iter().next().unwrap()
+                configs.next().unwrap()
             })
             .unwrap();
         let window = window.unwrap();

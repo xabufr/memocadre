@@ -19,7 +19,7 @@ struct Application {
     image_display_start: Instant,
     recv: Receiver<DynamicImage>,
     counter: FPSCounter,
-    worker: JoinHandle<()>,
+    _worker: JoinHandle<()>,
 }
 
 struct FPSCounter {
@@ -77,7 +77,7 @@ impl ApplicationContext for Application {
             image_display_start: Instant::now(),
             recv,
             counter: FPSCounter::new(),
-            worker,
+            _worker: worker,
         }
     }
 
