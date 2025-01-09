@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use glam::{Mat4, Quat, Vec2, Vec3};
 use glium::{backend::Facade, CapabilitiesSource, Surface, VertexBuffer};
 use image::{DynamicImage, GenericImageView};
@@ -49,6 +51,7 @@ impl ImageBlurrer {
     }
 
     pub fn blur(&self, facade: &impl Facade, texture: &glium::Texture2d) -> glium::Texture2d {
+        let start = Instant::now();
         let textures = [
             glium::Texture2d::empty(facade, texture.width(), texture.height()).unwrap(),
             glium::Texture2d::empty(facade, texture.width(), texture.height()).unwrap(),
@@ -123,6 +126,8 @@ impl ImageBlurrer {
                 )
                 .unwrap();
         }
+
+      println!("blur time: {:?}", start.elapsed());
         let [texture, _] = textures;
         println!("{:?}", texture);
         return texture;
