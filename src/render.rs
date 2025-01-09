@@ -113,7 +113,6 @@ impl Application {
 
         let texture = SharedTexture2d::new(image_to_texture(display, image));
 
-        // let texture = self.image_blurr.blur(display, &texture);
         let mut sprite = Sprite::new(SharedTexture2d::clone(&texture));
         let (width, height) = display.get_framebuffer_dimensions();
         let display_size = Vec2::new(width as _, height as _);
