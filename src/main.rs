@@ -7,5 +7,6 @@ mod render;
 mod support;
 
 fn main() {
+    env_logger::init();
     render::start();
 }

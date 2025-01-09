@@ -1,4 +1,5 @@
 use bytes::Bytes;
+use log::{debug, trace};
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 
@@ -77,6 +78,7 @@ impl ImmichClient {
 
     fn request(&self, method: Method, path: impl AsRef<str>) -> reqwest::blocking::RequestBuilder {
         let url = format!("{}/api/{}", self.base_url, path.as_ref());
+        trace!("Requesting Immich with {} {}", method, url);
         self.client
             .request(method, url)
             .header("x-api-key", &self.api_key)
