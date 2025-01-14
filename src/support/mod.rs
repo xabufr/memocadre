@@ -1,16 +1,17 @@
 #![allow(dead_code)]
 use glium::Display;
-use glutin::context::Version;
-use glutin::display::GetGlDisplay;
-use glutin::display::GlDisplay;
-use glutin::prelude::*;
-use glutin::surface::WindowSurface;
+use glutin::{
+    context::Version,
+    display::{GetGlDisplay, GlDisplay},
+    prelude::*,
+    surface::WindowSurface,
+};
 use raw_window_handle::HasWindowHandle;
 use std::num::NonZeroU32;
-use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
-use winit::event_loop::ActiveEventLoop;
-use winit::window::WindowId;
+use winit::{
+    application::ApplicationHandler, event::WindowEvent, event_loop::ActiveEventLoop,
+    window::WindowId,
+};
 
 mod gbm_display;
 
