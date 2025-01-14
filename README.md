@@ -2,7 +2,7 @@ Todo:
 
 - switch to glow
    - Text - glyph branch -> try epaint
-   - DRM/GDM/KMS rendering
+   - DRM/GDM/KMS rendering - OK
    - Smooth shapes (rounded rectangles...)
    - Extra info (photo date, etc...)
 - Configuration
@@ -16,3 +16,6 @@ Todo:
 - Configurable orientation
 - HTTP Api ?
 - publish
+
+- bugs:
+  - transition blur background from some to none
