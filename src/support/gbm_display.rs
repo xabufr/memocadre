@@ -1,66 +1,58 @@
-#![allow(dead_code)]
-use drm::control::ModeTypeFlags;
-use drm::control::PageFlipFlags;
-use gbm::AsRaw;
-use gbm::BufferObjectFlags;
-use glutin::config::ConfigTemplateBuilder;
-use glutin::context::ContextAttributesBuilder;
-use glutin::display::GlDisplay;
-use glutin::prelude::*;
-use glutin::surface::SurfaceAttributesBuilder;
-use glutin::surface::WindowSurface;
-use raw_window_handle::GbmWindowHandle;
-use raw_window_handle::{GbmDisplayHandle, RawDisplayHandle, RawWindowHandle};
-use std::ffi::c_void;
-use std::num::NonZeroU32;
-use std::ptr::NonNull;
+use drm::{
+    control::{self, connector, Device as ControlDevice, ModeTypeFlags, PageFlipFlags},
+    Device as DrmDevice,
+};
+use gbm::{AsRaw, BufferObjectFlags};
+use glutin::{
+    config::ConfigTemplateBuilder,
+    context::ContextAttributesBuilder,
+    display::GlDisplay,
+    prelude::*,
+    surface::{SurfaceAttributesBuilder, WindowSurface},
+};
+use raw_window_handle::{GbmDisplayHandle, GbmWindowHandle, RawDisplayHandle, RawWindowHandle};
+use std::{
+    ffi::c_void,
+    fs::{File, OpenOptions},
+    num::NonZeroU32,
+    os::unix::io::{AsFd, BorrowedFd},
+    ptr::NonNull,
+};
 
 use super::ApplicationContext;
 
+#[derive(Debug)]
+/// A simple wrapper for a device node.
+struct Card(File);
+
+/// Implementing [`AsFd`] is a prerequisite to implementing the traits found
+/// in this crate. Here, we are just calling [`File::as_fd()`] on the inner
+/// [`File`].
+impl AsFd for Card {
+    fn as_fd(&self) -> BorrowedFd<'_> {
+        self.0.as_fd()
+    }
+}
+
+/// With [`AsFd`] implemented, we can now implement [`drm::Device`].
+impl DrmDevice for Card {}
+impl ControlDevice for Card {}
+
+impl Card {
+    /// Simple helper method for opening a [`Card`].
+    fn open() -> Self {
+        let mut options = OpenOptions::new();
+        options.read(true);
+        options.write(true);
+
+        // The normal location of the primary device node on Linux
+        Card(options.open("/dev/dri/card0").unwrap())
+    }
+}
 pub fn start_gbm<T>()
 where
     T: ApplicationContext + 'static,
 {
-    use drm::{
-        control::{self, connector, Device as ControlDevice},
-        Device as DrmDevice,
-    };
-
-    use std::fs::File;
-    use std::fs::OpenOptions;
-
-    use std::os::unix::io::AsFd;
-    use std::os::unix::io::BorrowedFd;
-
-    #[derive(Debug)]
-    /// A simple wrapper for a device node.
-    struct Card(File);
-
-    /// Implementing [`AsFd`] is a prerequisite to implementing the traits found
-    /// in this crate. Here, we are just calling [`File::as_fd()`] on the inner
-    /// [`File`].
-    impl AsFd for Card {
-        fn as_fd(&self) -> BorrowedFd<'_> {
-            self.0.as_fd()
-        }
-    }
-
-    /// With [`AsFd`] implemented, we can now implement [`drm::Device`].
-    impl DrmDevice for Card {}
-    impl ControlDevice for Card {}
-
-    impl Card {
-        /// Simple helper method for opening a [`Card`].
-        fn open() -> Self {
-            let mut options = OpenOptions::new();
-            options.read(true);
-            options.write(true);
-
-            // The normal location of the primary device node on Linux
-            Card(options.open("/dev/dri/card0").unwrap())
-        }
-    }
-
     let devices = glutin::api::egl::device::Device::query_devices()
         .expect("Failed to query devices")
         .collect::<Vec<_>>();
