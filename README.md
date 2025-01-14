@@ -1,6 +1,6 @@
 Todo:
 
-- switch to glow
+- switch to glow -> No benefits
    - Text - glyph branch -> try epaint
    - DRM/GDM/KMS rendering - OK
    - Smooth shapes (rounded rectangles...)
