@@ -105,7 +105,7 @@ impl ApplicationContext for Application {
         let mut frame = display.draw();
 
         if self.current_slide.is_none()
-            || (self.image_display_start.elapsed() >= Duration::from_secs_f32(10.)
+            || (self.image_display_start.elapsed() >= Duration::from_secs_f32(3.)
                 && self.next_slide.is_none())
         {
             match self.recv.try_recv() {
@@ -202,13 +202,13 @@ impl Application {
                 blur_sprites[0].texture_rect = Some(glium::Rect {
                     left: 0,
                     bottom: 0,
-                    width: (free_space.x * 0.5) as _,
+                    width: (free_space.x * 0.5) as u32 + 2,
                     height,
                 });
                 blur_sprites[1].texture_rect = Some(glium::Rect {
-                    left: width - (free_space.x * 0.5) as u32,
+                    left: width - (free_space.x * 0.5) as u32 - 2,
                     bottom: 0,
-                    width: (free_space.x * 0.5) as _,
+                    width: (free_space.x * 0.5) as u32 + 2,
                     height,
                 });
             } else {
@@ -217,13 +217,13 @@ impl Application {
                     left: 0,
                     bottom: 0,
                     width,
-                    height: (free_space.y * 0.5) as _,
+                    height: (free_space.y * 0.5) as u32 + 2,
                 });
                 blur_sprites[1].texture_rect = Some(glium::Rect {
                     left: 0,
-                    bottom: height - (free_space.y * 0.5) as u32,
+                    bottom: height - (free_space.y * 0.5) as u32 - 2,
                     width,
-                    height: (free_space.y * 0.5) as _,
+                    height: (free_space.y * 0.5) as u32 + 2,
                 });
             }
             sprites.extend(blur_sprites.into_iter());
