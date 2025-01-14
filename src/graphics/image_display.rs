@@ -1,4 +1,4 @@
-use glam::{Mat4, Quat, Vec2, Vec3};
+use glam::{Mat4, Quat, UVec2, Vec2, Vec3};
 use glium::{backend::Facade, Blend, DrawParameters, Surface, VertexBuffer};
 
 use super::{SharedTexture2d, Vertex2dUv};
@@ -9,6 +9,10 @@ pub struct ImageDrawer {
     program: glium::Program,
 }
 
+// pub struct URect {
+//     pub position: UVec2,
+//     pub dimensions: UVec2,
+// }
 pub struct Sprite {
     pub texture: SharedTexture2d,
     // Position of the sprite in pixels on the screen
@@ -19,6 +23,8 @@ pub struct Sprite {
     pub size: Vec2,
     //
     pub opacity: f32,
+
+    pub texture_rect: Option<glium::Rect>,
 }
 
 impl Sprite {
@@ -28,6 +34,7 @@ impl Sprite {
             size: Vec2::new(texture.width() as _, texture.height() as _),
             texture,
             opacity: 1.,
+            texture_rect: None,
         }
     }
 
@@ -81,37 +88,18 @@ impl ImageDrawer {
     where
         S: Surface,
     {
-        self.draw(
-            surface,
-            &sprite.texture,
-            sprite.position,
-            sprite.size,
-            sprite.opacity,
-        );
-    }
-
-    pub fn draw<S>(
-        &self,
-        surface: &mut S,
-        texture: &glium::Texture2d,
-        position: Vec2,
-        scale: Vec2,
-        opacity: f32,
-    ) where
-        S: Surface,
-    {
         let (width, height) = surface.get_dimensions();
         let model = Mat4::from_scale_rotation_translation(
-            Vec3::from((scale, 0.)),
+            Vec3::from((sprite.size, 0.)),
             Quat::IDENTITY,
-            Vec3::from((position, 0.)),
+            Vec3::from((sprite.position, 0.)),
         );
         let view = glam::Mat4::orthographic_rh_gl(0., width as _, height as _, 0., -1., 1.);
         let uniforms = uniform! {
           model: model.to_cols_array_2d(),
           view: view.to_cols_array_2d(),
-          tex: texture,
-          opacity: opacity,
+          tex: sprite.texture.as_ref(),
+          opacity: sprite.opacity,
         };
         surface
             .draw(
@@ -121,6 +109,7 @@ impl ImageDrawer {
                 &uniforms,
                 &DrawParameters {
                     blend: Blend::alpha_blending(),
+                    scissor: sprite.texture_rect,
                     ..Default::default()
                 },
             )

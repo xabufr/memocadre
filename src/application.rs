@@ -199,8 +199,32 @@ impl Application {
 
             if free_space.x > 50. {
                 blur_sprites[1].position.x = display_size.x - blur_sprites[1].size.x;
+                blur_sprites[0].texture_rect = Some(glium::Rect {
+                    left: 0,
+                    bottom: 0,
+                    width: (free_space.x * 0.5) as _,
+                    height,
+                });
+                blur_sprites[1].texture_rect = Some(glium::Rect {
+                    left: width - (free_space.x * 0.5) as u32,
+                    bottom: 0,
+                    width: (free_space.x * 0.5) as _,
+                    height,
+                });
             } else {
                 blur_sprites[1].position.y = display_size.y - blur_sprites[1].size.y;
+                blur_sprites[0].texture_rect = Some(glium::Rect {
+                    left: 0,
+                    bottom: 0,
+                    width,
+                    height: (free_space.y * 0.5) as _,
+                });
+                blur_sprites[1].texture_rect = Some(glium::Rect {
+                    left: 0,
+                    bottom: height - (free_space.y * 0.5) as u32,
+                    width,
+                    height: (free_space.y * 0.5) as _,
+                });
             }
             sprites.extend(blur_sprites.into_iter());
         }
