@@ -10,6 +10,7 @@ Todo:
    - Durations
    - Search query
    - Search by person name
+- Error handling
 - Sleep when nothing to do
 - Other effects / transitions
 - Other layouts when possible (two photos at the same time)
@@ -18,4 +19,6 @@ Todo:
 - publish
 
 - bugs:
-  - transition blur background from some to none
+   - transition blur background from some to none
+- refactos:
+   - graphic module
