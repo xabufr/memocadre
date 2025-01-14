@@ -10,6 +10,7 @@ in pkgs.mkShell {
     xorg.libXrender
     xorg.libXcursor
     libxkbcommon
+    libgbm
   ];
 
   shellHook = ''

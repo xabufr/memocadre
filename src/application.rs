@@ -12,7 +12,7 @@ use thread_priority::{set_current_thread_priority, ThreadPriority};
 
 use glyph_brush::{Section, Text};
 
-use crate::support::{ApplicationContext, State};
+use crate::support::{self, ApplicationContext, State};
 
 use crate::graphics::{ImageBlurr, ImageDrawer, SharedTexture2d, Sprite, TextDisplay};
 
@@ -105,7 +105,7 @@ impl ApplicationContext for Application {
         let mut frame = display.draw();
 
         if self.current_slide.is_none()
-            || (self.image_display_start.elapsed() >= Duration::from_secs_f32(3.)
+            || (self.image_display_start.elapsed() >= Duration::from_secs_f32(10.)
                 && self.next_slide.is_none())
         {
             match self.recv.try_recv() {
@@ -246,5 +246,6 @@ fn soft_resize_image_if_necessary(
 }
 
 pub fn start() {
-    State::<Application>::run_loop();
+    support::test::<Application>();
+    // State::<Application>::run_loop();
 }

@@ -9,7 +9,9 @@ strip = true
 
 [dependencies]
 bytes = "1.9.0"
+drm = "0.14.1"
 env_logger = "0.11.6"
+gbm = { version = "0.18.0", default-features = false, features = ["drm-support"] }
 glam = "0.29.2"
 glissade = { version = "0.2.5", default-features = false }
 glium = { version = "0.36.0", default-features = false, features = ["glutin_backend"] }
