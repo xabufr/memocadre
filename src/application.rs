@@ -246,6 +246,6 @@ fn soft_resize_image_if_necessary(
 }
 
 pub fn start() {
-    support::test::<Application>();
+    support::start_gbm::<Application>();
     // State::<Application>::run_loop();
 }
