@@ -246,6 +246,11 @@ fn soft_resize_image_if_necessary(
 }
 
 pub fn start() {
-    support::start_gbm::<Application>();
-    // State::<Application>::run_loop();
+    let vars = ["WAYLAND_DISPLAY", "WAYLAND_SOCKET", "DISPLAY"];
+    let has_window_system = vars.into_iter().any(|v| std::env::var_os(v).is_some());
+    if has_window_system {
+        State::<Application>::run_loop();
+    } else {
+        support::start_gbm::<Application>();
+    }
 }
