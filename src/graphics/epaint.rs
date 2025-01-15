@@ -1,5 +1,5 @@
 use epaint::{
-    text::FontDefinitions, Color32, FontId, Fonts, ImageData, Mesh, Pos2, Rect,
+    text::FontDefinitions, Color32, FontId, Fonts, ImageData, Mesh, Pos2, Rect, RectShape,
     TessellationOptions, Tessellator, TextShape,
 };
 use glium::{backend::Facade, CapabilitiesSource, DrawParameters, Surface};
@@ -94,6 +94,16 @@ impl EpaintDisplay {
             &TextShape::new(Pos2::new(100., 200. + 28.), galley2, Color32::WHITE),
             &mut out,
         );
+
+        self.tesselator.tessellate_rect(
+            &RectShape::filled(
+                epaint::Rect::from_min_size(Pos2::ZERO, epaint::Vec2::new(100., 100.)),
+                10.,
+                Color32::ORANGE,
+            ),
+            &mut out,
+        );
+
         let vertex = out
             .vertices
             .into_iter()
