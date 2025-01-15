@@ -161,6 +161,7 @@ impl<T: ApplicationContext + 'static> State<T> {
         window: winit::window::Window,
     ) -> Self {
         let context = T::new(&display);
+        println!("scale: {}", window.scale_factor());
         Self {
             display,
             window,

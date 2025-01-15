@@ -5,7 +5,7 @@ use image::{imageops::FilterType, DynamicImage, GenericImageView};
 use log::{debug, error};
 use std::{
     sync::mpsc::{sync_channel, Receiver, TryRecvError},
-    thread::{self, JoinHandle},
+    thread::{self, sleep, JoinHandle},
     time::{Duration, Instant},
 };
 use thread_priority::{set_current_thread_priority, ThreadPriority};
@@ -14,7 +14,9 @@ use glyph_brush::{Section, Text};
 
 use crate::support::{self, ApplicationContext, State};
 
-use crate::graphics::{ImageBlurr, ImageDrawer, SharedTexture2d, Sprite, TextDisplay};
+use crate::graphics::{
+    EpaintDisplay, ImageBlurr, ImageDrawer, SharedTexture2d, Sprite, TextDisplay,
+};
 
 struct Application {
     image_drawer: ImageDrawer,
@@ -25,6 +27,7 @@ struct Application {
     recv: Receiver<DynamicImage>,
     counter: FPSCounter,
     text_display: TextDisplay,
+    epaint: EpaintDisplay,
     _worker: JoinHandle<()>,
 }
 
@@ -83,6 +86,7 @@ impl ApplicationContext for Application {
                 "***REMOVED***",
             );
             loop {
+                sleep(Duration::from_secs(3600));
                 let img = immich.get_next_image();
                 send.send(img).unwrap();
             }
@@ -97,12 +101,14 @@ impl ApplicationContext for Application {
             recv,
             counter: FPSCounter::new(),
             text_display: TextDisplay::new(display),
+            epaint: EpaintDisplay::new(display),
             _worker: worker,
         }
     }
 
     fn draw_frame(&mut self, display: &glium::Display<glutin::surface::WindowSurface>) {
         let mut frame = display.draw();
+        self.epaint.begin_frame();
 
         if self.current_slide.is_none()
             || (self.image_display_start.elapsed() >= Duration::from_secs_f32(3.)
@@ -164,6 +170,7 @@ impl ApplicationContext for Application {
         );
         self.text_display.update(display);
         self.text_display.draw(&mut frame);
+        self.epaint.update(display, &mut frame);
         frame.finish().unwrap();
     }
 }

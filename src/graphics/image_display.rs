@@ -101,7 +101,6 @@ impl ImageDrawer {
           tex: sprite.texture.as_ref(),
           opacity: sprite.opacity,
         };
-        println!("scissor: {:?}", sprite.texture_rect);
         surface
             .draw(
                 &self.vertex_buffer,
