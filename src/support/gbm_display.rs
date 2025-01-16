@@ -191,7 +191,6 @@ where
                 }
             }
         }
-        drop(bo);
-        bo = next_bo;
+        device.destroy_framebuffer(fb).unwrap();
     }
 }
