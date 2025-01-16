@@ -2,12 +2,12 @@ use glium::Texture2d;
 use std::rc::Rc;
 
 pub use blur::ImageBlurr;
-pub use epaint::EpaintDisplay;
+pub use epaint_display::EpaintDisplay;
 pub use image_display::{ImageDrawer, Sprite};
 pub use text_display::TextDisplay;
 
 mod blur;
-mod epaint;
+mod epaint_display;
 mod image_display;
 mod text_display;
 

@@ -1,3 +1,4 @@
+use epaint::{text::LayoutJob, Color32, FontId};
 use glam::Vec2;
 use glissade::Keyframes;
 use glium::{backend::Facade, CapabilitiesSource, Surface};
@@ -170,7 +171,19 @@ impl ApplicationContext for Application {
         );
         self.text_display.update(display);
         self.text_display.draw(&mut frame);
-        self.epaint.update(display, &mut frame);
+        self.epaint.add_text(
+            Vec2::new(100., 100.),
+            LayoutJob::simple_singleline(
+                format!(
+                    "FPS: {} ({} frames)",
+                    self.counter.last_fps, self.counter.frames
+                ),
+                FontId::proportional(28.),
+                Color32::DEBUG_COLOR,
+            ),
+        );
+        self.epaint.update(display);
+        self.epaint.draw_texts(&mut frame);
         frame.finish().unwrap();
     }
 }

@@ -1,8 +1,13 @@
+use std::ops::{RangeFull, RangeTo};
+
 use epaint::{
-    text::FontDefinitions, Color32, FontId, Fonts, ImageData, Mesh, Pos2, Rect, RectShape,
-    TessellationOptions, Tessellator, TextShape,
+    text::{FontDefinitions, LayoutJob},
+    Color32, FontId, Fonts, ImageData, Mesh, Pos2, Rect, RectShape, TessellationOptions,
+    Tessellator, TextShape,
 };
+use glam::Vec2;
 use glium::{backend::Facade, CapabilitiesSource, DrawParameters, Surface};
+use mint::{IntoMint, Point2};
 
 pub struct EpaintDisplay {
     fonts: Fonts,
@@ -11,6 +16,9 @@ pub struct EpaintDisplay {
     texture: glium::Texture2d,
     tesselator: Tessellator,
     program: glium::Program,
+    text_mesh: Mesh,
+    text_vertex: glium::VertexBuffer<Vertex>,
+    text_indices: glium::IndexBuffer<u32>,
 }
 
 #[repr(C)]
@@ -34,7 +42,7 @@ impl From<epaint::Vertex> for Vertex {
 
 impl EpaintDisplay {
     pub fn new<F: Facade>(facade: &F) -> Self {
-        let pixels_per_point: f32 = 1.; //1.0833333333333333;
+        let pixels_per_point: f32 = 1.;
         let max_texture_size = facade.get_context().get_capabilities().max_texture_size as usize;
         let fonts = Fonts::new(
             pixels_per_point,
@@ -60,63 +68,24 @@ impl EpaintDisplay {
                               },
             )
             .unwrap(),
+            text_mesh: Mesh::default(),
+            text_indices: glium::IndexBuffer::empty(
+                facade,
+                glium::index::PrimitiveType::TrianglesList,
+                0,
+            )
+            .unwrap(),
+            text_vertex: glium::VertexBuffer::empty(facade, 0).unwrap(),
         }
     }
 
-    pub fn begin_frame(&self) {
+    pub fn begin_frame(&mut self) {
         self.fonts
             .begin_pass(self.pixels_per_point, self.max_texture_size);
+        self.text_mesh.clear();
     }
 
-    pub fn update<F: Facade>(&mut self, facade: &F, surface: &mut impl Surface) {
-        // println!("atlas size: {:?}", self.fonts.font_image_size());
-        let galley = self.fonts.layout(
-            "test".into(),
-            FontId::proportional(32.),
-            Color32::WHITE,
-            100.,
-        );
-        let galley2 = self.fonts.layout(
-            "Hello World!".into(),
-            FontId::proportional(28.),
-            Color32::YELLOW,
-            1000.,
-        );
-        if let Some(delta) = self.fonts.font_image_delta() {
-            self.update_texture(facade, delta);
-        }
-        let mut out: Mesh = Default::default();
-        self.tesselator.tessellate_text(
-            &TextShape::new(Pos2::ZERO, galley.clone(), Color32::WHITE),
-            &mut out,
-        );
-        self.tesselator.tessellate_text(
-            &TextShape::new(Pos2::new(100., 200. + 28.), galley2, Color32::WHITE),
-            &mut out,
-        );
-
-        self.tesselator.tessellate_rect(
-            &RectShape::filled(
-                epaint::Rect::from_min_size(Pos2::ZERO, epaint::Vec2::new(100., 100.)),
-                10.,
-                Color32::ORANGE,
-            ),
-            &mut out,
-        );
-
-        let vertex = out
-            .vertices
-            .into_iter()
-            .map(Vertex::from)
-            .collect::<Vec<_>>();
-        let vertex = glium::VertexBuffer::new(facade, &vertex).unwrap();
-        let indices = glium::IndexBuffer::new(
-            facade,
-            glium::index::PrimitiveType::TrianglesList,
-            &out.indices,
-        )
-        .unwrap();
-
+    pub fn draw_texts(&self, surface: &mut impl Surface) {
         let (width, height) = surface.get_dimensions();
         let view = glam::Mat4::orthographic_rh_gl(0., width as _, height as _, 0., -1., 1.);
         let width_in_points = width as f32 / self.pixels_per_point;
@@ -126,10 +95,15 @@ impl EpaintDisplay {
             view: view.to_cols_array_2d(),
             u_screen_size: [width_in_points, height_in_points],
         };
+
         surface
             .draw(
-                &vertex,
-                &indices,
+                &self.text_vertex,
+                self.text_indices
+                    .slice(RangeTo {
+                        end: self.text_mesh.indices.len(),
+                    })
+                    .unwrap(),
                 &self.program,
                 &uniforms,
                 &DrawParameters {
@@ -150,16 +124,68 @@ impl EpaintDisplay {
             .unwrap();
     }
 
-    fn update_texture<F: Facade>(&mut self, facade: &F, delta: epaint::ImageDelta) {
-        println!("delta_options: {:?}", delta.options);
+    // TODO Better interface
+    pub fn add_text(&mut self, pos: impl Into<Point2<f32>>, job: LayoutJob) {
+        let galley = self.fonts.layout_job(job);
+        self.tesselator.tessellate_text(
+            &TextShape::new(pos.into().into(), galley, Color32::WHITE),
+            &mut self.text_mesh,
+        );
+    }
 
-        match delta.image {
-            epaint::ImageData::Color(_) => println!("Color image"),
-            epaint::ImageData::Font(_) => println!("Font image"),
+    pub fn update<F: Facade>(&mut self, facade: &F) {
+        if let Some(delta) = self.fonts.font_image_delta() {
+            self.update_texture(facade, delta);
+        }
+
+        let vertex = self
+            .text_mesh
+            .vertices
+            .iter()
+            .copied()
+            .map(Vertex::from)
+            .collect::<Vec<_>>();
+
+        if self.text_vertex.len() >= vertex.len() {
+            self.text_vertex
+                .slice(RangeTo { end: vertex.len() })
+                .unwrap()
+                .write(&vertex);
+        } else {
+            self.text_vertex = glium::VertexBuffer::dynamic(facade, &vertex).unwrap();
+        }
+        if self.text_indices.len() >= self.text_mesh.indices.len() {
+            self.text_indices
+                .slice(RangeTo {
+                    end: self.text_mesh.indices.len(),
+                })
+                .unwrap()
+                .write(&self.text_mesh.indices);
+        } else {
+            self.text_indices = glium::IndexBuffer::dynamic(
+                facade,
+                glium::index::PrimitiveType::TrianglesList,
+                &self.text_mesh.indices,
+            )
+            .unwrap();
+        }
+    }
+
+    fn update_texture<F: Facade>(&mut self, facade: &F, delta: epaint::ImageDelta) {
+        let data = glium::texture::RawImage2d {
+            data: Self::convert_texture(&delta.image).into(),
+            format: glium::texture::ClientFormat::U8U8U8U8,
+            height: delta.image.height() as _,
+            width: delta.image.width() as _,
         };
-        // println!("delta data: {:?}", delta.image);
         if let Some(pos) = delta.pos {
-            unimplemented!()
+            let rect = glium::Rect {
+                left: pos[0] as u32,
+                bottom: pos[1] as u32,
+                width: delta.image.width() as _,
+                height: delta.image.height() as _,
+            };
+            self.texture.write(rect, data);
         } else {
             self.tesselator = Tessellator::new(
                 self.pixels_per_point,
@@ -169,12 +195,7 @@ impl EpaintDisplay {
             );
             self.texture = glium::Texture2d::with_mipmaps(
                 facade,
-                glium::texture::RawImage2d {
-                    data: Self::convert_texture(&delta.image).into(),
-                    format: glium::texture::ClientFormat::U8U8U8U8,
-                    height: delta.image.height() as _,
-                    width: delta.image.width() as _,
-                },
+                data,
                 glium::texture::MipmapsOption::NoMipmap,
             )
             .unwrap();
