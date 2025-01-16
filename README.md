@@ -22,3 +22,9 @@ Todo:
    - transition blur background from some to none
 - refactos:
    - graphic module
+
+Improves:
+- GBM ressources:
+   - Ask Gemini
+   - https://docs.kernel.org/gpu/drm-kms.html
+   - https://github.com/ds-hwang/gbm_es2_demo/blob/master/rust/examples/opengl_egl_drm.rs#L275
