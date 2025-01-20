@@ -1,19 +1,18 @@
 use epaint::{text::LayoutJob, Color32, FontId};
-use glam::Vec2;
+use glam::{UVec2, Vec2};
 use glissade::Keyframes;
 use glium::{backend::Facade, CapabilitiesSource, Surface};
-use image::{imageops::FilterType, DynamicImage, GenericImageView};
-use log::{debug, error};
+use image::{DynamicImage, GenericImageView};
+use log::debug;
 use std::{
-    sync::mpsc::{sync_channel, Receiver, TryRecvError},
-    thread::{self, sleep, JoinHandle},
+    sync::mpsc::TryRecvError,
     time::{Duration, Instant},
 };
-use thread_priority::{set_current_thread_priority, ThreadPriority};
 
 use glyph_brush::{Section, Text};
 
 use crate::support::{self, ApplicationContext, State};
+use crate::worker::Worker;
 
 use crate::graphics::{
     EpaintDisplay, ImageBlurr, ImageDrawer, SharedTexture2d, Sprite, TextDisplay,
@@ -25,11 +24,10 @@ struct Application {
     current_slide: Option<Slide>,
     next_slide: Option<TransitionningSlide>,
     image_display_start: Instant,
-    recv: Receiver<DynamicImage>,
     counter: FPSCounter,
     text_display: TextDisplay,
     epaint: EpaintDisplay,
-    _worker: JoinHandle<()>,
+    worker: Worker,
 }
 
 struct Slide {
@@ -75,23 +73,8 @@ impl ApplicationContext for Application {
             "Starting with {}",
             display.get_context().get_opengl_version_string(),
         );
-        let (send, recv) = sync_channel(1);
-
-        let worker = thread::spawn(move || {
-            use crate::galery::{Galery, ImmichGalery};
-            if !set_current_thread_priority(ThreadPriority::Min).is_ok() {
-                error!("Cannot change worker thread priority to minimal");
-            }
-            let mut immich = ImmichGalery::new(
-                "***REMOVED***",
-                "***REMOVED***",
-            );
-            loop {
-                sleep(Duration::from_secs(3600));
-                let img = immich.get_next_image();
-                send.send(img).unwrap();
-            }
-        });
+        let worker = Worker::new(Self::get_ideal_image_size(display));
+      worker.start();
 
         Self {
             image_drawer: ImageDrawer::new(display),
@@ -99,12 +82,20 @@ impl ApplicationContext for Application {
             current_slide: None,
             next_slide: None,
             image_display_start: Instant::now(),
-            recv,
             counter: FPSCounter::new(),
             text_display: TextDisplay::new(display),
             epaint: EpaintDisplay::new(display),
-            _worker: worker,
+            worker,
         }
+    }
+    fn resized(
+        &mut self,
+        display: &glium::Display<glutin::surface::WindowSurface>,
+        _width: u32,
+        _height: u32,
+    ) {
+        self.worker
+            .set_ideal_max_size(Self::get_ideal_image_size(display));
     }
 
     fn draw_frame(&mut self, display: &glium::Display<glutin::surface::WindowSurface>) {
@@ -115,7 +106,7 @@ impl ApplicationContext for Application {
             || (self.image_display_start.elapsed() >= Duration::from_secs_f32(3.)
                 && self.next_slide.is_none())
         {
-            match self.recv.try_recv() {
+            match self.worker.recv().try_recv() {
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => {}
                 Ok(image) => {
@@ -188,13 +179,20 @@ impl ApplicationContext for Application {
     }
 }
 impl Application {
+    fn get_ideal_image_size(display: &glium::Display<glutin::surface::WindowSurface>) -> UVec2 {
+        let hw_max = display.get_context().get_capabilities().max_texture_size as u32;
+        let hw_max = UVec2::splat(hw_max);
+        let fb_dims: UVec2 = display.get_framebuffer_dimensions().into();
+
+        let ideal_size = fb_dims.min(hw_max);
+        return ideal_size;
+    }
+
     fn load_next_frame(
         &self,
         display: &glium::Display<glutin::surface::WindowSurface>,
         image: DynamicImage,
     ) -> Slide {
-        let image = soft_resize_image_if_necessary(display, image, FilterType::Lanczos3);
-
         let texture = SharedTexture2d::new(image_to_texture(display, image));
 
         let mut sprite = Sprite::new(SharedTexture2d::clone(&texture));
@@ -272,21 +270,6 @@ fn image_to_texture(
         glium::texture::RawImage2d::from_raw_rgb(image.into_rgb8().into_raw(), dims),
     )
     .unwrap()
-}
-
-fn soft_resize_image_if_necessary(
-    display: &glium::Display<glutin::surface::WindowSurface>,
-    image: DynamicImage,
-    filter: FilterType,
-) -> DynamicImage {
-    let (width, height) = image.dimensions();
-    let max = display.get_context().get_capabilities().max_texture_size as u32;
-    let image = if std::cmp::max(width, height) > max {
-        image.resize(max, max, filter)
-    } else {
-        image
-    };
-    image
 }
 
 pub fn start() {

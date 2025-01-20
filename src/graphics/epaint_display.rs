@@ -91,7 +91,7 @@ impl EpaintDisplay {
         let width_in_points = width as f32 / self.pixels_per_point;
         let height_in_points = height as f32 / self.pixels_per_point;
         let uniforms = uniform! {
-            tex: self.texture.sampled().magnify_filter(glium::uniforms::MagnifySamplerFilter::Linear).minify_filter(glium::uniforms::MinifySamplerFilter::Linear).wrap_function(glium::uniforms::SamplerWrapFunction::Clamp),
+            tex: &self.texture, //.sampled().magnify_filter(glium::uniforms::MagnifySamplerFilter::Linear).minify_filter(glium::uniforms::MinifySamplerFilter::Linear).wrap_function(glium::uniforms::SamplerWrapFunction::Clamp),
             view: view.to_cols_array_2d(),
             u_screen_size: [width_in_points, height_in_points],
         };

@@ -46,8 +46,11 @@ impl<T: ApplicationContext + 'static> ApplicationHandler<()> for App<T> {
     ) {
         match event {
             winit::event::WindowEvent::Resized(new_size) => {
-                if let Some(state) = &self.state {
+                if let Some(state) = &mut self.state {
                     state.display.resize(new_size.into());
+                    state
+                        .context
+                        .resized(&state.display, new_size.width, new_size.height);
                 }
             }
             winit::event::WindowEvent::RedrawRequested => {

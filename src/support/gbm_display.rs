@@ -191,6 +191,8 @@ where
                 }
             }
         }
-        device.destroy_framebuffer(fb).unwrap();
+        drop(bo);
+        bo = next_bo;
+        // device.destroy_framebuffer(fb).unwrap();
     }
 }
