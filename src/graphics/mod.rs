@@ -11,6 +11,7 @@ pub use texture::{SharedTexture2d, Texture};
 
 mod blur;
 // mod epaint_display;
+mod buffer_object;
 mod image_display;
 mod shader;
 mod texture;
@@ -23,3 +24,5 @@ struct Vertex2dUv {
     uv: [f32; 2],
 }
 implement_vertex!(Vertex2dUv, pos, uv);
+
+pub type GlContext = Rc<glow::Context>;
