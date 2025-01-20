@@ -28,15 +28,26 @@ impl Texture {
         let mut tex = unsafe {
             let texture = gl.create_texture().unwrap();
             gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGB as _,
+                dimensions.x as _,
+                dimensions.y as _,
+                0,
+                glow::RGB,
+                ty,
+                glow::PixelUnpackData::Slice(None),
+            );
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D,
                 glow::TEXTURE_MIN_FILTER,
-                glow::NEAREST as _,
+                glow::LINEAR as _,
             );
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D,
                 glow::TEXTURE_MAG_FILTER,
-                glow::NEAREST as _,
+                glow::LINEAR as _,
             );
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::REPEAT as _);
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::REPEAT as _);
@@ -91,18 +102,13 @@ impl Texture {
     unsafe fn load_texture(gl: &glow::Context, image: &DynamicImage) -> glow::Texture {
         let texture = gl.create_texture().unwrap();
         gl.bind_texture(glow::TEXTURE_2D, Some(texture));
-        gl.tex_parameter_i32(
-            glow::TEXTURE_2D,
-            glow::TEXTURE_MIN_FILTER,
-            glow::NEAREST as _,
+        gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
+        let image_data = image.to_rgb8().into_raw();
+        println!(
+            "Image data: {}, width*height: {}",
+            image_data.len(),
+            image.width() * image.height()
         );
-        gl.tex_parameter_i32(
-            glow::TEXTURE_2D,
-            glow::TEXTURE_MAG_FILTER,
-            glow::NEAREST as _,
-        );
-        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::REPEAT as _);
-        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::REPEAT as _);
         gl.tex_image_2d(
             glow::TEXTURE_2D,
             0,
@@ -112,9 +118,21 @@ impl Texture {
             0,
             glow::RGB,
             glow::UNSIGNED_BYTE,
-            glow::PixelUnpackData::Slice(Some(image.to_rgb8().into_raw().as_slice())),
+            glow::PixelUnpackData::Slice(Some(image_data.as_slice())),
         );
-        gl.generate_mipmap(glow::TEXTURE_2D);
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_MIN_FILTER,
+            glow::LINEAR as _,
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_MAG_FILTER,
+            glow::LINEAR as _,
+        );
+        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::REPEAT as _);
+        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::REPEAT as _);
+        // gl.generate_mipmap(glow::TEXTURE_2D);
         gl.bind_texture(glow::TEXTURE_2D, None);
         texture
     }
