@@ -36,8 +36,7 @@ impl Sprite {
     pub fn resize_respecting_ratio(&mut self, target_size: Vec2) {
         let tex_size = self.get_texture_size();
         let ratio = target_size / tex_size;
-        let min = ratio.min_element();
-        let ratio = if min < 1. { min } else { ratio.max_element() };
+        let ratio = ratio.min_element();
         self.size = tex_size * ratio;
     }
 
