@@ -1,7 +1,7 @@
 use glam::{Mat4, Quat, Vec2, Vec3};
 use glow::HasContext;
 
-use super::{SharedTexture2d, Vertex2dUv};
+use super::{GlContext, SharedTexture2d, Vertex2dUv};
 
 pub struct GlowImageDrawer {
     vertex_array: glow::NativeVertexArray,
@@ -55,7 +55,7 @@ const VERTICES: [Vertex2dUv; 4] = [
 const INDICES: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
 impl GlowImageDrawer {
-    pub fn new(gl: &glow::Context) -> Self {
+    pub fn new(gl: &GlContext) -> Self {
         unsafe {
             let vao = gl.create_vertex_array().unwrap();
             let vbo = gl.create_buffer().unwrap();
@@ -110,7 +110,7 @@ impl GlowImageDrawer {
             }
         }
     }
-    pub fn draw_sprite(&self, gl: &glow::Context, sprite: &Sprite) {
+    pub fn draw_sprite(&self, gl: &GlContext, sprite: &Sprite) {
         unsafe {
             let model = Mat4::from_scale_rotation_translation(
                 Vec3::from((sprite.size, 0.)),

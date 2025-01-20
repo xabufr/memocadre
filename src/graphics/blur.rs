@@ -1,6 +1,6 @@
 use glow::HasContext;
 
-use super::{Texture, Vertex2dUv};
+use super::{GlContext, Texture, Vertex2dUv};
 
 pub struct GlowImageBlurr {
     vertex_array: glow::NativeVertexArray,
@@ -23,7 +23,7 @@ const VERTICES: [Vertex2dUv; 4] = [
 ];
 const INDICES: [u16; 6] = [0, 1, 2, 0, 2, 3];
 impl GlowImageBlurr {
-    pub fn new(gl: &glow::Context) -> Self {
+    pub fn new(gl: &GlContext) -> Self {
         unsafe {
             let vao = gl.create_vertex_array().unwrap();
             let vbo = gl.create_buffer().unwrap();
@@ -80,7 +80,7 @@ impl GlowImageBlurr {
         }
     }
 
-    pub fn blur(&self, gl: &glow::Context, texture: &Texture) -> Texture {
+    pub fn blur(&self, gl: &GlContext, texture: &Texture) -> Texture {
         unsafe {
             let mut dims: [i32; 4] = [0; 4];
             unsafe {

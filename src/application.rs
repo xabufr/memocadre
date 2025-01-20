@@ -13,7 +13,7 @@ use std::{
 use glyph_brush::{Section, Text};
 
 use crate::{
-    graphics::Texture,
+    graphics::{GlContext, Texture},
     support::{self, ApplicationContext, State},
 };
 use crate::{
@@ -91,7 +91,7 @@ impl FPSCounter {
     }
 }
 impl GlowApplication {
-    pub fn new(gl: &Context) -> Self {
+    pub fn new(gl: &GlContext) -> Self {
         let worker = Worker::new(Self::get_ideal_image_size(gl));
         worker.start();
         Self {
@@ -106,7 +106,7 @@ impl GlowApplication {
             worker,
         }
     }
-    pub fn draw(&mut self, gl: &Context) {
+    pub fn draw(&mut self, gl: &GlContext) {
         if self.current_slide.is_none()
             || self.image_display_start.elapsed() >= Duration::from_secs_f32(0.2)
         {
@@ -356,7 +356,7 @@ impl GlowApplication {
 // }
 
 impl Slide {
-    pub fn draw(&self, gl: &Context, image_drawer: &GlowImageDrawer) {
+    pub fn draw(&self, gl: &GlContext, image_drawer: &GlowImageDrawer) {
         for sprite in self.sprites.iter() {
             image_drawer.draw_sprite(gl, sprite);
         }
@@ -385,7 +385,7 @@ fn image_to_texture(
 //     }
 // }
 impl GlowApplication {
-    fn get_ideal_image_size(gl: &Context) -> UVec2 {
+    fn get_ideal_image_size(gl: &GlContext) -> UVec2 {
         let hw_max = Texture::max_texture_size(gl);
         let hw_max = UVec2::splat(hw_max);
         let mut dims: [i32; 4] = [0; 4];
@@ -400,7 +400,7 @@ impl GlowApplication {
         return ideal_size;
     }
 
-    fn load_next_frame(&self, gl: &Context, image: DynamicImage) -> Slide {
+    fn load_next_frame(&self, gl: &GlContext, image: DynamicImage) -> Slide {
         let texture = Texture::new_from_image(gl, &image);
 
         let mut dims: [i32; 4] = [0; 4];

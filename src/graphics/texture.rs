@@ -4,6 +4,8 @@ use glow::HasContext;
 use image::{DynamicImage, GenericImageView};
 use std::rc::Rc;
 
+use super::GlContext;
+
 pub type SharedTexture2d = Rc<Texture>;
 pub struct Texture {
     texture: glow::Texture,
@@ -11,7 +13,7 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn new_from_image(gl: &glow::Context, image: &DynamicImage) -> Self {
+    pub fn new_from_image(gl: &GlContext, image: &DynamicImage) -> Self {
         Self {
             size: image.dimensions().into(),
             texture: unsafe { Self::load_texture(gl, image) },
@@ -19,7 +21,7 @@ impl Texture {
     }
 
     pub fn empty(
-        gl: &glow::Context,
+        gl: &GlContext,
         internal_format: i32,
         dimensions: UVec2,
         format: u32,
@@ -63,7 +65,7 @@ impl Texture {
 
     pub fn reset(
         &mut self,
-        gl: &glow::Context,
+        gl: &GlContext,
         internal_format: i32,
         dimensions: UVec2,
         format: u32,

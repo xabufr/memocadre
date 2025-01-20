@@ -7,11 +7,11 @@
 // mod support;
 // mod worker;
 
+use graphics::GlContext;
 // fn main() {
 //     env_logger::init();
 //     application::start();
 // }
-use glutin::prelude::GlContext;
 use raw_window_handle::HasWindowHandle;
 use winit::window;
 
@@ -106,6 +106,7 @@ fn main() {
         use glow::HasContext;
         use glutin::prelude::GlSurface;
         use winit::event::{Event, WindowEvent};
+        let gl = GlContext::new(gl);
         let mut app = application::GlowApplication::new(&gl);
         let _ = event_loop.run(move |event, elwt| {
             if let Event::WindowEvent { event, .. } = event {
