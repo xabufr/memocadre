@@ -108,7 +108,7 @@ impl GlowApplication {
     }
     pub fn draw(&mut self, gl: &GlContext) {
         if self.current_slide.is_none()
-            || self.image_display_start.elapsed() >= Duration::from_secs_f32(0.2)
+            || self.image_display_start.elapsed() >= Duration::from_secs_f32(1.)
         {
             match self.worker.recv().try_recv() {
                 Err(TryRecvError::Empty) => {}

@@ -39,6 +39,16 @@ struct BufferObject<Type> {
     _data_type: PhantomData<Type>,
 }
 
+pub struct BindGuard<'a, T> {
+    buffer: &'a BufferObject<T>,
+}
+
+impl<'a, T> Drop for BindGuard<'a, T> {
+    fn drop(&mut self) {
+        unsafe { self.buffer.gl.bind_buffer(self.buffer.target.get(), None) };
+    }
+}
+
 impl<Type: NoUninit> BufferObject<Type> {
     fn new(gl: GlContext, target: BufferTarget, usage: BufferUsage) -> Self {
         let object = unsafe { gl.create_buffer().unwrap() };
@@ -65,6 +75,10 @@ impl<Type: NoUninit> BufferObject<Type> {
             self.gl.bind_buffer(self.target.get(), Some(self.object));
         }
     }
+    fn bind_guard(&self) -> BindGuard<Type> {
+        self.bind();
+        BindGuard { buffer: self }
+    }
 }
 
 impl<T> Drop for BufferObject<T> {
@@ -88,5 +102,8 @@ impl ElementBufferObject {
     }
     pub fn bind(&self, gl: &glow::Context) {
         self.0.bind();
+    }
+    pub fn bind_guard(&self) -> BindGuard<u32> {
+        self.0.bind_guard()
     }
 }
