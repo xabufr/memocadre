@@ -34,7 +34,7 @@ pub struct GlowApplication {
     image_drawer: GlowImageDrawer,
     image_blurr: GlowImageBlurr,
     current_slide: Option<Slide>,
-    // next_slide: Option<TransitionningSlide>,
+    next_slide: Option<TransitionningSlide>,
     image_display_start: Instant,
     // recv: Receiver<DynamicImage>,
     counter: FPSCounter,
@@ -101,13 +101,14 @@ impl GlowApplication {
             image_blurr: GlowImageBlurr::new(gl),
             // text_display: GlowTextDisplay::new(ctx),
             // recv,
+            next_slide: None,
             counter: FPSCounter::new(),
             worker,
         }
     }
     pub fn draw(&mut self, gl: &Context) {
         if self.current_slide.is_none()
-            || self.image_display_start.elapsed() >= Duration::from_secs_f32(3.)
+            || self.image_display_start.elapsed() >= Duration::from_secs_f32(0.2)
         {
             match self.worker.recv().try_recv() {
                 Err(TryRecvError::Empty) => {}
@@ -115,43 +116,42 @@ impl GlowApplication {
                 Ok(image) => {
                     let slide = self.load_next_frame(gl, image);
                     self.image_display_start = Instant::now();
-                    self.current_slide = Some(slide);
-                    // if self.current_slide.is_none() {
-                    //     self.current_slide = Some(slide);
-                    // } else {
-                    //     let animation = glissade::keyframes::from(0. as f32)
-                    //         .ease_to(
-                    //             1.,
-                    //             Duration::from_secs_f32(1.),
-                    //             glissade::Easing::QuarticInOut,
-                    //         )
-                    //         .run(self.image_display_start);
-                    //     self.next_slide = Some(TransitionningSlide {
-                    //         slide,
-                    //         animation: Box::new(animation),
-                    //     });
-                    // }
+                    if self.current_slide.is_none() {
+                        self.current_slide = Some(slide);
+                    } else {
+                        let animation = glissade::keyframes::from(0. as f32)
+                            .ease_to(
+                                1.,
+                                Duration::from_secs_f32(1.),
+                                glissade::Easing::QuarticInOut,
+                            )
+                            .run(self.image_display_start);
+                        self.next_slide = Some(TransitionningSlide {
+                            slide,
+                            animation: Box::new(animation),
+                        });
+                    }
                 }
             }
         }
 
-        // let frame_time = Instant::now();
+        let frame_time = Instant::now();
         self.counter.count_frame();
 
         // frame.clear_color(0.0, 0.0, 0.0, 0.0);
         if let Some(slide) = &self.current_slide {
             slide.draw(gl, &self.image_drawer);
         }
-        // if let Some(next_slide) = &mut self.next_slide {
-        //     let alpha = next_slide.animation.get(frame_time);
-        //     for s in next_slide.slide.sprites.iter_mut() {
-        //         s.opacity = alpha;
-        //     }
-        //     next_slide.slide.draw(&mut frame, &self.image_drawer);
-        //     if next_slide.animation.is_finished(frame_time) {
-        //         self.current_slide = self.next_slide.take().map(|a| a.slide);
-        //     }
-        // // }
+        if let Some(next_slide) = &mut self.next_slide {
+            let alpha = next_slide.animation.get(frame_time);
+            for s in next_slide.slide.sprites.iter_mut() {
+                s.opacity = alpha;
+            }
+            next_slide.slide.draw(gl, &self.image_drawer);
+            if next_slide.animation.is_finished(frame_time) {
+                self.current_slide = self.next_slide.take().map(|a| a.slide);
+            }
+        }
         // self.text_display.queue(
         //     Section::new()
         //         .add_text(

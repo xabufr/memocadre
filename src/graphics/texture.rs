@@ -104,11 +104,6 @@ impl Texture {
         gl.bind_texture(glow::TEXTURE_2D, Some(texture));
         gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
         let image_data = image.to_rgb8().into_raw();
-        println!(
-            "Image data: {}, width*height: {}",
-            image_data.len(),
-            image.width() * image.height()
-        );
         gl.tex_image_2d(
             glow::TEXTURE_2D,
             0,

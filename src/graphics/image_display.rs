@@ -138,7 +138,10 @@ impl GlowImageDrawer {
             gl.bind_texture(glow::TEXTURE_2D, Some(sprite.texture.get()));
 
             gl.bind_vertex_array(Some(self.vertex_array));
+            gl.enable(glow::BLEND);
+            gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
             gl.draw_elements(glow::TRIANGLES, INDICES.len() as _, glow::UNSIGNED_SHORT, 0);
+            gl.disable(glow::BLEND);
             gl.bind_vertex_array(None);
             gl.use_program(None);
         }
