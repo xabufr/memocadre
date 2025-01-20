@@ -1,18 +1,15 @@
-use glam::{Mat4, Quat, UVec2, Vec2, Vec3};
-use glium::{backend::Facade, Blend, DrawParameters, Surface, VertexBuffer};
+use glam::{Mat4, Quat, Vec2, Vec3};
+use glow::HasContext;
 
 use super::{SharedTexture2d, Vertex2dUv};
 
-pub struct ImageDrawer {
-    vertex_buffer: VertexBuffer<Vertex2dUv>,
-    index_buffer: glium::IndexBuffer<u16>,
-    program: glium::Program,
+pub struct GlowImageDrawer {
+    vertex_array: glow::NativeVertexArray,
+    vertex_buffer: glow::NativeBuffer,
+    index_buffer: glow::NativeBuffer,
+    program: super::Program,
 }
 
-// pub struct URect {
-//     pub position: UVec2,
-//     pub dimensions: UVec2,
-// }
 pub struct Sprite {
     pub texture: SharedTexture2d,
     // Position of the sprite in pixels on the screen
@@ -23,18 +20,15 @@ pub struct Sprite {
     pub size: Vec2,
     //
     pub opacity: f32,
-
-    pub texture_rect: Option<glium::Rect>,
 }
 
 impl Sprite {
     pub fn new(texture: SharedTexture2d) -> Self {
         Self {
             position: Vec2::ZERO,
-            size: Vec2::new(texture.width() as _, texture.height() as _),
-            texture,
+            size: texture.size().as_vec2(),
             opacity: 1.,
-            texture_rect: None,
+            texture,
         }
     }
 
@@ -48,7 +42,7 @@ impl Sprite {
     }
 
     pub fn get_texture_size(&self) -> Vec2 {
-        Vec2::new(self.texture.width() as _, self.texture.height() as _)
+        self.texture.size().as_vec2()
     }
 }
 
@@ -61,59 +55,94 @@ const VERTICES: [Vertex2dUv; 4] = [
 ];
 const INDICES: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
-impl ImageDrawer {
-    pub fn new<F>(facade: &F) -> Self
-    where
-        F: Facade,
-    {
-        Self {
-            vertex_buffer: glium::VertexBuffer::new(facade, &VERTICES).unwrap(),
-            index_buffer: glium::IndexBuffer::new(
-                facade,
-                glium::index::PrimitiveType::TrianglesList,
-                &INDICES,
-            )
-            .unwrap(),
-            program: program!(facade,
-                100 => {
-                    vertex: shader::VERTEX,
-                    fragment: shader::FRAGMENT,
-                },
-            )
-            .unwrap(),
+impl GlowImageDrawer {
+    pub fn new(gl: &glow::Context) -> Self {
+        unsafe {
+            let vao = gl.create_vertex_array().unwrap();
+            let vbo = gl.create_buffer().unwrap();
+            let ebo = gl.create_buffer().unwrap();
+
+            let program = crate::graphics::Program::new(gl, shader::VERTEX, shader::FRAGMENT);
+            let pos = gl.get_attrib_location(program.get(), "pos").unwrap();
+            let uv = gl.get_attrib_location(program.get(), "uv").unwrap();
+
+            gl.bind_vertex_array(Some(vao));
+
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
+            gl.buffer_data_u8_slice(
+                glow::ARRAY_BUFFER,
+                bytemuck::cast_slice(&VERTICES),
+                glow::STATIC_DRAW,
+            );
+            gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ebo));
+            gl.buffer_data_u8_slice(
+                glow::ELEMENT_ARRAY_BUFFER,
+                bytemuck::cast_slice(&INDICES),
+                glow::STATIC_DRAW,
+            );
+
+            gl.enable_vertex_attrib_array(pos);
+            gl.enable_vertex_attrib_array(uv);
+            gl.vertex_attrib_pointer_f32(
+                pos,
+                2,
+                glow::FLOAT,
+                false,
+                std::mem::size_of::<Vertex2dUv>() as i32,
+                memoffset::offset_of!(Vertex2dUv, pos) as i32,
+            );
+            gl.vertex_attrib_pointer_f32(
+                uv,
+                2,
+                glow::FLOAT,
+                false,
+                std::mem::size_of::<Vertex2dUv>() as i32,
+                memoffset::offset_of!(Vertex2dUv, uv) as i32,
+            );
+
+            gl.bind_vertex_array(None);
+            gl.bind_buffer(glow::ARRAY_BUFFER, None);
+            gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, None);
+            Self {
+                vertex_array: vao,
+                vertex_buffer: vbo,
+                index_buffer: ebo,
+                program,
+            }
         }
     }
+    pub fn draw_sprite(&self, gl: &glow::Context, sprite: &Sprite) {
+        unsafe {
+            let model = Mat4::from_scale_rotation_translation(
+                Vec3::from((sprite.size, 0.)),
+                Quat::IDENTITY,
+                Vec3::from((sprite.position, 0.)),
+            );
 
-    pub fn draw_sprite<S>(&self, surface: &mut S, sprite: &Sprite)
-    where
-        S: Surface,
-    {
-        let (width, height) = surface.get_dimensions();
-        let model = Mat4::from_scale_rotation_translation(
-            Vec3::from((sprite.size, 0.)),
-            Quat::IDENTITY,
-            Vec3::from((sprite.position, 0.)),
-        );
-        let view = glam::Mat4::orthographic_rh_gl(0., width as _, height as _, 0., -1., 1.);
-        let uniforms = uniform! {
-          model: model.to_cols_array_2d(),
-          view: view.to_cols_array_2d(),
-          tex: sprite.texture.as_ref(),
-          opacity: sprite.opacity,
-        };
-        surface
-            .draw(
-                &self.vertex_buffer,
-                &self.index_buffer,
-                &self.program,
-                &uniforms,
-                &DrawParameters {
-                    blend: Blend::alpha_blending(),
-                    scissor: sprite.texture_rect,
-                    ..Default::default()
-                },
-            )
-            .unwrap();
+            let mut dims: [i32; 4] = [0; 4];
+            gl.get_parameter_i32_slice(glow::VIEWPORT, &mut dims);
+            let [_, _, width, height] = dims;
+
+            let view = glam::Mat4::orthographic_rh_gl(0., width as _, height as _, 0., -1., 1.);
+            gl.use_program(Some(self.program.get()));
+
+            let opacity = gl.get_uniform_location(self.program.get(), "opacity");
+            gl.uniform_1_f32(opacity.as_ref(), sprite.opacity);
+            let model_position = gl.get_uniform_location(self.program.get(), "model");
+            gl.uniform_matrix_4_f32_slice(model_position.as_ref(), false, &model.to_cols_array());
+            let view_position = gl.get_uniform_location(self.program.get(), "view");
+            gl.uniform_matrix_4_f32_slice(view_position.as_ref(), false, &view.to_cols_array());
+
+            let tex_position = gl.get_uniform_location(self.program.get(), "tex");
+            gl.uniform_1_i32(tex_position.as_ref(), 0);
+            gl.active_texture(glow::TEXTURE0);
+            gl.bind_texture(glow::TEXTURE_2D, Some(sprite.texture.get()));
+
+            gl.bind_vertex_array(Some(self.vertex_array));
+            gl.draw_elements(glow::TRIANGLES, INDICES.len() as _, glow::UNSIGNED_SHORT, 0);
+            gl.bind_vertex_array(None);
+            gl.use_program(None);
+        }
     }
 }
 
@@ -139,6 +168,6 @@ mod shader {
     uniform lowp float opacity;
 
     void main() {
-        gl_FragColor = vec4(texture2D(tex, texcoord).xyz, opacity);
+        gl_FragColor = vec4(texture2D(tex, texcoord).rgb, opacity);
     }"#;
 }
