@@ -89,14 +89,14 @@ impl GlowImageBlurr {
             let [_, _, width, height] = dims;
             let textures = [
                 Texture::empty(
-                    gl,
+                    GlContext::clone(gl),
                     glow::RGB as _,
                     texture.size(),
                     glow::RGB,
                     glow::UNSIGNED_BYTE,
                 ),
                 Texture::empty(
-                    gl,
+                    GlContext::clone(gl),
                     glow::RGB as _,
                     texture.size(),
                     glow::RGB,

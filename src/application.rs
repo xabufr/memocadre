@@ -401,7 +401,7 @@ impl GlowApplication {
     }
 
     fn load_next_frame(&self, gl: &GlContext, image: DynamicImage) -> Slide {
-        let texture = Texture::new_from_image(gl, &image);
+        let texture = Texture::new_from_image(GlContext::clone(gl), &image);
 
         let mut dims: [i32; 4] = [0; 4];
         unsafe {

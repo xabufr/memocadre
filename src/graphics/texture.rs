@@ -10,18 +10,20 @@ pub type SharedTexture2d = Rc<Texture>;
 pub struct Texture {
     texture: glow::Texture,
     size: UVec2,
+    gl: GlContext,
 }
 
 impl Texture {
-    pub fn new_from_image(gl: &GlContext, image: &DynamicImage) -> Self {
+    pub fn new_from_image(gl: GlContext, image: &DynamicImage) -> Self {
         Self {
             size: image.dimensions().into(),
-            texture: unsafe { Self::load_texture(gl, image) },
+            texture: unsafe { Self::load_texture(&gl, image) },
+            gl,
         }
     }
 
     pub fn empty(
-        gl: &GlContext,
+        gl: GlContext,
         internal_format: i32,
         dimensions: UVec2,
         format: u32,
@@ -56,24 +58,18 @@ impl Texture {
             gl.bind_texture(glow::TEXTURE_2D, None);
             Self {
                 size: dimensions,
+                gl,
                 texture,
             }
         };
-        tex.reset(gl, internal_format, dimensions, format, ty);
+        tex.reset(internal_format, dimensions, format, ty);
         return tex;
     }
 
-    pub fn reset(
-        &mut self,
-        gl: &GlContext,
-        internal_format: i32,
-        dimensions: UVec2,
-        format: u32,
-        ty: u32,
-    ) {
+    pub fn reset(&mut self, internal_format: i32, dimensions: UVec2, format: u32, ty: u32) {
         unsafe {
-            gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
-            gl.tex_image_2d(
+            self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+            self.gl.tex_image_2d(
                 glow::TEXTURE_2D,
                 0,
                 internal_format,
@@ -84,7 +80,7 @@ impl Texture {
                 ty,
                 glow::PixelUnpackData::Slice(None),
             );
-            gl.bind_texture(glow::TEXTURE_2D, None);
+            self.gl.bind_texture(glow::TEXTURE_2D, None);
         }
         self.size = dimensions;
     }
@@ -132,5 +128,11 @@ impl Texture {
         // gl.generate_mipmap(glow::TEXTURE_2D);
         gl.bind_texture(glow::TEXTURE_2D, None);
         texture
+    }
+}
+
+impl Drop for Texture {
+    fn drop(&mut self) {
+        unsafe { self.gl.delete_texture(self.texture) };
     }
 }
