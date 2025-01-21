@@ -15,7 +15,7 @@ pub use texture::{SharedTexture2d, Texture};
 mod blur;
 pub mod buffer_object;
 mod image_display;
-pub mod pipeline;
+// pub mod pipeline;
 mod shader;
 mod texture;
 pub mod vao;
@@ -59,19 +59,23 @@ pub struct DrawParameters {
     pub blend: Option<BlendMode>,
 }
 
+#[derive(Copy, Clone)]
 pub struct BlendMode {
     pub alpha: BlendEquation,
     pub color: BlendEquation,
 }
+#[derive(Copy, Clone)]
 pub enum BlendEquation {
     Add(BlendFunction),
     Subtract(BlendFunction),
     ReverseSubtract(BlendFunction),
 }
+#[derive(Copy, Clone)]
 pub struct BlendFunction {
     pub src: BlendFactor,
     pub dst: BlendFactor,
 }
+#[derive(Copy, Clone)]
 pub enum BlendFactor {
     Zero,
     One,
