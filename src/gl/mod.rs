@@ -1,11 +1,9 @@
-use bytemuck::{Pod, Zeroable};
-use glium::draw_parameters;
 use glow::HasContext;
 pub use shader::Program;
 use shader::ProgramGuard;
 use std::{cell::RefCell, ops::Deref, rc::Rc};
 pub use texture::Texture;
-use vao::{VaoBindGuard, VertexArrayObject};
+use vao::VaoBindGuard;
 
 pub mod buffer_object;
 pub mod framebuffer;

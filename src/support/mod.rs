@@ -1,6 +1,3 @@
-use glium::Display;
-use glutin::surface::WindowSurface;
-
 mod gbm_display;
 mod window_display;
 

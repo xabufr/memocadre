@@ -171,7 +171,6 @@ where
     let gl = unsafe { Context::from_loader_function_cstr(|s| display.get_proc_address(s)) };
     let gl = GlContextInner::new(gl, (0, 0, width as _, height as _));
 
-    println!("glium: {:?}", display);
     let mut app = T::new(GlContext::clone(&gl));
     loop {
         app.draw_frame();

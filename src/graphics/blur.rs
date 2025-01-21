@@ -1,5 +1,3 @@
-use glow::HasContext;
-
 use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
     framebuffer::FramebufferObject,
@@ -14,11 +12,6 @@ pub struct GlowImageBlurr {
     vertex_array: VertexArrayObject<Vertex2dUv>,
     program: Program,
 }
-// pub struct ImageBlurr {
-//     vertex_buffer: VertexBuffer<Vertex2dUv>,
-//     index_buffer: glium::IndexBuffer<u16>,
-//     program: glium::Program,
-// }
 
 #[rustfmt::skip]
 const VERTICES: [Vertex2dUv; 4] = [

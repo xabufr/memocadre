@@ -1,4 +1,3 @@
-use bytemuck::{Pod, Zeroable};
 use glam::UVec2;
 use glow::HasContext;
 use image::{DynamicImage, GenericImageView};

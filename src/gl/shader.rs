@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
 use glam::Vec2;
-use glow::{HasContext, NativeProgram, Shader};
-use mint::IntoMint;
+use glow::{HasContext, NativeProgram};
 
 use super::GlContext;
 

@@ -1,14 +1,10 @@
-use std::ops::{RangeFull, RangeTo};
-
 use bytemuck::{Pod, Zeroable};
 use epaint::{
     text::{FontDefinitions, LayoutJob},
-    Color32, FontId, Fonts, ImageData, Mesh, Pos2, Rect, RectShape, TessellationOptions,
-    Tessellator, TextShape,
+    Color32, Fonts, ImageData, Mesh, TessellationOptions, Tessellator, TextShape,
 };
-use glam::{UVec2, Vec2};
-use glium::{backend::Facade, CapabilitiesSource, Surface};
-use mint::{IntoMint, Point2};
+use glam::UVec2;
+use mint::Point2;
 
 use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
@@ -36,7 +32,6 @@ struct Vertex {
     color: [u8; 4],
     uv: [f32; 2],
 }
-implement_vertex!(Vertex, pos, color, uv);
 
 impl From<epaint::Vertex> for Vertex {
     fn from(value: epaint::Vertex) -> Self {
@@ -123,18 +118,10 @@ impl EpaintDisplay {
     pub fn draw_texts(&self) {
         let (_, _, width, height) = self.gl.current_viewport();
         let view = glam::Mat4::orthographic_rh_gl(0., width as _, height as _, 0., -1., 1.);
-        let width_in_points = width as f32 / self.pixels_per_point;
-        let height_in_points = height as f32 / self.pixels_per_point;
-        // let uniforms = uniform! {
-        //     tex: &self.texture, //.sampled().magnify_filter(glium::uniforms::MagnifySamplerFilter::Linear).minify_filter(glium::uniforms::MinifySamplerFilter::Linear).wrap_function(glium::uniforms::SamplerWrapFunction::Clamp),
-        //     view: view.to_cols_array_2d(),
-        //     u_screen_size: [width_in_points, height_in_points],
-        // };
         let prog = self.program.bind();
         prog.set_uniform("tex", 0);
         self.texture.bind(Some(0));
         prog.set_uniform("view", view);
-        // prog.set_uniform("u_screen_size", (width_in_points, height_in_points));
         let vao_bind = self.text_vao.bind_guard();
         self.gl.draw(
             &vao_bind,
