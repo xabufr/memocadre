@@ -11,11 +11,11 @@ use std::{
 
 use glyph_brush::{Section, Text};
 
-use crate::support::{self, ApplicationContext, State};
-use crate::worker::Worker;
-
-use crate::graphics::{
-    EpaintDisplay, ImageBlurr, ImageDrawer, SharedTexture2d, Sprite, TextDisplay,
+use crate::{
+    galery::ImageWithDetails,
+    graphics::{EpaintDisplay, ImageBlurr, ImageDrawer, SharedTexture2d, Sprite, TextDisplay},
+    support::{self, ApplicationContext, State},
+    worker::Worker,
 };
 
 struct Application {
@@ -32,6 +32,7 @@ struct Application {
 
 struct Slide {
     sprites: Vec<Sprite>,
+    text: Option<String>,
 }
 
 struct TransitionningSlide {
@@ -74,7 +75,7 @@ impl ApplicationContext for Application {
             display.get_context().get_opengl_version_string(),
         );
         let worker = Worker::new(Self::get_ideal_image_size(display));
-      worker.start();
+        worker.start();
 
         Self {
             image_drawer: ImageDrawer::new(display),
@@ -103,7 +104,7 @@ impl ApplicationContext for Application {
         self.epaint.begin_frame();
 
         if self.current_slide.is_none()
-            || (self.image_display_start.elapsed() >= Duration::from_secs_f32(3.)
+            || (self.image_display_start.elapsed() >= Duration::from_secs_f32(0.)
                 && self.next_slide.is_none())
         {
             match self.worker.recv().try_recv() {
@@ -137,6 +138,13 @@ impl ApplicationContext for Application {
         frame.clear_color(0.0, 0.0, 0.0, 0.0);
         if let Some(slide) = &self.current_slide {
             slide.draw(&mut frame, &self.image_drawer);
+            if let Some(text) = &slide.text {
+                self.text_display.queue(
+                    Section::new()
+                        .add_text(Text::new(text).with_scale(28.).with_color((1., 1., 1., 1.)))
+                        .with_screen_position((10., 10.)),
+                );
+            }
         }
         if let Some(next_slide) = &mut self.next_slide {
             let alpha = next_slide.animation.get(frame_time);
@@ -191,8 +199,9 @@ impl Application {
     fn load_next_frame(
         &self,
         display: &glium::Display<glutin::surface::WindowSurface>,
-        image: DynamicImage,
+        image_with_details: ImageWithDetails,
     ) -> Slide {
+        let image = image_with_details.image;
         let texture = SharedTexture2d::new(image_to_texture(display, image));
 
         let mut sprite = Sprite::new(SharedTexture2d::clone(&texture));
@@ -248,7 +257,17 @@ impl Application {
         }
         sprites.push(sprite);
 
-        return Slide { sprites };
+        let text = [image_with_details.city, image_with_details.date_time]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+        let text = if text.is_empty() {
+            None
+        } else {
+            Some(text.join("\n"))
+        };
+
+        return Slide { sprites, text };
     }
 }
 

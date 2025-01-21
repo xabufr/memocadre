@@ -1,5 +1,4 @@
 use std::sync::{
-    atomic::AtomicU32,
     mpsc::{Receiver, SyncSender},
     Arc, RwLock,
 };
@@ -9,11 +8,12 @@ use image::{imageops::FilterType, DynamicImage, GenericImageView};
 use log::error;
 use thread_priority::{set_current_thread_priority, ThreadPriority};
 
-type Message = DynamicImage;
+use crate::galery::ImageWithDetails;
+
+type Message = ImageWithDetails;
 pub struct Worker {
     worker_impl: Arc<WorkerImpl>,
     recv: Receiver<Message>,
-    send: SyncSender<Message>,
 }
 
 struct WorkerImpl {
@@ -25,17 +25,12 @@ impl Worker {
     pub fn new(ideal_max_size: UVec2) -> Self {
         let (send, recv) = std::sync::mpsc::sync_channel(1);
         let worker_impl = Arc::new({
-            let send = send.clone();
             WorkerImpl {
                 send,
                 ideal_max_size: RwLock::new(ideal_max_size),
             }
         });
-        Worker {
-            worker_impl,
-            send,
-            recv,
-        }
+        Worker { worker_impl, recv }
     }
 
     pub fn set_ideal_max_size(&self, size: UVec2) {
@@ -56,19 +51,18 @@ impl Worker {
 }
 impl WorkerImpl {
     fn work(&self) {
-        use crate::galery::{Galery, ImmichGalery};
+        use crate::galery::{Gallery, ImmichGallery};
         if !set_current_thread_priority(ThreadPriority::Min).is_ok() {
             error!("Cannot change worker thread priority to minimal");
         }
-        let mut immich = ImmichGalery::new(
+        let mut immich = ImmichGallery::new(
             "***REMOVED***",
             "***REMOVED***",
         );
         loop {
-            let img = immich.get_next_image();
-            // sleep(Duration::from_secs(3600));
-            let img = self.resize_image_if_necessay(img);
-            self.send.send(img).unwrap();
+            let mut img_with_details = immich.get_next_image();
+            img_with_details.image = self.resize_image_if_necessay(img_with_details.image);
+            self.send.send(img_with_details).unwrap();
         }
     }
     fn resize_image_if_necessay(&self, image: DynamicImage) -> DynamicImage {
@@ -85,18 +79,3 @@ impl WorkerImpl {
         };
     }
 }
-// fn work() {
-//     use crate::galery::{Galery, ImmichGalery};
-//     if !set_current_thread_priority(ThreadPriority::Min).is_ok() {
-//         error!("Cannot change worker thread priority to minimal");
-//     }
-//     let mut immich = ImmichGalery::new(
-//         "***REMOVED***",
-//         "***REMOVED***",
-//     );
-//     loop {
-//         let img = immich.get_next_image();
-//         // sleep(Duration::from_secs(3600));
-//         send.send(img).unwrap();
-//     }
-// }

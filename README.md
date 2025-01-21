@@ -1,7 +1,7 @@
 Todo:
 
-- switch to glow -> No benefits
-   - Text - glyph branch -> try epaint
+- switch to glow -> glium bugs (texture sampling)
+   - Text - glyph branch -> try epaint OK
    - DRM/GDM/KMS rendering - OK
    - Smooth shapes (rounded rectangles...)
    - Extra info (photo date, etc...)

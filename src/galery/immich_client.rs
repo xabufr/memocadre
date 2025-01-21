@@ -7,8 +7,41 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct AssetResponse {
     pub id: String,
-    // pub original_file_name: String,
-    // pub r#type: AssetType,
+    pub exif_info: Option<ExifInfo>,
+    pub local_date_time: String,
+    pub r#type: AssetType,
+    pub people: Vec<Person>,
+    #[serde(default = "Vec::default")]
+    pub unassigned_faces: Vec<Face>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Person {
+    pub name: String,
+    pub faces: Vec<Face>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Face {
+    pub id: String,
+    pub image_height: i32,
+    pub image_width: i32,
+    #[serde(rename = "boundingBoxX1")]
+    pub bounding_box_x1: i32,
+    #[serde(rename = "boundingBoxX2")]
+    pub bounding_box_x2: i32,
+    #[serde(rename = "boundingBoxY1")]
+    pub bounding_box_y1: i32,
+    #[serde(rename = "boundingBoxY2")]
+    pub bounding_box_y2: i32,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ExifInfo {
+    pub city: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -33,6 +66,8 @@ pub struct SearchRandomRequest {
     pub person_ids: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub with_people: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub with_exif: Option<bool>,
 }
 
 pub struct ImmichClient {
@@ -60,7 +95,7 @@ impl ImmichClient {
             .unwrap()
     }
 
-    pub fn view_assets(&self, id: String) -> Bytes {
+    pub fn view_assets(&self, id: &str) -> Bytes {
         self.get(format!("assets/{}/thumbnail?size=preview", id))
             .send()
             .unwrap()
