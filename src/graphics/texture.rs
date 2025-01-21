@@ -93,10 +93,6 @@ impl Texture {
         return self.size;
     }
 
-    pub fn max_texture_size(gl: &glow::Context) -> u32 {
-        return unsafe { gl.get_parameter_i32(glow::MAX_TEXTURE_SIZE) } as u32;
-    }
-
     unsafe fn load_texture(gl: &glow::Context, image: &DynamicImage) -> glow::Texture {
         let texture = gl.create_texture().unwrap();
         gl.bind_texture(glow::TEXTURE_2D, Some(texture));
@@ -128,6 +124,15 @@ impl Texture {
         // gl.generate_mipmap(glow::TEXTURE_2D);
         gl.bind_texture(glow::TEXTURE_2D, None);
         texture
+    }
+
+    pub fn bind(&self, channel: Option<u8>) {
+        unsafe {
+            if let Some(channel) = channel {
+                self.gl.active_texture(glow::TEXTURE0 + channel as u32);
+            }
+                self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+        }
     }
 }
 

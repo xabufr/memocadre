@@ -7,7 +7,7 @@
 // mod support;
 // mod worker;
 
-use graphics::GlContext;
+use graphics::{GlContext, GlContextInner};
 // fn main() {
 //     env_logger::init();
 //     application::start();
@@ -106,13 +106,14 @@ fn main() {
         use glow::HasContext;
         use glutin::prelude::GlSurface;
         use winit::event::{Event, WindowEvent};
-        let gl = GlContext::new(gl);
+        let size = window.inner_size();
+        let gl = GlContextInner::new(gl, (0, 0, size.width as _, size.height as _));
         let mut app = application::GlowApplication::new(&gl);
         let _ = event_loop.run(move |event, elwt| {
             if let Event::WindowEvent { event, .. } = event {
                 match event {
                     WindowEvent::Resized(size) => {
-                        gl.viewport(0, 0, size.width as _, size.height as _);
+                        gl.set_viewport((0, 0, size.width as _, size.height as _));
                     }
                     WindowEvent::CloseRequested => {
                         elwt.exit();

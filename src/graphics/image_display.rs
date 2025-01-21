@@ -1,12 +1,18 @@
 use glam::{Mat4, Quat, Vec2, Vec3};
 use glow::HasContext;
 
-use super::{GlContext, SharedTexture2d, Vertex2dUv};
+use super::{
+    buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
+    vao::{BufferInfo, VertexArrayObject},
+    BlendMode, GlContext, SharedTexture2d, Vertex2dUv,
+};
 
 pub struct GlowImageDrawer {
-    vertex_array: glow::NativeVertexArray,
-    vertex_buffer: glow::NativeBuffer,
-    index_buffer: glow::NativeBuffer,
+    // vertex_array: glow::NativeVertexArray,
+    // index_buffer: ElementBufferObject,
+    // vertex_buffer: BufferObject<Vertex2dUv>,
+    vao: VertexArrayObject<Vertex2dUv>,
+    // index_buffer: glow::NativeBuffer,
     program: super::Program,
 }
 
@@ -52,99 +58,74 @@ const VERTICES: [Vertex2dUv; 4] = [
     Vertex2dUv { pos : [ 1., 1. ], uv: [ 1., 1. ] },
     Vertex2dUv { pos : [ 0., 1. ], uv: [ 0., 1. ] },
 ];
-const INDICES: [u16; 6] = [0, 1, 2, 0, 2, 3];
+const INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 
 impl GlowImageDrawer {
     pub fn new(gl: &GlContext) -> Self {
-        unsafe {
-            let vao = gl.create_vertex_array().unwrap();
-            let vbo = gl.create_buffer().unwrap();
-            let ebo = gl.create_buffer().unwrap();
+        let vbo = BufferObject::new_vertex_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
+        let ebo =
+            ElementBufferObject::new_index_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
 
-            let program = crate::graphics::Program::new(gl, shader::VERTEX, shader::FRAGMENT);
-            let pos = gl.get_attrib_location(program.get(), "pos").unwrap();
-            let uv = gl.get_attrib_location(program.get(), "uv").unwrap();
+        let program =
+            crate::graphics::Program::new(GlContext::clone(gl), shader::VERTEX, shader::FRAGMENT);
+        let pos = program.get_attrib_location("pos");
+        let uv = program.get_attrib_location("uv");
 
-            gl.bind_vertex_array(Some(vao));
+        vbo.write(&VERTICES);
+        ebo.write(&INDICES);
 
-            gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
-            gl.buffer_data_u8_slice(
-                glow::ARRAY_BUFFER,
-                bytemuck::cast_slice(&VERTICES),
-                glow::STATIC_DRAW,
-            );
-            gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ebo));
-            gl.buffer_data_u8_slice(
-                glow::ELEMENT_ARRAY_BUFFER,
-                bytemuck::cast_slice(&INDICES),
-                glow::STATIC_DRAW,
-            );
-
-            gl.enable_vertex_attrib_array(pos);
-            gl.enable_vertex_attrib_array(uv);
-            gl.vertex_attrib_pointer_f32(
-                pos,
-                2,
-                glow::FLOAT,
-                false,
-                std::mem::size_of::<Vertex2dUv>() as i32,
-                memoffset::offset_of!(Vertex2dUv, pos) as i32,
-            );
-            gl.vertex_attrib_pointer_f32(
-                uv,
-                2,
-                glow::FLOAT,
-                false,
-                std::mem::size_of::<Vertex2dUv>() as i32,
-                memoffset::offset_of!(Vertex2dUv, uv) as i32,
-            );
-
-            gl.bind_vertex_array(None);
-            gl.bind_buffer(glow::ARRAY_BUFFER, None);
-            gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, None);
-            Self {
-                vertex_array: vao,
-                vertex_buffer: vbo,
-                index_buffer: ebo,
-                program,
-            }
-        }
+        let stride = std::mem::size_of::<Vertex2dUv>() as i32;
+        let buffer_infos = vec![
+            BufferInfo {
+                location: pos,
+                data_type: glow::FLOAT,
+                vector_size: 2,
+                normalized: false,
+                stride,
+                offset: memoffset::offset_of!(Vertex2dUv, pos) as i32,
+            },
+            BufferInfo {
+                location: uv,
+                data_type: glow::FLOAT,
+                vector_size: 2,
+                normalized: false,
+                stride,
+                offset: memoffset::offset_of!(Vertex2dUv, uv) as i32,
+            },
+        ];
+        let vao = VertexArrayObject::new(GlContext::clone(gl), vbo, ebo, buffer_infos);
+        Self { vao, program }
     }
     pub fn draw_sprite(&self, gl: &GlContext, sprite: &Sprite) {
-        unsafe {
-            let model = Mat4::from_scale_rotation_translation(
-                Vec3::from((sprite.size, 0.)),
-                Quat::IDENTITY,
-                Vec3::from((sprite.position, 0.)),
-            );
+        let model = Mat4::from_scale_rotation_translation(
+            Vec3::from((sprite.size, 0.)),
+            Quat::IDENTITY,
+            Vec3::from((sprite.position, 0.)),
+        );
 
-            let mut dims: [i32; 4] = [0; 4];
-            gl.get_parameter_i32_slice(glow::VIEWPORT, &mut dims);
-            let [_, _, width, height] = dims;
+        let (_, _, width, height) = gl.current_viewport();
 
-            let view = glam::Mat4::orthographic_rh_gl(0., width as _, height as _, 0., -1., 1.);
-            gl.use_program(Some(self.program.get()));
+        let view = glam::Mat4::orthographic_rh_gl(0., width as _, height as _, 0., -1., 1.);
+        let prog_bind = self.program.bind();
 
-            let opacity = gl.get_uniform_location(self.program.get(), "opacity");
-            gl.uniform_1_f32(opacity.as_ref(), sprite.opacity);
-            let model_position = gl.get_uniform_location(self.program.get(), "model");
-            gl.uniform_matrix_4_f32_slice(model_position.as_ref(), false, &model.to_cols_array());
-            let view_position = gl.get_uniform_location(self.program.get(), "view");
-            gl.uniform_matrix_4_f32_slice(view_position.as_ref(), false, &view.to_cols_array());
+        prog_bind.set_uniform("opacity", sprite.opacity);
+        prog_bind.set_uniform("model", model);
+        prog_bind.set_uniform("view", view);
+        prog_bind.set_uniform("tex", 0);
 
-            let tex_position = gl.get_uniform_location(self.program.get(), "tex");
-            gl.uniform_1_i32(tex_position.as_ref(), 0);
-            gl.active_texture(glow::TEXTURE0);
-            gl.bind_texture(glow::TEXTURE_2D, Some(sprite.texture.get()));
+        sprite.texture.bind(Some(0));
 
-            gl.bind_vertex_array(Some(self.vertex_array));
-            gl.enable(glow::BLEND);
-            gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
-            gl.draw_elements(glow::TRIANGLES, INDICES.len() as _, glow::UNSIGNED_SHORT, 0);
-            gl.disable(glow::BLEND);
-            gl.bind_vertex_array(None);
-            gl.use_program(None);
-        }
+        let _guard = self.vao.bind_guard();
+
+        gl.draw(
+            &_guard,
+            &prog_bind,
+            INDICES.len() as _,
+            0,
+            &super::DrawParameters {
+                blend: Some(BlendMode::alpha()),
+            },
+        );
     }
 }
 

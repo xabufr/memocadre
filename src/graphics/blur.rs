@@ -1,12 +1,14 @@
 use glow::HasContext;
 
-use super::{GlContext, Texture, Vertex2dUv};
+use super::{
+    buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
+    vao::{BufferInfo, VertexArrayObject},
+    GlContext, Program, Texture, Vertex2dUv,
+};
 
 pub struct GlowImageBlurr {
-    vertex_array: glow::NativeVertexArray,
-    vertex_buffer: glow::NativeBuffer,
-    index_buffer: glow::NativeBuffer,
-    program: super::Program,
+    vertex_array: VertexArrayObject<Vertex2dUv>,
+    program: Program,
 }
 // pub struct ImageBlurr {
 //     vertex_buffer: VertexBuffer<Vertex2dUv>,
@@ -21,72 +23,54 @@ const VERTICES: [Vertex2dUv; 4] = [
     Vertex2dUv { pos : [  1.,  1. ], uv: [ 1., 1. ] },
     Vertex2dUv { pos : [ -1.,  1. ], uv: [ 0., 1. ] },
 ];
-const INDICES: [u16; 6] = [0, 1, 2, 0, 2, 3];
+const INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 impl GlowImageBlurr {
     pub fn new(gl: &GlContext) -> Self {
-        unsafe {
-            let vao = gl.create_vertex_array().unwrap();
-            let vbo = gl.create_buffer().unwrap();
-            let ebo = gl.create_buffer().unwrap();
+        let vbo = BufferObject::new_vertex_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
+        let ebo =
+            ElementBufferObject::new_index_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
 
-            let program =
-                crate::graphics::Program::new(gl, shader::VERTEX_BLUR, shader::FRAGMENT_BLUR);
-            let pos = gl.get_attrib_location(program.get(), "pos").unwrap();
-            let uv = gl.get_attrib_location(program.get(), "uv").unwrap();
+        let program = crate::graphics::Program::new(
+            GlContext::clone(gl),
+            shader::VERTEX_BLUR,
+            shader::FRAGMENT_BLUR,
+        );
+        let pos = program.get_attrib_location("pos");
+        let uv = program.get_attrib_location("uv");
 
-            gl.bind_vertex_array(Some(vao));
+        let stride = std::mem::size_of::<Vertex2dUv>() as i32;
+        let buffer_infos = vec![
+            BufferInfo {
+                location: pos,
+                vector_size: 2,
+                data_type: glow::FLOAT,
+                normalized: false,
+                stride,
+                offset: memoffset::offset_of!(Vertex2dUv, pos) as i32,
+            },
+            BufferInfo {
+                location: uv,
+                vector_size: 2,
+                data_type: glow::FLOAT,
+                normalized: false,
+                stride,
+                offset: memoffset::offset_of!(Vertex2dUv, uv) as i32,
+            },
+        ];
 
-            gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
-            gl.buffer_data_u8_slice(
-                glow::ARRAY_BUFFER,
-                bytemuck::cast_slice(&VERTICES),
-                glow::STATIC_DRAW,
-            );
-            gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ebo));
-            gl.buffer_data_u8_slice(
-                glow::ELEMENT_ARRAY_BUFFER,
-                bytemuck::cast_slice(&INDICES),
-                glow::STATIC_DRAW,
-            );
+        vbo.write(&VERTICES);
+        ebo.write(&INDICES);
+        let vao = VertexArrayObject::new(GlContext::clone(gl), vbo, ebo, buffer_infos);
 
-            gl.enable_vertex_attrib_array(pos);
-            gl.enable_vertex_attrib_array(uv);
-            gl.vertex_attrib_pointer_f32(
-                pos,
-                2,
-                glow::FLOAT,
-                false,
-                std::mem::size_of::<Vertex2dUv>() as i32,
-                memoffset::offset_of!(Vertex2dUv, pos) as i32,
-            );
-            gl.vertex_attrib_pointer_f32(
-                uv,
-                2,
-                glow::FLOAT,
-                false,
-                std::mem::size_of::<Vertex2dUv>() as i32,
-                memoffset::offset_of!(Vertex2dUv, uv) as i32,
-            );
-
-            gl.bind_vertex_array(None);
-            gl.bind_buffer(glow::ARRAY_BUFFER, None);
-            gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, None);
-            Self {
-                vertex_array: vao,
-                vertex_buffer: vbo,
-                index_buffer: ebo,
-                program,
-            }
+        Self {
+            vertex_array: vao,
+            program,
         }
     }
 
     pub fn blur(&self, gl: &GlContext, texture: &Texture) -> Texture {
+        let old_viewport = gl.current_viewport();
         unsafe {
-            let mut dims: [i32; 4] = [0; 4];
-            unsafe {
-                gl.get_parameter_i32_slice(glow::VIEWPORT, &mut dims);
-            };
-            let [_, _, width, height] = dims;
             let textures = [
                 Texture::empty(
                     GlContext::clone(gl),
@@ -122,45 +106,38 @@ impl GlowImageBlurr {
 
             let radius: f32 = 6.0;
             let passes = 6;
-            let dir = self.program.get_uniform_location(gl, "dir").unwrap();
-            gl.use_program(Some(self.program.get()));
-            gl.bind_vertex_array(Some(self.vertex_array));
-            let tex_size = self.program.get_uniform_location(gl, "tex_size").unwrap();
-            gl.uniform_2_f32_slice(
-                Some(&tex_size),
-                texture.size().as_vec2().to_array().as_slice(),
-            );
-            let tex = self.program.get_uniform_location(gl, "tex").unwrap();
-            gl.uniform_1_i32(Some(&tex), 0);
+
+            let program_bind = self.program.bind();
+            let _vao_guard = self.vertex_array.bind_guard();
+
+            program_bind.set_uniform("tex_size", texture.size().as_vec2());
+            program_bind.set_uniform("tex", 0);
+
             gl.active_texture(glow::TEXTURE0);
-            gl.viewport(0, 0, texture.size().x as _, texture.size().y as _);
+            gl.set_viewport((0, 0, texture.size().x as _, texture.size().y as _));
             for i in 0..=passes {
                 let radius = radius * (passes - i) as f32 / (passes as f32);
 
-                gl.uniform_2_f32(Some(&dir), radius, 0.);
+                program_bind.set_uniform("dir", (radius, 0.));
                 gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbos[0]));
-                gl.bind_texture(glow::TEXTURE_2D, Some(source_texture.get()));
-                gl.draw_elements(glow::TRIANGLES, INDICES.len() as _, glow::UNSIGNED_SHORT, 0);
+                source_texture.bind(Some(0));
+                gl.draw_elements(glow::TRIANGLES, INDICES.len() as _, glow::UNSIGNED_INT, 0);
 
                 source_texture = &textures[0];
 
-                gl.uniform_2_f32(Some(&dir), 0., radius);
+                program_bind.set_uniform("dir", (0., radius));
                 gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbos[1]));
-                gl.bind_texture(glow::TEXTURE_2D, Some(source_texture.get()));
-                gl.draw_elements(glow::TRIANGLES, INDICES.len() as _, glow::UNSIGNED_SHORT, 0);
+                source_texture.bind(Some(0));
+                gl.draw_elements(glow::TRIANGLES, INDICES.len() as _, glow::UNSIGNED_INT, 0);
 
                 source_texture = &textures[1];
             }
-            gl.bind_vertex_array(None);
-            gl.bind_texture(glow::TEXTURE_2D, None);
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
             gl.bind_renderbuffer(glow::RENDERBUFFER, None);
-            gl.use_program(None);
-            gl.viewport(0, 0, width, height);
+            gl.set_viewport(old_viewport);
             for fbo in fbos {
                 gl.delete_framebuffer(fbo);
             }
-
             let [_, texture] = textures;
             return texture;
         }

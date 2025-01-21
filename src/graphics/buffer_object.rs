@@ -31,7 +31,7 @@ impl BufferUsage {
         }
     }
 }
-struct BufferObject<Type> {
+pub struct BufferObject<Type> {
     object: glow::NativeBuffer,
     target: BufferTarget,
     usage: BufferUsage,
@@ -45,11 +45,24 @@ pub struct BindGuard<'a, T> {
 
 impl<'a, T> Drop for BindGuard<'a, T> {
     fn drop(&mut self) {
-        unsafe { self.buffer.gl.bind_buffer(self.buffer.target.get(), None) };
+        self.buffer.unbind();
     }
 }
 
 impl<Type: NoUninit> BufferObject<Type> {
+    pub fn write(&self, data: &[Type]) {
+        unsafe {
+            self.gl.bind_buffer(self.target.get(), Some(self.object));
+            self.gl.buffer_data_u8_slice(
+                self.target.get(),
+                bytemuck::cast_slice(data),
+                self.usage.get(),
+            );
+        }
+    }
+}
+
+impl<Type> BufferObject<Type> {
     fn new(gl: GlContext, target: BufferTarget, usage: BufferUsage) -> Self {
         let object = unsafe { gl.create_buffer().unwrap() };
         BufferObject {
@@ -60,24 +73,28 @@ impl<Type: NoUninit> BufferObject<Type> {
             _data_type: PhantomData,
         }
     }
-    fn write(&self, data: &[Type]) {
-        unsafe {
-            self.gl.bind_buffer(self.target.get(), Some(self.object));
-            self.gl.buffer_data_u8_slice(
-                self.target.get(),
-                bytemuck::cast_slice(data),
-                self.usage.get(),
-            );
-        }
+    pub fn new_vertex_buffer(gl: GlContext, usage: BufferUsage) -> Self {
+        BufferObject::new(gl, BufferTarget::ArrayBuffer, usage)
     }
-    fn bind(&self) {
+    pub fn bind(&self) {
         unsafe {
             self.gl.bind_buffer(self.target.get(), Some(self.object));
         }
     }
-    fn bind_guard(&self) -> BindGuard<Type> {
+    pub fn unbind(&self) {
+        unsafe {
+            self.gl.bind_buffer(self.target.get(), None);
+        }
+    }
+    pub fn bind_guard(&self) -> BindGuard<Type> {
         self.bind();
         BindGuard { buffer: self }
+    }
+}
+
+impl BufferObject<u32> {
+    pub fn new_index_buffer(gl: GlContext, usage: BufferUsage) -> Self {
+        BufferObject::new(gl, BufferTarget::ElementArrayBuffer, usage)
     }
 }
 
@@ -87,23 +104,4 @@ impl<T> Drop for BufferObject<T> {
     }
 }
 
-pub struct ElementBufferObject(BufferObject<u32>);
-
-impl ElementBufferObject {
-    pub fn new(gl: GlContext, usage: BufferUsage) -> Self {
-        Self(BufferObject::new(
-            gl,
-            BufferTarget::ElementArrayBuffer,
-            usage,
-        ))
-    }
-    pub fn write(&self, gl: &glow::Context, data: &[u32]) {
-        self.0.write(data);
-    }
-    pub fn bind(&self, gl: &glow::Context) {
-        self.0.bind();
-    }
-    pub fn bind_guard(&self) -> BindGuard<u32> {
-        self.0.bind_guard()
-    }
-}
+pub type ElementBufferObject = BufferObject<u32>;

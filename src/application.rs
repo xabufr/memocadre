@@ -386,13 +386,9 @@ fn image_to_texture(
 // }
 impl GlowApplication {
     fn get_ideal_image_size(gl: &GlContext) -> UVec2 {
-        let hw_max = Texture::max_texture_size(gl);
+        let hw_max = gl.capabilities().max_texture_size;
         let hw_max = UVec2::splat(hw_max);
-        let mut dims: [i32; 4] = [0; 4];
-        unsafe {
-            gl.get_parameter_i32_slice(glow::VIEWPORT, &mut dims);
-        };
-        let [_, _, width, height] = dims;
+        let (_, _, width, height) = gl.current_viewport();
 
         let fb_dims = UVec2::new(width as _, height as _);
 
@@ -402,12 +398,7 @@ impl GlowApplication {
 
     fn load_next_frame(&self, gl: &GlContext, image: DynamicImage) -> Slide {
         let texture = Texture::new_from_image(GlContext::clone(gl), &image);
-
-        let mut dims: [i32; 4] = [0; 4];
-        unsafe {
-            gl.get_parameter_i32_slice(glow::VIEWPORT, &mut dims);
-        };
-        let [_, _, width, height] = dims;
+        let (_, _, width, height) = gl.current_viewport();
 
         let texture = SharedTexture2d::new(texture);
         let mut sprite = Sprite::new(texture.clone());
