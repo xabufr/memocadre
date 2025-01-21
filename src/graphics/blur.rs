@@ -1,11 +1,13 @@
 use glow::HasContext;
 
-use super::{
+use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
     framebuffer::FramebufferObject,
     vao::{BufferInfo, VertexArrayObject},
-    GlContext, Program, Texture, Vertex2dUv,
+    GlContext, Program, Texture,
 };
+
+use super::Vertex2dUv;
 
 pub struct GlowImageBlurr {
     vertex_array: VertexArrayObject<Vertex2dUv>,
@@ -31,11 +33,12 @@ impl GlowImageBlurr {
         let ebo =
             ElementBufferObject::new_index_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
 
-        let program = crate::graphics::Program::new(
+        let program = Program::new(
             GlContext::clone(gl),
             shader::VERTEX_BLUR,
             shader::FRAGMENT_BLUR,
         );
+        let program = program;
         let pos = program.get_attrib_location("pos");
         let uv = program.get_attrib_location("uv");
 

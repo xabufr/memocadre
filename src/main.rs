@@ -7,7 +7,7 @@
 // mod support;
 // mod worker;
 
-use graphics::{GlContext, GlContextInner};
+use gl::{GlContext, GlContextInner};
 // fn main() {
 //     env_logger::init();
 //     application::start();
@@ -20,6 +20,7 @@ extern crate glium;
 
 mod application;
 mod galery;
+mod gl;
 mod graphics;
 mod support;
 mod worker;

@@ -1,11 +1,12 @@
 use glam::{Mat4, Quat, Vec2, Vec3};
-use glow::HasContext;
 
-use super::{
+use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
     vao::{BufferInfo, VertexArrayObject},
-    BlendMode, GlContext, SharedTexture2d, Vertex2dUv,
+    BlendMode, DrawParameters, GlContext, Program,
 };
+
+use super::{SharedTexture2d, Vertex2dUv};
 
 pub struct GlowImageDrawer {
     // vertex_array: glow::NativeVertexArray,
@@ -13,7 +14,7 @@ pub struct GlowImageDrawer {
     // vertex_buffer: BufferObject<Vertex2dUv>,
     vao: VertexArrayObject<Vertex2dUv>,
     // index_buffer: glow::NativeBuffer,
-    program: super::Program,
+    program: Program,
 }
 
 pub struct Sprite {
@@ -66,8 +67,7 @@ impl GlowImageDrawer {
         let ebo =
             ElementBufferObject::new_index_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
 
-        let program =
-            crate::graphics::Program::new(GlContext::clone(gl), shader::VERTEX, shader::FRAGMENT);
+        let program = Program::new(GlContext::clone(gl), shader::VERTEX, shader::FRAGMENT);
         let pos = program.get_attrib_location("pos");
         let uv = program.get_attrib_location("uv");
 
@@ -122,7 +122,7 @@ impl GlowImageDrawer {
             &prog_bind,
             INDICES.len() as _,
             0,
-            &super::DrawParameters {
+            &DrawParameters {
                 blend: Some(BlendMode::alpha()),
             },
         );

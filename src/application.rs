@@ -13,7 +13,7 @@ use std::{
 use glyph_brush::{Section, Text};
 
 use crate::{
-    graphics::{GlContext, Texture},
+    gl::{GlContext, Texture},
     support::{self, ApplicationContext, State},
 };
 use crate::{

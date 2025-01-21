@@ -6,7 +6,6 @@ use std::rc::Rc;
 
 use super::GlContext;
 
-pub type SharedTexture2d = Rc<Texture>;
 pub struct Texture {
     texture: glow::Texture,
     size: UVec2,
@@ -131,7 +130,7 @@ impl Texture {
             if let Some(channel) = channel {
                 self.gl.active_texture(glow::TEXTURE0 + channel as u32);
             }
-                self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+            self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
         }
     }
 }
