@@ -2,6 +2,7 @@ use glow::HasContext;
 
 use super::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
+    framebuffer::FramebufferObject,
     vao::{BufferInfo, VertexArrayObject},
     GlContext, Program, Texture, Vertex2dUv,
 };
@@ -69,78 +70,72 @@ impl GlowImageBlurr {
     }
 
     pub fn blur(&self, gl: &GlContext, texture: &Texture) -> Texture {
-        let old_viewport = gl.current_viewport();
-        unsafe {
-            let textures = [
-                Texture::empty(
-                    GlContext::clone(gl),
-                    glow::RGB as _,
-                    texture.size(),
-                    glow::RGB,
-                    glow::UNSIGNED_BYTE,
-                ),
-                Texture::empty(
-                    GlContext::clone(gl),
-                    glow::RGB as _,
-                    texture.size(),
-                    glow::RGB,
-                    glow::UNSIGNED_BYTE,
-                ),
-            ];
-            let fbos = [
-                gl.create_framebuffer().unwrap(),
-                gl.create_framebuffer().unwrap(),
-            ];
-            for (i, fbo) in fbos.iter().enumerate() {
-                gl.bind_framebuffer(glow::FRAMEBUFFER, Some(*fbo));
-                gl.framebuffer_texture_2d(
-                    glow::FRAMEBUFFER,
-                    glow::COLOR_ATTACHMENT0,
-                    glow::TEXTURE_2D,
-                    Some(textures[i].get()),
-                    0,
-                );
-                gl.bind_framebuffer(glow::FRAMEBUFFER, None);
-            }
-            let mut source_texture = texture;
+        let textures = [
+            Texture::empty(
+                GlContext::clone(gl),
+                glow::RGB as _,
+                texture.size(),
+                glow::RGB,
+                glow::UNSIGNED_BYTE,
+            ),
+            Texture::empty(
+                GlContext::clone(gl),
+                glow::RGB as _,
+                texture.size(),
+                glow::RGB,
+                glow::UNSIGNED_BYTE,
+            ),
+        ];
+        let fbos = textures
+            .into_iter()
+            .map(|texture| FramebufferObject::with_texture(GlContext::clone(gl), texture))
+            .collect::<Vec<_>>();
 
-            let radius: f32 = 6.0;
-            let passes = 6;
+        let mut source_texture = texture;
 
-            let program_bind = self.program.bind();
-            let _vao_guard = self.vertex_array.bind_guard();
+        let radius: f32 = 6.0;
+        let passes = 6;
 
-            program_bind.set_uniform("tex_size", texture.size().as_vec2());
-            program_bind.set_uniform("tex", 0);
+        let program_bind = self.program.bind();
+        let _vao_guard = self.vertex_array.bind_guard();
 
-            gl.active_texture(glow::TEXTURE0);
-            gl.set_viewport((0, 0, texture.size().x as _, texture.size().y as _));
-            for i in 0..=passes {
-                let radius = radius * (passes - i) as f32 / (passes as f32);
+        program_bind.set_uniform("tex_size", texture.size().as_vec2());
+        program_bind.set_uniform("tex", 0);
 
+        for i in 0..=passes {
+            let radius = radius * (passes - i) as f32 / (passes as f32);
+
+            {
                 program_bind.set_uniform("dir", (radius, 0.));
-                gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbos[0]));
+                let _guard = fbos[0].bind_guard();
                 source_texture.bind(Some(0));
-                gl.draw_elements(glow::TRIANGLES, INDICES.len() as _, glow::UNSIGNED_INT, 0);
+                gl.draw(
+                    &_vao_guard,
+                    &program_bind,
+                    INDICES.len() as _,
+                    0,
+                    &Default::default(),
+                );
+            }
 
-                source_texture = &textures[0];
+            source_texture = fbos[0].get_texture();
 
+            {
                 program_bind.set_uniform("dir", (0., radius));
-                gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbos[1]));
+                let _guard = fbos[1].bind_guard();
                 source_texture.bind(Some(0));
-                gl.draw_elements(glow::TRIANGLES, INDICES.len() as _, glow::UNSIGNED_INT, 0);
+                gl.draw(
+                    &_vao_guard,
+                    &program_bind,
+                    INDICES.len() as _,
+                    0,
+                    &Default::default(),
+                );
+            }
 
-                source_texture = &textures[1];
-            }
-            gl.bind_framebuffer(glow::FRAMEBUFFER, None);
-            gl.bind_renderbuffer(glow::RENDERBUFFER, None);
-            gl.set_viewport(old_viewport);
-            for fbo in fbos {
-                gl.delete_framebuffer(fbo);
-            }
-            let [_, texture] = textures;
-            return texture;
+            source_texture = fbos[1].get_texture();
         }
+        return fbos.into_iter().last().unwrap().into_texture();
     }
 }
 

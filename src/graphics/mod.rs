@@ -14,6 +14,7 @@ pub use texture::{SharedTexture2d, Texture};
 
 mod blur;
 pub mod buffer_object;
+pub mod framebuffer;
 mod image_display;
 // pub mod pipeline;
 mod shader;
@@ -57,6 +58,12 @@ pub struct Capabilities {
 
 pub struct DrawParameters {
     pub blend: Option<BlendMode>,
+}
+
+impl Default for DrawParameters {
+    fn default() -> Self {
+        DrawParameters { blend: None }
+    }
 }
 
 #[derive(Copy, Clone)]
