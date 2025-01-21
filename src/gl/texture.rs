@@ -2,7 +2,6 @@ use bytemuck::{Pod, Zeroable};
 use glam::UVec2;
 use glow::HasContext;
 use image::{DynamicImage, GenericImageView};
-use std::rc::Rc;
 
 use super::GlContext;
 
@@ -10,6 +9,19 @@ pub struct Texture {
     texture: glow::Texture,
     size: UVec2,
     gl: GlContext,
+}
+
+pub enum TextureFormat {
+    RGBA,
+    RGB,
+}
+impl TextureFormat {
+    fn to_gl(&self) -> u32 {
+        match self {
+            TextureFormat::RGBA => glow::RGBA,
+            TextureFormat::RGB => glow::RGB,
+        }
+    }
 }
 
 impl Texture {
@@ -82,6 +94,64 @@ impl Texture {
             self.gl.bind_texture(glow::TEXTURE_2D, None);
         }
         self.size = dimensions;
+    }
+
+    pub fn write(&mut self, format: TextureFormat, dimensions: UVec2, data: &[u8]) {
+        unsafe {
+            self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+            self.gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                format.to_gl() as _,
+                dimensions.x as _,
+                dimensions.y as _,
+                0,
+                format.to_gl(),
+                glow::UNSIGNED_BYTE,
+                glow::PixelUnpackData::Slice(Some(data)),
+            );
+
+            self.gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_MIN_FILTER,
+                glow::LINEAR as _,
+            );
+            self.gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_MAG_FILTER,
+                glow::LINEAR as _,
+            );
+            self.gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_S,
+                glow::CLAMP_TO_EDGE as _,
+            );
+            self.gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_T,
+                glow::CLAMP_TO_EDGE as _,
+            );
+            self.gl.bind_texture(glow::TEXTURE_2D, None);
+        }
+        self.size = dimensions;
+    }
+
+    pub fn write_sub(&self, format: TextureFormat, offset: UVec2, dimensions: UVec2, data: &[u8]) {
+        unsafe {
+            self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+            self.gl.tex_sub_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                offset.x as _,
+                offset.y as _,
+                dimensions.x as _,
+                dimensions.y as _,
+                format.to_gl(),
+                glow::UNSIGNED_BYTE,
+                glow::PixelUnpackData::Slice(Some(data)),
+            );
+            self.gl.bind_texture(glow::TEXTURE_2D, None);
+        }
     }
 
     pub fn get(&self) -> glow::Texture {

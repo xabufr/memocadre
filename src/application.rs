@@ -1,4 +1,7 @@
-use epaint::{text::LayoutJob, Color32, FontId};
+use epaint::{
+    text::{LayoutJob, TextFormat},
+    Color32, FontId,
+};
 use glam::{UVec2, Vec2};
 use glissade::Keyframes;
 use glium::{backend::Facade, CapabilitiesSource, Surface};
@@ -22,7 +25,7 @@ use crate::{
 };
 
 use crate::graphics::{
-    // EpaintDisplay,
+    EpaintDisplay,
     // ImageBlurr,
     // ImageDrawer,
     SharedTexture2d,
@@ -39,6 +42,7 @@ pub struct GlowApplication {
     // recv: Receiver<DynamicImage>,
     counter: FPSCounter,
     // text_display: GlowTextDisplay,
+    epaint: EpaintDisplay,
     // _worker: JoinHandle<()>,
     worker: Worker,
 }
@@ -103,10 +107,12 @@ impl GlowApplication {
             // recv,
             next_slide: None,
             counter: FPSCounter::new(),
+            epaint: EpaintDisplay::new(GlContext::clone(&gl)),
             worker,
         }
     }
     pub fn draw(&mut self, gl: &GlContext) {
+        self.epaint.begin_frame();
         if self.current_slide.is_none()
             || self.image_display_start.elapsed() >= Duration::from_secs_f32(1.)
         {
@@ -152,6 +158,25 @@ impl GlowApplication {
                 self.current_slide = self.next_slide.take().map(|a| a.slide);
             }
         }
+
+        self.epaint.add_text(
+            Vec2::new(100., 100.),
+            LayoutJob::single_section(
+                format!(
+                    "FPS: {} ({} frames)",
+                    self.counter.last_fps, self.counter.frames
+                ),
+                TextFormat {
+                    background: Color32::RED,
+                    ..TextFormat::simple(FontId::proportional(28.), Color32::DEBUG_COLOR)
+                },
+            ), // LayoutJob::simple_singleline(
+               //     FontId::proportional(28.),
+               //     Color32::DEBUG_COLOR,
+               // ),
+        );
+        self.epaint.update();
+        self.epaint.draw_texts();
         // self.text_display.queue(
         //     Section::new()
         //         .add_text(

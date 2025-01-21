@@ -81,7 +81,7 @@ impl<V: NoUninit> VertexArrayObject<V> {
         }
     }
 }
-impl <V> VertexArrayObject<V> {
+impl<V> VertexArrayObject<V> {
     fn bind_attributes(gl: &GlContext, buffer_infos: &[BufferInfo]) {
         unsafe {
             for attribute in buffer_infos {

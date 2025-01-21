@@ -4,7 +4,7 @@ use glow::HasContext;
 use std::{cell::RefCell, ops::Deref, rc::Rc};
 
 pub use blur::GlowImageBlurr;
-// pub use epaint_display::EpaintDisplay;
+pub use epaint_display::EpaintDisplay;
 pub use image_display::{GlowImageDrawer, Sprite};
 
 use crate::gl::Texture;
@@ -13,7 +13,7 @@ use crate::gl::Texture;
 mod blur;
 mod image_display;
 // pub mod pipeline;
-// mod epaint_display;
+mod epaint_display;
 // mod text_display;
 
 #[repr(C)]
