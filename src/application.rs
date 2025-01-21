@@ -29,12 +29,10 @@ pub struct GlowApplication {
     current_slide: Option<Slide>,
     next_slide: Option<TransitionningSlide>,
     image_display_start: Instant,
-    // recv: Receiver<DynamicImage>,
     counter: FPSCounter,
-    // text_display: GlowTextDisplay,
     epaint: EpaintDisplay,
-    // _worker: JoinHandle<()>,
     worker: Worker,
+    gl: GlContext,
 }
 // struct Application {
 //     image_drawer: ImageDrawer,
@@ -110,6 +108,7 @@ impl GlowApplication {
             counter: FPSCounter::new(),
             epaint: EpaintDisplay::new(GlContext::clone(&gl)),
             worker,
+            gl: GlContext::clone(gl),
         }
     }
     pub fn draw(&mut self, gl: &GlContext) {
@@ -204,6 +203,121 @@ impl GlowApplication {
         // self.text_display.draw(gl);
         // frame.finish().unwrap();
     }
+}
+impl ApplicationContext for GlowApplication {
+    fn new(gl: GlContext) -> Self {
+        let worker = Worker::new(Self::get_ideal_image_size(&gl));
+        worker.start();
+        Self {
+            current_slide: None,
+            image_display_start: Instant::now(),
+            image_drawer: GlowImageDrawer::new(&gl),
+            image_blurr: GlowImageBlurr::new(&gl),
+            // text_display: GlowTextDisplay::new(ctx),
+            // recv,
+            // application::start();
+            next_slide: None,
+            counter: FPSCounter::new(),
+            epaint: EpaintDisplay::new(GlContext::clone(&gl)),
+            gl,
+            worker,
+        }
+    }
+
+    fn draw_frame(&mut self) {
+        self.epaint.begin_frame();
+        if self.current_slide.is_none()
+            || (self.image_display_start.elapsed() >= Duration::from_secs_f32(0.)
+                && self.next_slide.is_none())
+        {
+            match self.worker.recv().try_recv() {
+                Err(TryRecvError::Empty) => {}
+                Err(TryRecvError::Disconnected) => {}
+                Ok(image) => {
+                    let slide = self.load_next_frame(&self.gl, image);
+                    self.image_display_start = Instant::now();
+                    if self.current_slide.is_none() {
+                        self.current_slide = Some(slide);
+                    } else {
+                        let animation = glissade::keyframes::from(0. as f32)
+                            .ease_to(
+                                1.,
+                                Duration::from_secs_f32(1.),
+                                glissade::Easing::QuarticInOut,
+                            )
+                            .run(self.image_display_start);
+                        self.next_slide = Some(TransitionningSlide {
+                            slide,
+                            animation: Box::new(animation),
+                        });
+                    }
+                }
+            }
+        }
+
+        let frame_time = Instant::now();
+        self.counter.count_frame();
+
+        // frame.clear_color(0.0, 0.0, 0.0, 0.0);
+        if let Some(slide) = &self.current_slide {
+            if let Some(text) = &slide.text {
+                self.epaint.add_text(
+                    [10., 10.],
+                    LayoutJob::single_section(
+                        text.to_string(),
+                        TextFormat::simple(FontId::proportional(28.), Color32::WHITE),
+                    ),
+                );
+            }
+            slide.draw(&self.gl, &self.image_drawer);
+        }
+        if let Some(next_slide) = &mut self.next_slide {
+            let alpha = next_slide.animation.get(frame_time);
+            for s in next_slide.slide.sprites.iter_mut() {
+                s.opacity = alpha;
+            }
+            next_slide.slide.draw(&self.gl, &self.image_drawer);
+            if next_slide.animation.is_finished(frame_time) {
+                self.current_slide = self.next_slide.take().map(|a| a.slide);
+            }
+        }
+
+        self.epaint.add_text(
+            Vec2::new(100., 100.),
+            LayoutJob::single_section(
+                format!(
+                    "FPS: {} ({} frames)",
+                    self.counter.last_fps, self.counter.frames
+                ),
+                TextFormat {
+                    background: Color32::RED,
+                    ..TextFormat::simple(FontId::proportional(28.), Color32::DEBUG_COLOR)
+                },
+            ), // LayoutJob::simple_singleline(
+               //     FontId::proportional(28.),
+               //     Color32::DEBUG_COLOR,
+               // ),
+        );
+        self.epaint.update();
+        self.epaint.draw_texts();
+        // self.text_display.queue(
+        //     Section::new()
+        //         .add_text(
+        //             Text::new(&format!(
+        //                 "FPS: {} ({} frames)",
+        //                 self.counter.last_fps, self.counter.frames
+        //             ))
+        //             .with_scale(28.)
+        //             .with_color((1., 1., 1., 1.)),
+        //         )
+        //         .with_screen_position((100., 200.)),
+        // );
+        // self.text_display.update(gl);
+        // self.text_display.draw(gl);
+        // frame.finish().unwrap();
+    }
+
+    const WINDOW_TITLE: &'static str = "test";
 }
 // impl ApplicationContext for Application {
 //     const WINDOW_TITLE: &'static str = "test";
@@ -431,15 +545,16 @@ fn image_to_texture(
     .unwrap()
 }
 
-// pub fn start() {
-//     let vars = ["WAYLAND_DISPLAY", "WAYLAND_SOCKET", "DISPLAY"];
-//     let has_window_system = vars.into_iter().any(|v| std::env::var_os(v).is_some());
-//     if has_window_system {
-//         State::<Application>::run_loop();
-//     } else {
-//         support::start_gbm::<Application>();
-//     }
-// }
+pub fn start() {
+    let vars = ["WAYLAND_DISPLAY", "WAYLAND_SOCKET", "DISPLAY"];
+    let has_window_system = vars.into_iter().any(|v| std::env::var_os(v).is_some());
+    if has_window_system {
+        State::<GlowApplication>::run_loop();
+    } else {
+        support::start_gbm::<GlowApplication>();
+    }
+}
+
 impl GlowApplication {
     fn get_ideal_image_size(gl: &GlContext) -> UVec2 {
         let hw_max = gl.capabilities().max_texture_size;

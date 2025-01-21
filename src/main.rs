@@ -27,6 +27,7 @@ mod worker;
 
 fn main() {
     env_logger::init();
+    application::start();
     let (gl, gl_surface, gl_context, shader_version, window, event_loop) = {
         use glutin::{
             config::{ConfigTemplateBuilder, GlConfig},

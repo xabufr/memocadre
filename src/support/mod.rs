@@ -4,14 +4,15 @@ use glutin::surface::WindowSurface;
 mod gbm_display;
 mod window_display;
 
+use crate::gl::GlContext;
 pub use gbm_display::start_gbm;
 pub use window_display::State;
 
 pub trait ApplicationContext {
-    fn draw_frame(&mut self, _display: &Display<WindowSurface>) {}
-    fn new(display: &Display<WindowSurface>) -> Self;
+    fn draw_frame(&mut self) {}
+    fn new(gl: GlContext) -> Self;
     fn update(&mut self) {}
-    fn resized(&mut self, _display: &Display<WindowSurface>, _width: u32, _height: u32) {}
+    fn resized(&mut self, _width: u32, _height: u32) {}
     fn handle_window_event(
         &mut self,
         _event: &winit::event::WindowEvent,

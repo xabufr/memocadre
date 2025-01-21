@@ -1,8 +1,8 @@
 use glutin::{
-    context::Version,
+    context::{self, PossiblyCurrentContext, Version},
     display::{GetGlDisplay, GlDisplay},
     prelude::*,
-    surface::WindowSurface,
+    surface::{Surface, WindowSurface},
 };
 use raw_window_handle::HasWindowHandle;
 use std::num::NonZeroU32;
@@ -11,12 +11,16 @@ use winit::{
     window::WindowId,
 };
 
+use crate::gl::{GlContext, GlContextInner};
+
 use super::ApplicationContext;
 
 pub struct State<T> {
-    pub display: glium::Display<WindowSurface>,
+    pub gl: GlContext,
     pub window: winit::window::Window,
     pub context: T,
+    gl_context: PossiblyCurrentContext,
+    surface: Surface<WindowSurface>,
 }
 
 struct App<T> {
@@ -47,16 +51,17 @@ impl<T: ApplicationContext + 'static> ApplicationHandler<()> for App<T> {
         match event {
             winit::event::WindowEvent::Resized(new_size) => {
                 if let Some(state) = &mut self.state {
-                    state.display.resize(new_size.into());
                     state
-                        .context
-                        .resized(&state.display, new_size.width, new_size.height);
+                        .gl
+                        .set_viewport((0, 0, new_size.width as _, new_size.height as _));
+                    state.context.resized(new_size.width, new_size.height);
                 }
             }
             winit::event::WindowEvent::RedrawRequested => {
                 if let Some(state) = &mut self.state {
                     state.context.update();
-                    state.context.draw_frame(&state.display);
+                    state.context.draw_frame();
+                    state.surface.swap_buffers(&state.gl_context).unwrap();
                     if self.close_promptly {
                         event_loop.exit();
                     }
@@ -113,11 +118,11 @@ impl<T: ApplicationContext + 'static> State<T> {
         let window_handle = window
             .window_handle()
             .expect("couldn't obtain window handle");
-        let context_attributes = glutin::context::ContextAttributesBuilder::new()
-            .with_context_api(glutin::context::ContextApi::Gles(Version::new(2, 0).into()))
+        let context_attributes = context::ContextAttributesBuilder::new()
+            .with_context_api(context::ContextApi::Gles(Version::new(2, 0).into()))
             .build(Some(window_handle.into()));
-        let fallback_context_attributes = glutin::context::ContextAttributesBuilder::new()
-            .with_context_api(glutin::context::ContextApi::Gles(Version::new(2, 0).into()))
+        let fallback_context_attributes = context::ContextAttributesBuilder::new()
+            .with_context_api(context::ContextApi::Gles(Version::new(2, 0).into()))
             .build(Some(window_handle.into()));
 
         let not_current_gl_context = Some(unsafe {
@@ -154,20 +159,34 @@ impl<T: ApplicationContext + 'static> State<T> {
             .unwrap()
             .make_current(&surface)
             .unwrap();
-        let display = glium::Display::from_context_surface(current_context, surface).unwrap();
+        println!("starting window");
+        let gl = unsafe {
+            glow::Context::from_loader_function_cstr(|s| gl_config.display().get_proc_address(s))
+        };
+        let gl = GlContextInner::new(gl, (0, 0, width as _, height as _));
+        surface
+            .set_swap_interval(
+                &current_context,
+                glutin::surface::SwapInterval::Wait(NonZeroU32::new(1).unwrap()),
+            )
+            .unwrap();
 
-        Self::from_display_window(display, window)
+        Self::from_display_window(gl, window, current_context, surface)
     }
 
     pub fn from_display_window(
-        display: glium::Display<WindowSurface>,
+        gl: GlContext,
         window: winit::window::Window,
+        gl_context: PossiblyCurrentContext,
+        surface: Surface<WindowSurface>,
     ) -> Self {
-        let context = T::new(&display);
+        let context = T::new(GlContext::clone(&gl));
         Self {
-            display,
+            gl,
             window,
             context,
+            gl_context,
+            surface,
         }
     }
 

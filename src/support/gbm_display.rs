@@ -3,6 +3,7 @@ use drm::{
     Device as DrmDevice,
 };
 use gbm::{AsRaw, BufferObjectFlags};
+use glow::Context;
 use glutin::{
     config::ConfigTemplateBuilder,
     context::ContextAttributesBuilder,
@@ -18,6 +19,8 @@ use std::{
     os::unix::io::{AsFd, BorrowedFd},
     ptr::NonNull,
 };
+
+use crate::gl::{GlContext, GlContextInner};
 
 use super::ApplicationContext;
 
@@ -165,13 +168,16 @@ where
         )
         .unwrap();
 
-    let display = glium::Display::from_context_surface(current_context, surface).unwrap();
-    println!("glium: {:?}", display);
-    let mut app = T::new(&display);
-    loop {
-        app.draw_frame(&display);
+    let gl = unsafe { Context::from_loader_function_cstr(|s| display.get_proc_address(s)) };
+    let gl = GlContextInner::new(gl, (0, 0, width as _, height as _));
 
-        display.swap_buffers().unwrap();
+    println!("glium: {:?}", display);
+    let mut app = T::new(GlContext::clone(&gl));
+    loop {
+        app.draw_frame();
+
+        surface.swap_buffers(&current_context).unwrap();
+
         let next_bo = unsafe { gbm_surface.lock_front_buffer() }.unwrap();
         let fb = device.add_framebuffer(&next_bo, bpp, bpp).unwrap();
         device
