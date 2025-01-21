@@ -8,12 +8,42 @@ use super::GlContext;
 pub struct Texture {
     texture: glow::Texture,
     size: UVec2,
+    format: TextureFormat,
+    options: TextureOptions,
     gl: GlContext,
+}
+
+#[derive(Copy, Clone, Default)]
+pub struct TextureOptions {
+    pub mag: TextureFiltering,
+    pub min: TextureFiltering,
+    pub wrap: TextureWrapMode,
 }
 
 pub enum TextureFormat {
     RGBA,
     RGB,
+}
+#[derive(Copy, Clone)]
+pub enum TextureFiltering {
+    Nearest,
+    Linear,
+}
+#[derive(Copy, Clone)]
+pub enum TextureWrapMode {
+    ClampToEdge,
+    MirroredRepeat,
+    Repeat,
+}
+impl Default for TextureWrapMode {
+    fn default() -> Self {
+        Self::Repeat
+    }
+}
+impl Default for TextureFiltering {
+    fn default() -> Self {
+        Self::Linear
+    }
 }
 impl TextureFormat {
     fn to_gl(&self) -> u32 {
@@ -22,85 +52,99 @@ impl TextureFormat {
             TextureFormat::RGB => glow::RGB,
         }
     }
+    fn bytes_per_pixel(&self) -> usize {
+        match self {
+            TextureFormat::RGBA => 4,
+            TextureFormat::RGB => 3,
+        }
+    }
 }
+impl TextureFiltering {
+    fn to_gl(&self) -> i32 {
+        match self {
+            TextureFiltering::Nearest => glow::NEAREST as _,
+            TextureFiltering::Linear => glow::LINEAR as _,
+        }
+    }
+}
+impl TextureWrapMode {
+    fn to_gl(&self) -> i32 {
+        (match self {
+            TextureWrapMode::ClampToEdge => glow::CLAMP_TO_EDGE,
+            TextureWrapMode::MirroredRepeat => glow::MIRRORED_REPEAT,
+            TextureWrapMode::Repeat => glow::REPEAT,
+        }) as i32
+    }
+}
+
+const TARGET: u32 = glow::TEXTURE_2D;
 
 impl Texture {
     pub fn new_from_image(gl: GlContext, image: &DynamicImage) -> Self {
-        Self {
+        let mut tex = Self {
             size: image.dimensions().into(),
             texture: unsafe { Self::load_texture(&gl, image) },
+            format: TextureFormat::RGB,
+            options: Default::default(),
             gl,
-        }
+        };
+        tex.set_options(Default::default());
+        tex
     }
 
-    pub fn empty(
-        gl: GlContext,
-        internal_format: i32,
-        dimensions: UVec2,
-        format: u32,
-        ty: u32,
-    ) -> Self {
+    pub fn empty(gl: GlContext, format: TextureFormat, dimensions: UVec2) -> Self {
         let mut tex = unsafe {
             let texture = gl.create_texture().unwrap();
-            gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+            gl.bind_texture(TARGET, Some(texture));
             gl.tex_image_2d(
-                glow::TEXTURE_2D,
+                TARGET,
                 0,
-                glow::RGB as _,
+                format.to_gl() as _,
                 dimensions.x as _,
                 dimensions.y as _,
                 0,
-                glow::RGB,
-                ty,
+                format.to_gl(),
+                glow::UNSIGNED_BYTE,
                 glow::PixelUnpackData::Slice(None),
             );
-            gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_MIN_FILTER,
-                glow::LINEAR as _,
-            );
-            gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_MAG_FILTER,
-                glow::LINEAR as _,
-            );
-            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::REPEAT as _);
-            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::REPEAT as _);
-            gl.bind_texture(glow::TEXTURE_2D, None);
+            gl.bind_texture(TARGET, None);
             Self {
                 size: dimensions,
                 gl,
+                format,
                 texture,
+                options: Default::default(),
             }
         };
-        tex.reset(internal_format, dimensions, format, ty);
+        tex.set_options(Default::default());
         return tex;
     }
 
-    pub fn reset(&mut self, internal_format: i32, dimensions: UVec2, format: u32, ty: u32) {
+    pub fn set_options(&mut self, options: TextureOptions) {
+        self.options = options;
         unsafe {
-            self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
-            self.gl.tex_image_2d(
-                glow::TEXTURE_2D,
-                0,
-                internal_format,
-                dimensions.x as _,
-                dimensions.y as _,
-                0,
-                format,
-                ty,
-                glow::PixelUnpackData::Slice(None),
-            );
-            self.gl.bind_texture(glow::TEXTURE_2D, None);
+            self.gl.bind_texture(TARGET, Some(self.texture));
+            self.gl
+                .tex_parameter_i32(TARGET, glow::TEXTURE_MIN_FILTER, options.min.to_gl());
+            self.gl
+                .tex_parameter_i32(TARGET, glow::TEXTURE_MAG_FILTER, options.mag.to_gl());
+            self.gl
+                .tex_parameter_i32(TARGET, glow::TEXTURE_WRAP_S, options.wrap.to_gl());
+            self.gl
+                .tex_parameter_i32(TARGET, glow::TEXTURE_WRAP_T, options.wrap.to_gl());
+            self.gl.bind_texture(TARGET, None);
         }
-        self.size = dimensions;
     }
 
     pub fn write(&mut self, format: TextureFormat, dimensions: UVec2, data: &[u8]) {
+        assert_eq!(
+            (dimensions.x * dimensions.y) as usize * format.bytes_per_pixel(),
+            data.len()
+        );
         unsafe {
-            self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+            self.gl.bind_texture(TARGET, Some(self.texture));
             self.gl.tex_image_2d(
-                glow::TEXTURE_2D,
+                TARGET,
                 0,
                 format.to_gl() as _,
                 dimensions.x as _,
@@ -110,47 +154,31 @@ impl Texture {
                 glow::UNSIGNED_BYTE,
                 glow::PixelUnpackData::Slice(Some(data)),
             );
-
-            self.gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_MIN_FILTER,
-                glow::LINEAR as _,
-            );
-            self.gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_MAG_FILTER,
-                glow::LINEAR as _,
-            );
-            self.gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_WRAP_S,
-                glow::CLAMP_TO_EDGE as _,
-            );
-            self.gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_WRAP_T,
-                glow::CLAMP_TO_EDGE as _,
-            );
-            self.gl.bind_texture(glow::TEXTURE_2D, None);
+            self.gl.bind_texture(TARGET, None);
         }
+        self.format = format;
         self.size = dimensions;
     }
 
-    pub fn write_sub(&self, format: TextureFormat, offset: UVec2, dimensions: UVec2, data: &[u8]) {
+    pub fn write_sub(&self, offset: UVec2, dimensions: UVec2, data: &[u8]) {
+        assert_eq!(
+            (dimensions.x * dimensions.y) as usize * self.format.bytes_per_pixel(),
+            data.len()
+        );
         unsafe {
-            self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+            self.gl.bind_texture(TARGET, Some(self.texture));
             self.gl.tex_sub_image_2d(
-                glow::TEXTURE_2D,
+                TARGET,
                 0,
                 offset.x as _,
                 offset.y as _,
                 dimensions.x as _,
                 dimensions.y as _,
-                format.to_gl(),
+                self.format.to_gl(),
                 glow::UNSIGNED_BYTE,
                 glow::PixelUnpackData::Slice(Some(data)),
             );
-            self.gl.bind_texture(glow::TEXTURE_2D, None);
+            self.gl.bind_texture(TARGET, None);
         }
     }
 
@@ -164,11 +192,12 @@ impl Texture {
 
     unsafe fn load_texture(gl: &glow::Context, image: &DynamicImage) -> glow::Texture {
         let texture = gl.create_texture().unwrap();
-        gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+        gl.bind_texture(TARGET, Some(texture));
+        // FIXME set in graphics init
         gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
         let image_data = image.to_rgb8().into_raw();
         gl.tex_image_2d(
-            glow::TEXTURE_2D,
+            TARGET,
             0,
             glow::RGB as _,
             image.width() as i32,
@@ -178,20 +207,7 @@ impl Texture {
             glow::UNSIGNED_BYTE,
             glow::PixelUnpackData::Slice(Some(image_data.as_slice())),
         );
-        gl.tex_parameter_i32(
-            glow::TEXTURE_2D,
-            glow::TEXTURE_MIN_FILTER,
-            glow::LINEAR as _,
-        );
-        gl.tex_parameter_i32(
-            glow::TEXTURE_2D,
-            glow::TEXTURE_MAG_FILTER,
-            glow::LINEAR as _,
-        );
-        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::REPEAT as _);
-        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::REPEAT as _);
-        // gl.generate_mipmap(glow::TEXTURE_2D);
-        gl.bind_texture(glow::TEXTURE_2D, None);
+        gl.bind_texture(TARGET, None);
         texture
     }
 
@@ -200,7 +216,7 @@ impl Texture {
             if let Some(channel) = channel {
                 self.gl.active_texture(glow::TEXTURE0 + channel as u32);
             }
-            self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+            self.gl.bind_texture(TARGET, Some(self.texture));
         }
     }
 }

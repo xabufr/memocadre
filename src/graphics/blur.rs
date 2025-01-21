@@ -3,6 +3,7 @@ use glow::HasContext;
 use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
     framebuffer::FramebufferObject,
+    texture::TextureFormat,
     vao::{BufferInfo, VertexArrayObject},
     GlContext, Program, Texture,
 };
@@ -74,20 +75,8 @@ impl GlowImageBlurr {
 
     pub fn blur(&self, gl: &GlContext, texture: &Texture) -> Texture {
         let textures = [
-            Texture::empty(
-                GlContext::clone(gl),
-                glow::RGB as _,
-                texture.size(),
-                glow::RGB,
-                glow::UNSIGNED_BYTE,
-            ),
-            Texture::empty(
-                GlContext::clone(gl),
-                glow::RGB as _,
-                texture.size(),
-                glow::RGB,
-                glow::UNSIGNED_BYTE,
-            ),
+            Texture::empty(GlContext::clone(gl), TextureFormat::RGB, texture.size()),
+            Texture::empty(GlContext::clone(gl), TextureFormat::RGB, texture.size()),
         ];
         let fbos = textures
             .into_iter()

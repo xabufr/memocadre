@@ -12,7 +12,7 @@ use mint::{IntoMint, Point2};
 
 use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
-    texture::TextureFormat,
+    texture::{TextureFiltering, TextureFormat, TextureOptions, TextureWrapMode},
     vao::{BufferInfo, VertexArrayObject},
     BlendMode, DrawParameters, GlContext, Program, Texture,
 };
@@ -104,13 +104,7 @@ impl EpaintDisplay {
             fonts,
             pixels_per_point,
             max_texture_size,
-            texture: Texture::empty(
-                GlContext::clone(&gl),
-                glow::RGBA as _,
-                (0, 0).into(),
-                glow::RGBA,
-                glow::UNSIGNED_BYTE,
-            ),
+            texture: Texture::empty(GlContext::clone(&gl), TextureFormat::RGBA, (0, 0).into()),
             tesselator,
             program,
             text_mesh: Mesh::default(),
@@ -229,16 +223,24 @@ impl EpaintDisplay {
     }
 
     fn update_texture(&mut self, delta: epaint::ImageDelta) {
-        println!("{:?}", delta.options);
+        let options = TextureOptions {
+            min: convert_filter_option(delta.options.minification),
+            mag: convert_filter_option(delta.options.magnification),
+            wrap: match delta.options.wrap_mode {
+                epaint::textures::TextureWrapMode::ClampToEdge => TextureWrapMode::ClampToEdge,
+                epaint::textures::TextureWrapMode::Repeat => TextureWrapMode::Repeat,
+                epaint::textures::TextureWrapMode::MirroredRepeat => {
+                    TextureWrapMode::MirroredRepeat
+                }
+            },
+        };
+        self.texture.set_options(options);
+
         let data = Self::convert_texture(&delta.image);
         let dimensions = (delta.image.width() as u32, delta.image.height() as _).into();
         if let Some(pos) = delta.pos {
-            self.texture.write_sub(
-                TextureFormat::RGBA,
-                UVec2::new(pos[0] as _, pos[1] as _),
-                dimensions,
-                &data,
-            );
+            self.texture
+                .write_sub(UVec2::new(pos[0] as _, pos[1] as _), dimensions, &data);
         } else {
             self.tesselator = Tessellator::new(
                 self.pixels_per_point,
@@ -258,6 +260,12 @@ impl EpaintDisplay {
                 .collect(),
             _ => unimplemented!(),
         }
+    }
+}
+fn convert_filter_option(filter: epaint::textures::TextureFilter) -> TextureFiltering {
+    match filter {
+        epaint::textures::TextureFilter::Nearest => TextureFiltering::Nearest,
+        epaint::textures::TextureFilter::Linear => TextureFiltering::Linear,
     }
 }
 
