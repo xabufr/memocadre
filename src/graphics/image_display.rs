@@ -1,18 +1,22 @@
-use glam::{Mat4, Quat, UVec2, Vec2, Vec3};
-use glium::{backend::Facade, Blend, DrawParameters, Surface, VertexBuffer};
+use glam::{Mat4, Quat, Vec2, Vec3};
+
+use crate::gl::{
+    buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
+    vao::{BufferInfo, VertexArrayObject},
+    BlendMode, DrawParameters, GlContext, Program,
+};
 
 use super::{SharedTexture2d, Vertex2dUv};
 
-pub struct ImageDrawer {
-    vertex_buffer: VertexBuffer<Vertex2dUv>,
-    index_buffer: glium::IndexBuffer<u16>,
-    program: glium::Program,
+pub struct GlowImageDrawer {
+    // vertex_array: glow::NativeVertexArray,
+    // index_buffer: ElementBufferObject,
+    // vertex_buffer: BufferObject<Vertex2dUv>,
+    vao: VertexArrayObject<Vertex2dUv>,
+    // index_buffer: glow::NativeBuffer,
+    program: Program,
 }
 
-// pub struct URect {
-//     pub position: UVec2,
-//     pub dimensions: UVec2,
-// }
 pub struct Sprite {
     pub texture: SharedTexture2d,
     // Position of the sprite in pixels on the screen
@@ -23,18 +27,15 @@ pub struct Sprite {
     pub size: Vec2,
     //
     pub opacity: f32,
-
-    pub texture_rect: Option<glium::Rect>,
 }
 
 impl Sprite {
     pub fn new(texture: SharedTexture2d) -> Self {
         Self {
             position: Vec2::ZERO,
-            size: Vec2::new(texture.width() as _, texture.height() as _),
-            texture,
+            size: texture.size().as_vec2(),
             opacity: 1.,
-            texture_rect: None,
+            texture,
         }
     }
 
@@ -47,7 +48,7 @@ impl Sprite {
     }
 
     pub fn get_texture_size(&self) -> Vec2 {
-        Vec2::new(self.texture.width() as _, self.texture.height() as _)
+        self.texture.size().as_vec2()
     }
 }
 
@@ -58,61 +59,74 @@ const VERTICES: [Vertex2dUv; 4] = [
     Vertex2dUv { pos : [ 1., 1. ], uv: [ 1., 1. ] },
     Vertex2dUv { pos : [ 0., 1. ], uv: [ 0., 1. ] },
 ];
-const INDICES: [u16; 6] = [0, 1, 2, 0, 2, 3];
+const INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 
-impl ImageDrawer {
-    pub fn new<F>(facade: &F) -> Self
-    where
-        F: Facade,
-    {
-        Self {
-            vertex_buffer: glium::VertexBuffer::new(facade, &VERTICES).unwrap(),
-            index_buffer: glium::IndexBuffer::new(
-                facade,
-                glium::index::PrimitiveType::TrianglesList,
-                &INDICES,
-            )
-            .unwrap(),
-            program: program!(facade,
-                100 => {
-                    vertex: shader::VERTEX,
-                    fragment: shader::FRAGMENT,
-                },
-            )
-            .unwrap(),
-        }
+impl GlowImageDrawer {
+    pub fn new(gl: &GlContext) -> Self {
+        let mut vbo =
+            BufferObject::new_vertex_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
+        let mut ebo =
+            ElementBufferObject::new_index_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
+
+        let program = Program::new(GlContext::clone(gl), shader::VERTEX, shader::FRAGMENT);
+        let pos = program.get_attrib_location("pos");
+        let uv = program.get_attrib_location("uv");
+
+        vbo.write(&VERTICES);
+        ebo.write(&INDICES);
+
+        let stride = std::mem::size_of::<Vertex2dUv>() as i32;
+        let buffer_infos = vec![
+            BufferInfo {
+                location: pos,
+                data_type: glow::FLOAT,
+                vector_size: 2,
+                normalized: false,
+                stride,
+                offset: memoffset::offset_of!(Vertex2dUv, pos) as i32,
+            },
+            BufferInfo {
+                location: uv,
+                data_type: glow::FLOAT,
+                vector_size: 2,
+                normalized: false,
+                stride,
+                offset: memoffset::offset_of!(Vertex2dUv, uv) as i32,
+            },
+        ];
+        let vao = VertexArrayObject::new(GlContext::clone(gl), vbo, ebo, buffer_infos);
+        Self { vao, program }
     }
-
-    pub fn draw_sprite<S>(&self, surface: &mut S, sprite: &Sprite)
-    where
-        S: Surface,
-    {
-        let (width, height) = surface.get_dimensions();
+    pub fn draw_sprite(&self, gl: &GlContext, sprite: &Sprite) {
         let model = Mat4::from_scale_rotation_translation(
             Vec3::from((sprite.size, 0.)),
             Quat::IDENTITY,
             Vec3::from((sprite.position, 0.)),
         );
+
+        let (_, _, width, height) = gl.current_viewport();
+
         let view = glam::Mat4::orthographic_rh_gl(0., width as _, height as _, 0., -1., 1.);
-        let uniforms = uniform! {
-          model: model.to_cols_array_2d(),
-          view: view.to_cols_array_2d(),
-          tex: sprite.texture.as_ref(),
-          opacity: sprite.opacity,
-        };
-        surface
-            .draw(
-                &self.vertex_buffer,
-                &self.index_buffer,
-                &self.program,
-                &uniforms,
-                &DrawParameters {
-                    blend: Blend::alpha_blending(),
-                    scissor: sprite.texture_rect,
-                    ..Default::default()
-                },
-            )
-            .unwrap();
+        let prog_bind = self.program.bind();
+
+        prog_bind.set_uniform("opacity", sprite.opacity);
+        prog_bind.set_uniform("model", model);
+        prog_bind.set_uniform("view", view);
+        prog_bind.set_uniform("tex", 0);
+
+        sprite.texture.bind(Some(0));
+
+        let _guard = self.vao.bind_guard();
+
+        gl.draw(
+            &_guard,
+            &prog_bind,
+            INDICES.len() as _,
+            0,
+            &DrawParameters {
+                blend: Some(BlendMode::alpha()),
+            },
+        );
     }
 }
 
@@ -138,6 +152,6 @@ mod shader {
     uniform lowp float opacity;
 
     void main() {
-        gl_FragColor = vec4(texture2D(tex, texcoord).xyz, opacity);
+        gl_FragColor = vec4(texture2D(tex, texcoord).rgb, opacity);
     }"#;
 }

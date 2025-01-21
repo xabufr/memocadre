@@ -20,11 +20,12 @@ pkgs.mkShell {
       with pkgs;
       pkgs.lib.makeLibraryPath [
         libGL
+        libxkbcommon
+        wayland
         xorg.libX11
         xorg.libXrender
         xorg.libXcursor
         xorg.libXi
-        libxkbcommon
         xorg.libxcb
       ]
     }"

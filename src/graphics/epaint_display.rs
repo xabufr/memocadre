@@ -1,28 +1,36 @@
 use std::ops::{RangeFull, RangeTo};
 
+use bytemuck::{Pod, Zeroable};
 use epaint::{
     text::{FontDefinitions, LayoutJob},
     Color32, FontId, Fonts, ImageData, Mesh, Pos2, Rect, RectShape, TessellationOptions,
     Tessellator, TextShape,
 };
-use glam::Vec2;
-use glium::{backend::Facade, CapabilitiesSource, DrawParameters, Surface};
+use glam::{UVec2, Vec2};
+use glium::{backend::Facade, CapabilitiesSource, Surface};
 use mint::{IntoMint, Point2};
+
+use crate::gl::{
+    buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
+    texture::{TextureFiltering, TextureFormat, TextureOptions, TextureWrapMode},
+    vao::{BufferInfo, VertexArrayObject},
+    BlendMode, DrawParameters, GlContext, Program, Texture,
+};
 
 pub struct EpaintDisplay {
     fonts: Fonts,
     pixels_per_point: f32,
     max_texture_size: usize,
-    texture: glium::Texture2d,
+    texture: Texture,
     tesselator: Tessellator,
-    program: glium::Program,
+    program: Program,
     text_mesh: Mesh,
-    text_vertex: glium::VertexBuffer<Vertex>,
-    text_indices: glium::IndexBuffer<u32>,
+    text_vao: VertexArrayObject<Vertex>,
+    gl: GlContext,
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Pod, Zeroable)]
 struct Vertex {
     pos: [f32; 2],
     color: [u8; 4],
@@ -41,9 +49,9 @@ impl From<epaint::Vertex> for Vertex {
 }
 
 impl EpaintDisplay {
-    pub fn new<F: Facade>(facade: &F) -> Self {
+    pub fn new(gl: GlContext) -> Self {
         let pixels_per_point: f32 = 1.;
-        let max_texture_size = facade.get_context().get_capabilities().max_texture_size as usize;
+        let max_texture_size = gl.capabilities().max_texture_size as usize;
         let fonts = Fonts::new(
             pixels_per_point,
             max_texture_size,
@@ -55,27 +63,54 @@ impl EpaintDisplay {
             fonts.font_image_size(),
             Vec::new(),
         );
+
+        let mut vbo =
+            BufferObject::new_vertex_buffer(GlContext::clone(&gl), BufferUsage::DynamicDraw);
+        let mut ebo =
+            ElementBufferObject::new_index_buffer(GlContext::clone(&gl), BufferUsage::DynamicDraw);
+        vbo.write(&[]);
+        ebo.write(&[]);
+
+        let program = Program::new(GlContext::clone(&gl), shaders::VERTEX, shaders::FRAGMENT);
+        let stride = std::mem::size_of::<Vertex>() as i32;
+        let buffer_infos = vec![
+            BufferInfo {
+                location: program.get_attrib_location("pos"),
+                data_type: glow::FLOAT,
+                vector_size: 2,
+                normalized: false,
+                stride,
+                offset: memoffset::offset_of!(Vertex, pos) as i32,
+            },
+            BufferInfo {
+                location: program.get_attrib_location("color"),
+                data_type: glow::UNSIGNED_BYTE,
+                vector_size: 4,
+                normalized: false,
+                stride,
+                offset: memoffset::offset_of!(Vertex, color) as i32,
+            },
+            BufferInfo {
+                location: program.get_attrib_location("uv"),
+                data_type: glow::FLOAT,
+                vector_size: 2,
+                normalized: false,
+                stride,
+                offset: memoffset::offset_of!(Vertex, uv) as i32,
+            },
+        ];
+        let vao = VertexArrayObject::new(GlContext::clone(&gl), vbo, ebo, buffer_infos);
+
         Self {
             fonts,
             pixels_per_point,
             max_texture_size,
-            texture: glium::Texture2d::empty(facade, 0, 0).unwrap(),
+            texture: Texture::empty(GlContext::clone(&gl), TextureFormat::RGBA, (0, 0).into()),
             tesselator,
-            program: program!(facade,
-                              100 => {
-                                  vertex: shaders::VERTEX,
-                                  fragment: shaders::FRAGMENT,
-                              },
-            )
-            .unwrap(),
+            program,
             text_mesh: Mesh::default(),
-            text_indices: glium::IndexBuffer::empty(
-                facade,
-                glium::index::PrimitiveType::TrianglesList,
-                0,
-            )
-            .unwrap(),
-            text_vertex: glium::VertexBuffer::empty(facade, 0).unwrap(),
+            text_vao: vao,
+            gl,
         }
     }
 
@@ -85,43 +120,31 @@ impl EpaintDisplay {
         self.text_mesh.clear();
     }
 
-    pub fn draw_texts(&self, surface: &mut impl Surface) {
-        let (width, height) = surface.get_dimensions();
+    pub fn draw_texts(&self) {
+        let (_, _, width, height) = self.gl.current_viewport();
         let view = glam::Mat4::orthographic_rh_gl(0., width as _, height as _, 0., -1., 1.);
         let width_in_points = width as f32 / self.pixels_per_point;
         let height_in_points = height as f32 / self.pixels_per_point;
-        let uniforms = uniform! {
-            tex: &self.texture, //.sampled().magnify_filter(glium::uniforms::MagnifySamplerFilter::Linear).minify_filter(glium::uniforms::MinifySamplerFilter::Linear).wrap_function(glium::uniforms::SamplerWrapFunction::Clamp),
-            view: view.to_cols_array_2d(),
-            u_screen_size: [width_in_points, height_in_points],
-        };
-
-        surface
-            .draw(
-                &self.text_vertex,
-                self.text_indices
-                    .slice(RangeTo {
-                        end: self.text_mesh.indices.len(),
-                    })
-                    .unwrap(),
-                &self.program,
-                &uniforms,
-                &DrawParameters {
-                    blend: glium::Blend {
-                        color: glium::BlendingFunction::Addition {
-                            source: glium::LinearBlendingFactor::One,
-                            destination: glium::LinearBlendingFactor::OneMinusSourceAlpha,
-                        },
-                        alpha: glium::BlendingFunction::Addition {
-                            source: glium::LinearBlendingFactor::OneMinusDestinationAlpha,
-                            destination: glium::LinearBlendingFactor::One,
-                        },
-                        constant_value: (0.0, 0.0, 0.0, 0.0),
-                    },
-                    ..Default::default()
-                },
-            )
-            .unwrap();
+        // let uniforms = uniform! {
+        //     tex: &self.texture, //.sampled().magnify_filter(glium::uniforms::MagnifySamplerFilter::Linear).minify_filter(glium::uniforms::MinifySamplerFilter::Linear).wrap_function(glium::uniforms::SamplerWrapFunction::Clamp),
+        //     view: view.to_cols_array_2d(),
+        //     u_screen_size: [width_in_points, height_in_points],
+        // };
+        let prog = self.program.bind();
+        prog.set_uniform("tex", 0);
+        self.texture.bind(Some(0));
+        prog.set_uniform("view", view);
+        // prog.set_uniform("u_screen_size", (width_in_points, height_in_points));
+        let vao_bind = self.text_vao.bind_guard();
+        self.gl.draw(
+            &vao_bind,
+            &prog,
+            self.text_mesh.indices.len() as _,
+            0,
+            &DrawParameters {
+                blend: Some(BlendMode::alpha()),
+            },
+        );
     }
 
     // TODO Better interface
@@ -133,9 +156,9 @@ impl EpaintDisplay {
         );
     }
 
-    pub fn update<F: Facade>(&mut self, facade: &F) {
+    pub fn update(&mut self) {
         if let Some(delta) = self.fonts.font_image_delta() {
-            self.update_texture(facade, delta);
+            self.update_texture(delta);
         }
 
         let vertex = self
@@ -146,46 +169,39 @@ impl EpaintDisplay {
             .map(Vertex::from)
             .collect::<Vec<_>>();
 
-        if self.text_vertex.len() >= vertex.len() {
-            self.text_vertex
-                .slice(RangeTo { end: vertex.len() })
-                .unwrap()
-                .write(&vertex);
+        if self.text_vao.vertex_buffer.size() >= vertex.len() {
+            self.text_vao.vertex_buffer.write_sub(0, &vertex);
         } else {
-            self.text_vertex = glium::VertexBuffer::dynamic(facade, &vertex).unwrap();
+            self.text_vao.vertex_buffer.write(&vertex);
         }
-        if self.text_indices.len() >= self.text_mesh.indices.len() {
-            self.text_indices
-                .slice(RangeTo {
-                    end: self.text_mesh.indices.len(),
-                })
-                .unwrap()
-                .write(&self.text_mesh.indices);
+        if self.text_vao.element_buffer.size() >= self.text_mesh.indices.len() {
+            self.text_vao
+                .element_buffer
+                .write_sub(0, &self.text_mesh.indices);
         } else {
-            self.text_indices = glium::IndexBuffer::dynamic(
-                facade,
-                glium::index::PrimitiveType::TrianglesList,
-                &self.text_mesh.indices,
-            )
-            .unwrap();
+            self.text_vao.element_buffer.write(&self.text_mesh.indices);
         }
     }
 
-    fn update_texture<F: Facade>(&mut self, facade: &F, delta: epaint::ImageDelta) {
-        let data = glium::texture::RawImage2d {
-            data: Self::convert_texture(&delta.image).into(),
-            format: glium::texture::ClientFormat::U8U8U8U8,
-            height: delta.image.height() as _,
-            width: delta.image.width() as _,
+    fn update_texture(&mut self, delta: epaint::ImageDelta) {
+        let options = TextureOptions {
+            min: convert_filter_option(delta.options.minification),
+            mag: convert_filter_option(delta.options.magnification),
+            wrap: match delta.options.wrap_mode {
+                epaint::textures::TextureWrapMode::ClampToEdge => TextureWrapMode::ClampToEdge,
+                epaint::textures::TextureWrapMode::Repeat => TextureWrapMode::Repeat,
+                epaint::textures::TextureWrapMode::MirroredRepeat => {
+                    TextureWrapMode::MirroredRepeat
+                }
+            },
         };
+        self.texture.set_options(options);
+
+        let data = Self::convert_texture(&delta.image);
+        let dimensions = (delta.image.width() as u32, delta.image.height() as _).into();
         if let Some(pos) = delta.pos {
-            let rect = glium::Rect {
-                left: pos[0] as u32,
-                bottom: pos[1] as u32,
-                width: delta.image.width() as _,
-                height: delta.image.height() as _,
-            };
-            self.texture.write(rect, data);
+            self.texture
+                .write_sub(UVec2::new(pos[0] as _, pos[1] as _), dimensions, &data);
         } else {
             self.tesselator = Tessellator::new(
                 self.pixels_per_point,
@@ -193,12 +209,7 @@ impl EpaintDisplay {
                 delta.image.size(),
                 Vec::new(),
             );
-            self.texture = glium::Texture2d::with_mipmaps(
-                facade,
-                data,
-                glium::texture::MipmapsOption::NoMipmap,
-            )
-            .unwrap();
+            self.texture.write(TextureFormat::RGBA, dimensions, &data);
         }
     }
 
@@ -210,6 +221,12 @@ impl EpaintDisplay {
                 .collect(),
             _ => unimplemented!(),
         }
+    }
+}
+fn convert_filter_option(filter: epaint::textures::TextureFilter) -> TextureFiltering {
+    match filter {
+        epaint::textures::TextureFilter::Nearest => TextureFiltering::Nearest,
+        epaint::textures::TextureFilter::Linear => TextureFiltering::Linear,
     }
 }
 

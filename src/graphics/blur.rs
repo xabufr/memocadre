@@ -1,12 +1,24 @@
-use glium::{backend::Facade, Surface, VertexBuffer};
+use glow::HasContext;
+
+use crate::gl::{
+    buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
+    framebuffer::FramebufferObject,
+    texture::TextureFormat,
+    vao::{BufferInfo, VertexArrayObject},
+    GlContext, Program, Texture,
+};
 
 use super::Vertex2dUv;
 
-pub struct ImageBlurr {
-    vertex_buffer: VertexBuffer<Vertex2dUv>,
-    index_buffer: glium::IndexBuffer<u16>,
-    program: glium::Program,
+pub struct GlowImageBlurr {
+    vertex_array: VertexArrayObject<Vertex2dUv>,
+    program: Program,
 }
+// pub struct ImageBlurr {
+//     vertex_buffer: VertexBuffer<Vertex2dUv>,
+//     index_buffer: glium::IndexBuffer<u16>,
+//     program: glium::Program,
+// }
 
 #[rustfmt::skip]
 const VERTICES: [Vertex2dUv; 4] = [
@@ -15,83 +27,108 @@ const VERTICES: [Vertex2dUv; 4] = [
     Vertex2dUv { pos : [  1.,  1. ], uv: [ 1., 1. ] },
     Vertex2dUv { pos : [ -1.,  1. ], uv: [ 0., 1. ] },
 ];
-const INDICES: [u16; 6] = [0, 1, 2, 0, 2, 3];
+const INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
+impl GlowImageBlurr {
+    pub fn new(gl: &GlContext) -> Self {
+        let mut vbo =
+            BufferObject::new_vertex_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
+        let mut ebo =
+            ElementBufferObject::new_index_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
 
-impl ImageBlurr {
-    pub fn new<F>(facade: &F) -> Self
-    where
-        F: Facade,
-    {
+        let program = Program::new(
+            GlContext::clone(gl),
+            shader::VERTEX_BLUR,
+            shader::FRAGMENT_BLUR,
+        );
+        let program = program;
+        let pos = program.get_attrib_location("pos");
+        let uv = program.get_attrib_location("uv");
+
+        let stride = std::mem::size_of::<Vertex2dUv>() as i32;
+        let buffer_infos = vec![
+            BufferInfo {
+                location: pos,
+                vector_size: 2,
+                data_type: glow::FLOAT,
+                normalized: false,
+                stride,
+                offset: memoffset::offset_of!(Vertex2dUv, pos) as i32,
+            },
+            BufferInfo {
+                location: uv,
+                vector_size: 2,
+                data_type: glow::FLOAT,
+                normalized: false,
+                stride,
+                offset: memoffset::offset_of!(Vertex2dUv, uv) as i32,
+            },
+        ];
+
+        vbo.write(&VERTICES);
+        ebo.write(&INDICES);
+        let vao = VertexArrayObject::new(GlContext::clone(gl), vbo, ebo, buffer_infos);
+
         Self {
-            vertex_buffer: glium::VertexBuffer::new(facade, &VERTICES).unwrap(),
-            index_buffer: glium::IndexBuffer::new(
-                facade,
-                glium::index::PrimitiveType::TrianglesList,
-                &INDICES,
-            )
-            .unwrap(),
-            program: program!(facade,
-                100 => {
-                    vertex: shader::VERTEX_BLUR,
-                    fragment: shader::FRAGMENT_BLUR,
-                },
-            )
-            .unwrap(),
+            vertex_array: vao,
+            program,
         }
     }
 
-    pub fn blur(&self, facade: &impl Facade, texture: &glium::Texture2d) -> glium::Texture2d {
-        use glium::framebuffer::SimpleFrameBuffer;
+    pub fn blur(&self, gl: &GlContext, texture: &Texture) -> Texture {
         let textures = [
-            glium::Texture2d::empty(facade, texture.width(), texture.height()).unwrap(),
-            glium::Texture2d::empty(facade, texture.width(), texture.height()).unwrap(),
+            Texture::empty(GlContext::clone(gl), TextureFormat::RGB, texture.size()),
+            Texture::empty(GlContext::clone(gl), TextureFormat::RGB, texture.size()),
         ];
-        let mut fbos = [
-            SimpleFrameBuffer::new(facade, &textures[0]).unwrap(),
-            SimpleFrameBuffer::new(facade, &textures[1]).unwrap(),
-        ];
+        let fbos = textures
+            .into_iter()
+            .map(|texture| FramebufferObject::with_texture(GlContext::clone(gl), texture))
+            .collect::<Vec<_>>();
+
         let mut source_texture = texture;
 
         let radius: f32 = 6.0;
-        let size = (texture.width() as f32, texture.height() as f32);
         let passes = 6;
+
+        let program_bind = self.program.bind();
+        let _vao_guard = self.vertex_array.bind_guard();
+
+        program_bind.set_uniform("tex_size", texture.size().as_vec2());
+        program_bind.set_uniform("tex", 0);
+
         for i in 0..=passes {
             let radius = radius * (passes - i) as f32 / (passes as f32);
-            let uniforms = uniform! {
-              tex_size: size,
-              tex: source_texture,
-              dir: (radius, 0.),
-            };
-            fbos[0]
-                .draw(
-                    &self.vertex_buffer,
-                    &self.index_buffer,
-                    &self.program,
-                    &uniforms,
-                    &Default::default(),
-                )
-                .unwrap();
-            source_texture = &textures[0];
 
-            let uniforms = uniform! {
-              tex_size: size,
-              tex: source_texture,
-              dir: (0., radius),
-            };
-            fbos[1]
-                .draw(
-                    &self.vertex_buffer,
-                    &self.index_buffer,
-                    &self.program,
-                    &uniforms,
+            {
+                program_bind.set_uniform("dir", (radius, 0.));
+                let _guard = fbos[0].bind_guard();
+                source_texture.bind(Some(0));
+                gl.draw(
+                    &_vao_guard,
+                    &program_bind,
+                    INDICES.len() as _,
+                    0,
                     &Default::default(),
-                )
-                .unwrap();
-            source_texture = &textures[1];
+                );
+            }
+
+            source_texture = fbos[0].get_texture();
+
+            {
+                program_bind.set_uniform("dir", (0., radius));
+                let _guard = fbos[1].bind_guard();
+                source_texture.bind(Some(0));
+                gl.draw(
+                    &_vao_guard,
+                    &program_bind,
+                    INDICES.len() as _,
+                    0,
+                    &Default::default(),
+                );
+            }
+
+            source_texture = fbos[1].get_texture();
         }
-
-        let [_, texture] = textures;
-        return texture;
+        return fbos.into_iter().last().unwrap().into_texture();
     }
 }
 
