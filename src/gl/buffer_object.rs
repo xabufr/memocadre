@@ -13,6 +13,8 @@ pub enum BufferTarget {
 #[derive(Copy, Clone, Debug)]
 pub enum BufferUsage {
     StaticDraw,
+    StreamDraw,
+    DynamicDraw,
 }
 
 impl BufferTarget {
@@ -28,6 +30,8 @@ impl BufferUsage {
     fn get(&self) -> u32 {
         match self {
             BufferUsage::StaticDraw => glow::STATIC_DRAW,
+            BufferUsage::StreamDraw => glow::STREAM_DRAW,
+            BufferUsage::DynamicDraw => glow::DYNAMIC_DRAW,
         }
     }
 }
@@ -36,6 +40,7 @@ pub struct BufferObject<Type> {
     target: BufferTarget,
     usage: BufferUsage,
     gl: GlContext,
+    size: usize,
     _data_type: PhantomData<Type>,
 }
 
@@ -50,13 +55,26 @@ impl<'a, T> Drop for BindGuard<'a, T> {
 }
 
 impl<Type: NoUninit> BufferObject<Type> {
-    pub fn write(&self, data: &[Type]) {
+    pub fn write(&mut self, data: &[Type]) {
+        self.size = data.len();
         unsafe {
             self.gl.bind_buffer(self.target.get(), Some(self.object));
             self.gl.buffer_data_u8_slice(
                 self.target.get(),
                 bytemuck::cast_slice(data),
                 self.usage.get(),
+            );
+        }
+    }
+    pub fn write_sub(&self, offset: usize, data: &[Type]) {
+        assert!(offset + data.len() <= self.size);
+        let offset = offset * std::mem::size_of::<Type>();
+        unsafe {
+            self.gl.bind_buffer(self.target.get(), Some(self.object));
+            self.gl.buffer_sub_data_u8_slice(
+                self.target.get(),
+                offset as _,
+                bytemuck::cast_slice(data),
             );
         }
     }
@@ -70,6 +88,7 @@ impl<Type> BufferObject<Type> {
             target,
             usage,
             gl,
+            size: 0,
             _data_type: PhantomData,
         }
     }
@@ -89,6 +108,9 @@ impl<Type> BufferObject<Type> {
     pub fn bind_guard(&self) -> BindGuard<Type> {
         self.bind();
         BindGuard { buffer: self }
+    }
+    pub fn size(&self) -> usize {
+        self.size
     }
 }
 

@@ -64,9 +64,10 @@ impl EpaintDisplay {
             Vec::new(),
         );
 
-        let vbo = BufferObject::new_vertex_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw);
-        let ebo =
-            ElementBufferObject::new_index_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw);
+        let mut vbo =
+            BufferObject::new_vertex_buffer(GlContext::clone(&gl), BufferUsage::DynamicDraw);
+        let mut ebo =
+            ElementBufferObject::new_index_buffer(GlContext::clone(&gl), BufferUsage::DynamicDraw);
         vbo.write(&[]);
         ebo.write(&[]);
 
@@ -144,33 +145,6 @@ impl EpaintDisplay {
                 blend: Some(BlendMode::alpha()),
             },
         );
-
-        // surface
-        //     .draw(
-        //         &self.text_vertex,
-        //         self.text_indices
-        //             .slice(RangeTo {
-        //                 end: self.text_mesh.indices.len(),
-        //             })
-        //             .unwrap(),
-        //         &self.program,
-        //         &uniforms,
-        //         &DrawParameters {
-        //             blend: glium::Blend {
-        //                 color: glium::BlendingFunction::Addition {
-        //                     source: glium::LinearBlendingFactor::One,
-        //                     destination: glium::LinearBlendingFactor::OneMinusSourceAlpha,
-        //                 },
-        //                 alpha: glium::BlendingFunction::Addition {
-        //                     source: glium::LinearBlendingFactor::OneMinusDestinationAlpha,
-        //                     destination: glium::LinearBlendingFactor::One,
-        //                 },
-        //                 constant_value: (0.0, 0.0, 0.0, 0.0),
-        //             },
-        //             ..Default::default()
-        //         },
-        //     )
-        //     .unwrap();
     }
 
     // TODO Better interface
@@ -194,32 +168,19 @@ impl EpaintDisplay {
             .copied()
             .map(Vertex::from)
             .collect::<Vec<_>>();
-        self.text_vao.vertex_buffer.write(&vertex);
-        self.text_vao.element_buffer.write(&self.text_mesh.indices);
 
-        // if self.text_vertex.len() >= vertex.len() {
-        //     self.text_vertex
-        //         .slice(RangeTo { end: vertex.len() })
-        //         .unwrap()
-        //         .write(&vertex);
-        // } else {
-        //     self.text_vertex = glium::VertexBuffer::dynamic(facade, &vertex).unwrap();
-        // }
-        // if self.text_indices.len() >= self.text_mesh.indices.len() {
-        //     self.text_indices
-        //         .slice(RangeTo {
-        //             end: self.text_mesh.indices.len(),
-        //         })
-        //         .unwrap()
-        //         .write(&self.text_mesh.indices);
-        // } else {
-        //     self.text_indices = glium::IndexBuffer::dynamic(
-        //         facade,
-        //         glium::index::PrimitiveType::TrianglesList,
-        //         &self.text_mesh.indices,
-        //     )
-        //     .unwrap();
-        // }
+        if self.text_vao.vertex_buffer.size() >= vertex.len() {
+            self.text_vao.vertex_buffer.write_sub(0, &vertex);
+        } else {
+            self.text_vao.vertex_buffer.write(&vertex);
+        }
+        if self.text_vao.element_buffer.size() >= self.text_mesh.indices.len() {
+            self.text_vao
+                .element_buffer
+                .write_sub(0, &self.text_mesh.indices);
+        } else {
+            self.text_vao.element_buffer.write(&self.text_mesh.indices);
+        }
     }
 
     fn update_texture(&mut self, delta: epaint::ImageDelta) {

@@ -63,8 +63,9 @@ const INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 
 impl GlowImageDrawer {
     pub fn new(gl: &GlContext) -> Self {
-        let vbo = BufferObject::new_vertex_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
-        let ebo =
+        let mut vbo =
+            BufferObject::new_vertex_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
+        let mut ebo =
             ElementBufferObject::new_index_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
 
         let program = Program::new(GlContext::clone(gl), shader::VERTEX, shader::FRAGMENT);
