@@ -223,8 +223,26 @@ impl GlowApplication {
 
             if free_space.x > 50. {
                 blur_sprites[1].position.x = display_size.x - blur_sprites[1].size.x;
+
+                blur_sprites[0].scissor =
+                    Some((0, 0, (free_space.x * 0.5) as i32 + 2, height));
+
+                blur_sprites[1].scissor = Some((
+                    width - (free_space.x * 0.5) as i32 - 2,
+                    0,
+                    (free_space.x * 0.5) as i32 + 2,
+                    height,
+                ));
             } else {
                 blur_sprites[1].position.y = display_size.y - blur_sprites[1].size.y;
+
+                blur_sprites[0].scissor = Some((0, 0, width, (free_space.y * 0.5) as i32 + 2));
+                blur_sprites[1].scissor = Some((
+                    0,
+                    height - (free_space.y * 0.5) as i32 - 2,
+                    width,
+                    (free_space.y * 0.5) as i32 + 2,
+                ));
             }
             sprites.extend(blur_sprites.into_iter());
         }

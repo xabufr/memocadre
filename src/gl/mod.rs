@@ -38,11 +38,15 @@ pub struct Capabilities {
 
 pub struct DrawParameters {
     pub blend: Option<BlendMode>,
+    pub scissor: Option<(i32, i32, i32, i32)>,
 }
 
 impl Default for DrawParameters {
     fn default() -> Self {
-        DrawParameters { blend: None }
+        DrawParameters {
+            blend: None,
+            scissor: None,
+        }
     }
 }
 
@@ -164,6 +168,12 @@ impl GlContextInner {
                 );
             } else {
                 self.gl.disable(glow::BLEND);
+            }
+            if let Some(s) = &draw_parameters.scissor {
+                self.gl.scissor(s.0, s.1, s.2, s.3);
+                self.gl.enable(glow::SCISSOR_TEST);
+            } else {
+                self.gl.disable(glow::SCISSOR_TEST);
             }
             self.gl
                 .draw_elements(glow::TRIANGLES, count, glow::UNSIGNED_INT, offset);

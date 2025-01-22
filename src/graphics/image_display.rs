@@ -27,6 +27,8 @@ pub struct Sprite {
     pub size: Vec2,
     //
     pub opacity: f32,
+    //
+    pub scissor: Option<(i32, i32, i32, i32)>,
 }
 
 impl Sprite {
@@ -36,6 +38,7 @@ impl Sprite {
             size: texture.size().as_vec2(),
             opacity: 1.,
             texture,
+            scissor: None,
         }
     }
 
@@ -125,6 +128,7 @@ impl GlowImageDrawer {
             0,
             &DrawParameters {
                 blend: Some(BlendMode::alpha()),
+                scissor: sprite.scissor,
             },
         );
     }

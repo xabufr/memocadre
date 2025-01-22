@@ -1,15 +1,18 @@
 Todo:
 
-- switch to glow -> glium bugs (texture sampling)
+- switch to glow -> glium bugs (texture sampling) OK
    - Text - glyph branch -> try epaint OK
    - DRM/GDM/KMS rendering - OK
+   - switch to Vek (Rect, better types...)
    - Smooth shapes (rounded rectangles...)
    - Extra info (photo date, etc...)
+
 - Configuration
    - Transitions
    - Durations
    - Search query
    - Search by person name
+
 - Error handling
 - Sleep when nothing to do
 - Other effects / transitions
@@ -17,6 +20,7 @@ Todo:
 - Configurable orientation
 - HTTP Api ?
 - publish
+- Background loading / blur with GPU (context sharing)
 
 - bugs:
    - transition blur background from some to none

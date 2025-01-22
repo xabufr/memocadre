@@ -130,6 +130,7 @@ impl EpaintDisplay {
             0,
             &DrawParameters {
                 blend: Some(BlendMode::alpha()),
+                ..Default::default()
             },
         );
     }
