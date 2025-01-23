@@ -59,7 +59,7 @@ impl Slides {
         match self {
             Slides::None => true,
             Slides::Single { slide: _, start } => start.elapsed() >= display_time,
-            Slides::Transitioning(t) => t.animation.is_finished(Instant::now()),
+            Slides::Transitioning(_) => false,
         }
     }
     pub fn load_next(self, slide: Slide, transition_duration: Duration) -> Self {
@@ -88,19 +88,39 @@ impl Slides {
         }
     }
 
+    pub fn update(self) -> Self {
+        match self {
+            Slides::None => self,
+            Slides::Single { .. } => self,
+            Slides::Transitioning(mut transitioning_slide) => {
+                if transitioning_slide.animation.is_finished(Instant::now()) {
+                    for s in transitioning_slide.new.sprites.iter_mut() {
+                        s.opacity = 1.;
+                    }
+                    Slides::Single {
+                        slide: transitioning_slide.new,
+                        start: Instant::now(),
+                    }
+                } else {
+                    let alpha = transitioning_slide.animation.get(Instant::now());
+                    for s in transitioning_slide.old.sprites.iter_mut() {
+                        s.opacity = alpha;
+                    }
+                    let alpha = 1. - alpha;
+                    for s in transitioning_slide.new.sprites.iter_mut() {
+                        s.opacity = alpha;
+                    }
+                    Slides::Transitioning(transitioning_slide)
+                }
+            }
+        }
+    }
+
     pub fn draw(&mut self, gl: &GlContext, image_drawer: &GlowImageDrawer) {
         match self {
             Slides::None => (),
             Slides::Single { slide, start: _ } => slide.draw(gl, image_drawer),
             Slides::Transitioning(transitioning_slide) => {
-                let alpha = transitioning_slide.animation.get(Instant::now());
-                for s in transitioning_slide.old.sprites.iter_mut() {
-                    s.opacity = alpha;
-                }
-                let alpha = 1. - alpha;
-                for s in transitioning_slide.new.sprites.iter_mut() {
-                    s.opacity = alpha;
-                }
                 transitioning_slide.old.draw(gl, image_drawer);
                 transitioning_slide.new.draw(gl, image_drawer);
             }
@@ -166,6 +186,7 @@ impl ApplicationContext for GlowApplication {
             }
         }
 
+        replace_with_or_abort(&mut self.slides, |slides| slides.update());
         self.counter.count_frame();
 
         self.slides.draw(&self.gl, &self.image_drawer);
