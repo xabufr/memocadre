@@ -299,10 +299,6 @@ impl GlowApplication {
             Some(text.join("\n"))
         };
 
-        return Slide {
-            sprites,
-            text,
-            animation: None,
-        };
+        return Slide { sprites, text };
     }
 }
