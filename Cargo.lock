@@ -413,26 +413,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "confique"
-version = "0.3.0"
+name = "config"
+version = "0.15.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d011f79ecb68498e94453e133c67cc5c35ab847684c59fa58b9ce0698e272e7b"
+checksum = "e329294a796e9b22329669c1f433a746983f9e324e07f4ef135be81bb2262de4"
 dependencies = [
- "confique-macro",
+ "pathdiff",
  "serde",
  "toml",
-]
-
-[[package]]
-name = "confique-macro"
-version = "0.0.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df20583fae327154743356c4896906bda1aa9b7df30c5aed73a54cf27fede9de"
-dependencies = [
- "heck",
- "proc-macro2",
- "quote",
- "syn",
+ "winnow",
 ]
 
 [[package]]
@@ -1021,6 +1010,16 @@ name = "humantime"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
+
+[[package]]
+name = "humantime-serde"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57a3db5ea5923d99402c94e9feb261dc5ee9b4efa158b0315f788cf549cc200c"
+dependencies = [
+ "humantime",
+ "serde",
+]
 
 [[package]]
 name = "hyper"
@@ -1900,6 +1899,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
+name = "pathdiff"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1911,7 +1916,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "bytes",
- "confique",
+ "config",
  "drm",
  "env_logger",
  "epaint",
@@ -1920,6 +1925,7 @@ dependencies = [
  "glow",
  "glutin",
  "glutin-winit",
+ "humantime-serde",
  "image",
  "log",
  "memoffset",

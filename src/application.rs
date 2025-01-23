@@ -11,7 +11,7 @@ use std::{
 use vek::{Extent2, Rect, Vec2};
 
 use crate::{
-    config::Conf,
+    configuration::Conf,
     galery::ImageWithDetails,
     gl::{GlContext, Texture},
     graphics::{EpaintDisplay, GlowImageBlurr, GlowImageDrawer, SharedTexture2d, Sprite},
@@ -92,7 +92,7 @@ impl ApplicationContext for GlowApplication {
     fn draw_frame(&mut self) {
         self.epaint.begin_frame();
         if self.current_slide.is_none()
-            || (self.image_display_start.elapsed() >= Duration::from_secs_f32(0.)
+            || (self.image_display_start.elapsed() >= self.config.slideshow.display_duration
                 && self.next_slide.is_none())
         {
             match self.worker.recv().try_recv() {
@@ -123,7 +123,6 @@ impl ApplicationContext for GlowApplication {
         let frame_time = Instant::now();
         self.counter.count_frame();
 
-        // frame.clear_color(0.0, 0.0, 0.0, 0.0);
         if let Some(slide) = &self.current_slide {
             if let Some(text) = &slide.text {
                 self.epaint.add_text(

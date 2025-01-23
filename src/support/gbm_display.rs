@@ -22,7 +22,7 @@ use std::{
 use vek::Rect;
 
 use crate::{
-    config::Conf,
+    configuration::Conf,
     gl::{GlContext, GlContextInner},
 };
 

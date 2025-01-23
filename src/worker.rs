@@ -8,7 +8,7 @@ use log::error;
 use thread_priority::{set_current_thread_priority, ThreadPriority};
 use vek::Extent2;
 
-use crate::{config::Conf, galery::ImageWithDetails};
+use crate::{configuration::Conf, galery::ImageWithDetails};
 
 type Message = ImageWithDetails;
 pub struct Worker {

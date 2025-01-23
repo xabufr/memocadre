@@ -13,7 +13,7 @@ use winit::{
 };
 
 use crate::{
-    config::Conf,
+    configuration::Conf,
     gl::{GlContext, GlContextInner},
 };
 

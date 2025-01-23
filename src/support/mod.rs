@@ -1,7 +1,7 @@
 mod gbm_display;
 mod window_display;
 
-use crate::{config::Conf, gl::GlContext};
+use crate::{configuration::Conf, gl::GlContext};
 pub use gbm_display::start_gbm;
 pub use window_display::State;
 
