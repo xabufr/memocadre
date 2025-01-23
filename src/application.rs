@@ -24,9 +24,6 @@ pub struct GlowApplication {
     image_drawer: GlowImageDrawer,
     image_blurr: GlowImageBlurr,
     slides: Slides,
-    current_slide: Option<Slide>,
-    next_slide: Option<TransitionningSlide>,
-    image_display_start: Instant,
     counter: FPSCounter,
     epaint: EpaintDisplay,
     worker: Worker,
@@ -37,12 +34,6 @@ pub struct GlowApplication {
 struct Slide {
     sprites: Vec<Sprite>,
     text: Option<String>,
-    animation: Option<Box<dyn glissade::Animated<f32, Instant>>>,
-}
-
-struct TransitionningSlide {
-    slide: Slide,
-    animation: Box<dyn glissade::Animated<f32, Instant>>,
 }
 
 struct TransitioningSlide {
@@ -145,11 +136,8 @@ impl ApplicationContext for GlowApplication {
         let worker = Worker::new(Arc::clone(&config), Self::get_ideal_image_size(&gl));
         worker.start();
         Self {
-            current_slide: None,
-            image_display_start: Instant::now(),
             image_drawer: GlowImageDrawer::new(&gl),
             image_blurr: GlowImageBlurr::new(&gl),
-            next_slide: None,
             counter: FPSCounter::new(),
             epaint: EpaintDisplay::new(GlContext::clone(&gl)),
             gl,
@@ -177,73 +165,25 @@ impl ApplicationContext for GlowApplication {
                 }
             }
         }
-        if self.current_slide.is_none()
-            || (self.image_display_start.elapsed() >= self.config.slideshow.display_duration
-                && self.next_slide.is_none())
-        {
-            match self.worker.recv().try_recv() {
-                Err(TryRecvError::Empty) => {}
-                Err(TryRecvError::Disconnected) => {}
-                Ok(image) => {
-                    let slide = self.load_next_frame(&self.gl, image);
-                    self.image_display_start = Instant::now();
-                    if self.current_slide.is_none() {
-                        self.current_slide = Some(slide);
-                    } else {
-                        let animation = glissade::keyframes::from(0. as f32)
-                            .ease_to(
-                                1.,
-                                self.config.slideshow.transition_duration,
-                                glissade::Easing::QuarticInOut,
-                            )
-                            .run(self.image_display_start);
-                        self.current_slide.as_mut().unwrap().animation = Some(Box::new(
-                            glissade::keyframes::from(1. as f32)
-                                .ease_to(
-                                    0.,
-                                    self.config.slideshow.transition_duration,
-                                    glissade::Easing::QuarticInOut,
-                                )
-                                .run(self.image_display_start),
-                        ));
-                        self.next_slide = Some(TransitionningSlide {
-                            slide,
-                            animation: Box::new(animation),
-                        });
-                    }
-                }
-            }
-        }
 
-        let frame_time = Instant::now();
         self.counter.count_frame();
 
         self.slides.draw(&self.gl, &self.image_drawer);
-        if let Some(slide) = &self.current_slide {
-            if let Some(text) = &slide.text {
-                self.epaint.add_text(
-                    [10., 10.],
-                    LayoutJob::single_section(
-                        text.to_string(),
-                        TextFormat::simple(FontId::proportional(28.), Color32::WHITE),
-                    ),
-                );
-            }
-            if let Some(animation) = &slide.animation {
-                if animation.is_finished(frame_time) {}
-            }
-            slide.draw(&self.gl, &self.image_drawer);
-        }
-        if let Some(next_slide) = &mut self.next_slide {
-            let alpha = next_slide.animation.get(frame_time);
-            for s in next_slide.slide.sprites.iter_mut() {
-                s.opacity = alpha;
-            }
-            next_slide.slide.draw(&self.gl, &self.image_drawer);
-            if next_slide.animation.is_finished(frame_time) {
-                self.current_slide = self.next_slide.take().map(|a| a.slide);
-            }
-        }
+        // if let Some(slide) = &self.current_slide {
+        //     if let Some(text) = &slide.text {
+        //         self.epaint.add_text(
+        //             [10., 10.],
+        //             LayoutJob::single_section(
+        //                 text.to_string(),
+        //                 TextFormat::simple(FontId::proportional(28.), Color32::WHITE),
+        //             ),
+        //         );
+        //     }
+        //     if let Some(animation) = &slide.animation {
+        //         if animation.is_finished(frame_time) {}
+        //     }
+        //     slide.draw(&self.gl, &self.image_drawer);
+        // }
 
         self.epaint.add_text(
             Vec2::new(100., 100.),
