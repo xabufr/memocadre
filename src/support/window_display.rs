@@ -12,7 +12,10 @@ use winit::{
     window::WindowId,
 };
 
-use crate::gl::{GlContext, GlContextInner};
+use crate::{
+    config::Conf,
+    gl::{GlContext, GlContextInner},
+};
 
 use super::ApplicationContext;
 
@@ -25,6 +28,7 @@ pub struct State<T> {
 }
 
 struct App<T> {
+    config: Option<Conf>,
     state: Option<State<T>>,
     visible: bool,
     close_promptly: bool,
@@ -34,7 +38,11 @@ impl<T: ApplicationContext + 'static> ApplicationHandler<()> for App<T> {
     // The resumed/suspended handlers are mostly for Android compatiblity since the context can get lost there at any point.
     // For convenience's sake, the resumed handler is also called on other platforms on program startup.
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        self.state = Some(State::new(event_loop, self.visible));
+        self.state = Some(State::new(
+            event_loop,
+            self.visible,
+            self.config.take().unwrap(),
+        ));
         if !self.visible && self.close_promptly {
             event_loop.exit();
         }
@@ -99,7 +107,11 @@ impl<T: ApplicationContext + 'static> ApplicationHandler<()> for App<T> {
     }
 }
 impl<T: ApplicationContext + 'static> State<T> {
-    pub fn new(event_loop: &winit::event_loop::ActiveEventLoop, visible: bool) -> Self {
+    pub fn new(
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        visible: bool,
+        config: Conf,
+    ) -> Self {
         let window_attributes = winit::window::Window::default_attributes()
             .with_title(T::WINDOW_TITLE)
             .with_visible(visible);
@@ -175,7 +187,7 @@ impl<T: ApplicationContext + 'static> State<T> {
             )
             .unwrap();
 
-        Self::from_display_window(gl, window, current_context, surface)
+        Self::from_display_window(gl, window, current_context, surface, config)
     }
 
     pub fn from_display_window(
@@ -183,8 +195,9 @@ impl<T: ApplicationContext + 'static> State<T> {
         window: winit::window::Window,
         gl_context: PossiblyCurrentContext,
         surface: Surface<WindowSurface>,
+        config: Conf,
     ) -> Self {
-        let context = T::new(GlContext::clone(&gl));
+        let context = T::new(config, GlContext::clone(&gl));
         Self {
             gl,
             window,
@@ -195,11 +208,12 @@ impl<T: ApplicationContext + 'static> State<T> {
     }
 
     /// Start the event_loop and keep rendering frames until the program is closed
-    pub fn run_loop() {
+    pub fn run_loop(config: Conf) {
         let event_loop = winit::event_loop::EventLoop::builder()
             .build()
             .expect("event loop building");
         let mut app = App::<T> {
+            config: Some(config),
             state: None,
             visible: true,
             close_promptly: false,

@@ -1,13 +1,13 @@
 mod gbm_display;
 mod window_display;
 
-use crate::gl::GlContext;
+use crate::{config::Conf, gl::GlContext};
 pub use gbm_display::start_gbm;
 pub use window_display::State;
 
 pub trait ApplicationContext {
     fn draw_frame(&mut self) {}
-    fn new(gl: GlContext) -> Self;
+    fn new(config: Conf, gl: GlContext) -> Self;
     fn update(&mut self) {}
     fn resized(&mut self, _width: u32, _height: u32) {}
     fn handle_window_event(

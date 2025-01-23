@@ -8,7 +8,7 @@ use log::error;
 use thread_priority::{set_current_thread_priority, ThreadPriority};
 use vek::Extent2;
 
-use crate::galery::ImageWithDetails;
+use crate::{config::Conf, galery::ImageWithDetails};
 
 type Message = ImageWithDetails;
 pub struct Worker {
@@ -19,15 +19,17 @@ pub struct Worker {
 struct WorkerImpl {
     send: SyncSender<Message>,
     ideal_max_size: RwLock<Extent2<u32>>,
+    config: Arc<Conf>,
 }
 
 impl Worker {
-    pub fn new(ideal_max_size: Extent2<u32>) -> Self {
+    pub fn new(config: Arc<Conf>, ideal_max_size: Extent2<u32>) -> Self {
         let (send, recv) = std::sync::mpsc::sync_channel(1);
         let worker_impl = Arc::new({
             WorkerImpl {
                 send,
                 ideal_max_size: RwLock::new(ideal_max_size),
+                config,
             }
         });
         Worker { worker_impl, recv }
@@ -55,10 +57,7 @@ impl WorkerImpl {
         if !set_current_thread_priority(ThreadPriority::Min).is_ok() {
             error!("Cannot change worker thread priority to minimal");
         }
-        let mut immich = ImmichGallery::new(
-            "***REMOVED***",
-            "***REMOVED***",
-        );
+        let mut immich = ImmichGallery::new(&self.config.source.url, &self.config.source.api_key);
         loop {
             let mut img_with_details = immich.get_next_image();
             img_with_details.image = self.resize_image_if_necessay(img_with_details.image);

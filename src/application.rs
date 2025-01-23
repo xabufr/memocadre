@@ -5,12 +5,13 @@ use epaint::{
 use glissade::Keyframes;
 use log::debug;
 use std::{
-    sync::mpsc::TryRecvError,
+    sync::{mpsc::TryRecvError, Arc},
     time::{Duration, Instant},
 };
 use vek::{Extent2, Rect, Vec2};
 
 use crate::{
+    config::Conf,
     galery::ImageWithDetails,
     gl::{GlContext, Texture},
     graphics::{EpaintDisplay, GlowImageBlurr, GlowImageDrawer, SharedTexture2d, Sprite},
@@ -28,6 +29,7 @@ pub struct GlowApplication {
     epaint: EpaintDisplay,
     worker: Worker,
     gl: GlContext,
+    config: Arc<Conf>,
 }
 
 struct Slide {
@@ -69,22 +71,21 @@ impl FPSCounter {
 }
 
 impl ApplicationContext for GlowApplication {
-    fn new(gl: GlContext) -> Self {
-        let worker = Worker::new(Self::get_ideal_image_size(&gl));
+    fn new(config: Conf, gl: GlContext) -> Self {
+        let config = Arc::new(config);
+        let worker = Worker::new(Arc::clone(&config), Self::get_ideal_image_size(&gl));
         worker.start();
         Self {
             current_slide: None,
             image_display_start: Instant::now(),
             image_drawer: GlowImageDrawer::new(&gl),
             image_blurr: GlowImageBlurr::new(&gl),
-            // text_display: GlowTextDisplay::new(ctx),
-            // recv,
-            // application::start();
             next_slide: None,
             counter: FPSCounter::new(),
             epaint: EpaintDisplay::new(GlContext::clone(&gl)),
             gl,
             worker,
+            config,
         }
     }
 
@@ -174,13 +175,13 @@ impl Slide {
     }
 }
 
-pub fn start() {
+pub fn start(config: Conf) {
     let vars = ["WAYLAND_DISPLAY", "WAYLAND_SOCKET", "DISPLAY"];
     let has_window_system = vars.into_iter().any(|v| std::env::var_os(v).is_some());
     if has_window_system {
-        State::<GlowApplication>::run_loop();
+        State::<GlowApplication>::run_loop(config);
     } else {
-        support::start_gbm::<GlowApplication>();
+        support::start_gbm::<GlowApplication>(config);
     }
 }
 

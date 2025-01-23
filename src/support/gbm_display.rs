@@ -12,7 +12,6 @@ use glutin::{
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
 use raw_window_handle::{GbmDisplayHandle, GbmWindowHandle, RawDisplayHandle, RawWindowHandle};
-use vek::Rect;
 use std::{
     ffi::c_void,
     fs::{File, OpenOptions},
@@ -20,8 +19,12 @@ use std::{
     os::unix::io::{AsFd, BorrowedFd},
     ptr::NonNull,
 };
+use vek::Rect;
 
-use crate::gl::{GlContext, GlContextInner};
+use crate::{
+    config::Conf,
+    gl::{GlContext, GlContextInner},
+};
 
 use super::ApplicationContext;
 
@@ -53,7 +56,7 @@ impl Card {
         Card(options.open("/dev/dri/card0").unwrap())
     }
 }
-pub fn start_gbm<T>()
+pub fn start_gbm<T>(app_config: Conf)
 where
     T: ApplicationContext + 'static,
 {
@@ -172,7 +175,7 @@ where
     let gl = unsafe { Context::from_loader_function_cstr(|s| display.get_proc_address(s)) };
     let gl = GlContextInner::new(gl, Rect::new(0, 0, width as _, height as _));
 
-    let mut app = T::new(GlContext::clone(&gl));
+    let mut app = T::new(app_config, GlContext::clone(&gl));
     loop {
         app.draw_frame();
 

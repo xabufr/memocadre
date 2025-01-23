@@ -3,7 +3,7 @@ Todo:
 - switch to glow -> glium bugs (texture sampling) OK
    - Text - glyph branch -> try epaint OK
    - DRM/GDM/KMS rendering - OK
-   - switch to Vek (Rect, better types...)
+   - switch to Vek (Rect, better types...) - OK
    - Smooth shapes (rounded rectangles...)
    - Extra info (photo date, etc...)
 

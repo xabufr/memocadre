@@ -413,6 +413,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "confique"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d011f79ecb68498e94453e133c67cc5c35ab847684c59fa58b9ce0698e272e7b"
+dependencies = [
+ "confique-macro",
+ "serde",
+ "toml",
+]
+
+[[package]]
+name = "confique-macro"
+version = "0.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df20583fae327154743356c4896906bda1aa9b7df30c5aed73a54cf27fede9de"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1888,6 +1911,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "bytes",
+ "confique",
  "drm",
  "env_logger",
  "epaint",
