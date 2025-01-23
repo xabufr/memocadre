@@ -33,4 +33,19 @@ fn default_display_duration() -> Duration {
 pub struct ImmichSource {
     pub url: String,
     pub api_key: String,
+    #[serde(default)]
+    pub search: Option<ImmichSearchQuery>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ImmichSearchQuery {
+    #[serde(default)]
+    pub persons: Option<Vec<ImmichPerson>>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum ImmichPerson {
+    Id(String),
+    Name(String),
 }

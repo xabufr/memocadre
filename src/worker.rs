@@ -57,7 +57,7 @@ impl WorkerImpl {
         if !set_current_thread_priority(ThreadPriority::Min).is_ok() {
             error!("Cannot change worker thread priority to minimal");
         }
-        let mut immich = ImmichGallery::new(&self.config.source.url, &self.config.source.api_key);
+        let mut immich = ImmichGallery::new(&self.config.source);
         loop {
             let mut img_with_details = immich.get_next_image();
             img_with_details.image = self.resize_image_if_necessay(img_with_details.image);

@@ -38,13 +38,13 @@ pub struct Face {
     pub bounding_box_y2: i32,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExifInfo {
     pub city: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum AssetType {
     IMAGE,
@@ -53,7 +53,7 @@ pub enum AssetType {
     OTHER,
 }
 
-#[derive(Serialize, Debug, Default)]
+#[derive(Serialize, Debug, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchRandomRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -76,6 +76,14 @@ pub struct ImmichClient {
     client: reqwest::blocking::Client,
 }
 
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PersonResponse {
+    pub id: String,
+    pub birth_date: Option<String>,
+    pub name: String,
+}
+
 impl ImmichClient {
     pub fn new(base_url: impl AsRef<str>, api_key: impl AsRef<str>) -> Self {
         Self {
@@ -89,6 +97,15 @@ impl ImmichClient {
         self.post("search/random")
             .json(&query)
             .header("Accept", "application/json")
+            .send()
+            .unwrap()
+            .json()
+            .unwrap()
+    }
+
+    pub fn search_person(&self, name: &str) -> Vec<PersonResponse> {
+        self.get(format!("search/person"))
+            .query(&[("name", name)])
             .send()
             .unwrap()
             .json()

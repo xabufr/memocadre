@@ -15,6 +15,7 @@ fn main() {
         .build()
         .unwrap();
     let config: Conf = settings.try_deserialize().unwrap();
+    println!("{config:#?}");
     env_logger::init();
     application::start(config);
 }
