@@ -4,6 +4,7 @@ use epaint::{
 };
 use glissade::Keyframes;
 use log::debug;
+use replace_with::replace_with_or_abort;
 use std::{
     sync::{mpsc::TryRecvError, Arc},
     time::{Duration, Instant},
@@ -22,6 +23,7 @@ use crate::{
 pub struct GlowApplication {
     image_drawer: GlowImageDrawer,
     image_blurr: GlowImageBlurr,
+    slides: Slides,
     current_slide: Option<Slide>,
     next_slide: Option<TransitionningSlide>,
     image_display_start: Instant,
@@ -35,6 +37,7 @@ pub struct GlowApplication {
 struct Slide {
     sprites: Vec<Sprite>,
     text: Option<String>,
+    animation: Option<Box<dyn glissade::Animated<f32, Instant>>>,
 }
 
 struct TransitionningSlide {
@@ -42,10 +45,76 @@ struct TransitionningSlide {
     animation: Box<dyn glissade::Animated<f32, Instant>>,
 }
 
+struct TransitioningSlide {
+    old: Slide,
+    new: Slide,
+    animation: Box<dyn glissade::Animated<f32, Instant>>,
+}
+
 struct FPSCounter {
     last_fps: u32,
     last_instant: Instant,
     frames: u32,
+}
+
+enum Slides {
+    None,
+    Single { slide: Slide, start: Instant },
+    Transitioning(TransitioningSlide),
+}
+
+impl Slides {
+    pub fn should_load_next(&self, display_time: Duration) -> bool {
+        match self {
+            Slides::None => true,
+            Slides::Single { slide: _, start } => start.elapsed() >= display_time,
+            Slides::Transitioning(t) => t.animation.is_finished(Instant::now()),
+        }
+    }
+    pub fn load_next(self, slide: Slide, transition_duration: Duration) -> Self {
+        match self {
+            Slides::None => Slides::Single {
+                slide,
+                start: Instant::now(),
+            },
+            Slides::Single {
+                slide: old,
+                start: _,
+            }
+            | Slides::Transitioning(TransitioningSlide {
+                old: _,
+                new: old,
+                animation: _,
+            }) => Slides::Transitioning(TransitioningSlide {
+                old,
+                new: slide,
+                animation: Box::new(
+                    glissade::keyframes::from(1. as f32)
+                        .ease_to(0., transition_duration, glissade::Easing::QuarticInOut)
+                        .run(Instant::now()),
+                ),
+            }),
+        }
+    }
+
+    pub fn draw(&mut self, gl: &GlContext, image_drawer: &GlowImageDrawer) {
+        match self {
+            Slides::None => (),
+            Slides::Single { slide, start: _ } => slide.draw(gl, image_drawer),
+            Slides::Transitioning(transitioning_slide) => {
+                let alpha = transitioning_slide.animation.get(Instant::now());
+                for s in transitioning_slide.old.sprites.iter_mut() {
+                    s.opacity = alpha;
+                }
+                let alpha = 1. - alpha;
+                for s in transitioning_slide.new.sprites.iter_mut() {
+                    s.opacity = alpha;
+                }
+                transitioning_slide.old.draw(gl, image_drawer);
+                transitioning_slide.new.draw(gl, image_drawer);
+            }
+        }
+    }
 }
 
 impl FPSCounter {
@@ -84,6 +153,7 @@ impl ApplicationContext for GlowApplication {
             counter: FPSCounter::new(),
             epaint: EpaintDisplay::new(GlContext::clone(&gl)),
             gl,
+            slides: Slides::None,
             worker,
             config,
         }
@@ -92,6 +162,21 @@ impl ApplicationContext for GlowApplication {
     fn draw_frame(&mut self) {
         self.gl.clear();
         self.epaint.begin_frame();
+        if self
+            .slides
+            .should_load_next(self.config.slideshow.display_duration)
+        {
+            match self.worker.recv().try_recv() {
+                Err(TryRecvError::Empty) => {}
+                Err(TryRecvError::Disconnected) => {}
+                Ok(image) => {
+                    let slide = self.load_next_frame(&self.gl, image);
+                    replace_with_or_abort(&mut self.slides, |slides| {
+                        slides.load_next(slide, self.config.slideshow.transition_duration)
+                    });
+                }
+            }
+        }
         if self.current_slide.is_none()
             || (self.image_display_start.elapsed() >= self.config.slideshow.display_duration
                 && self.next_slide.is_none())
@@ -112,6 +197,15 @@ impl ApplicationContext for GlowApplication {
                                 glissade::Easing::QuarticInOut,
                             )
                             .run(self.image_display_start);
+                        self.current_slide.as_mut().unwrap().animation = Some(Box::new(
+                            glissade::keyframes::from(1. as f32)
+                                .ease_to(
+                                    0.,
+                                    self.config.slideshow.transition_duration,
+                                    glissade::Easing::QuarticInOut,
+                                )
+                                .run(self.image_display_start),
+                        ));
                         self.next_slide = Some(TransitionningSlide {
                             slide,
                             animation: Box::new(animation),
@@ -124,6 +218,7 @@ impl ApplicationContext for GlowApplication {
         let frame_time = Instant::now();
         self.counter.count_frame();
 
+        self.slides.draw(&self.gl, &self.image_drawer);
         if let Some(slide) = &self.current_slide {
             if let Some(text) = &slide.text {
                 self.epaint.add_text(
@@ -133,6 +228,9 @@ impl ApplicationContext for GlowApplication {
                         TextFormat::simple(FontId::proportional(28.), Color32::WHITE),
                     ),
                 );
+            }
+            if let Some(animation) = &slide.animation {
+                if animation.is_finished(frame_time) {}
             }
             slide.draw(&self.gl, &self.image_drawer);
         }
@@ -261,6 +359,10 @@ impl GlowApplication {
             Some(text.join("\n"))
         };
 
-        return Slide { sprites, text };
+        return Slide {
+            sprites,
+            text,
+            animation: None,
+        };
     }
 }

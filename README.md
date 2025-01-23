@@ -10,8 +10,8 @@ Todo:
 - Configuration
    - Transitions
    - Durations - OK
-   - Search query
-   - Search by person name
+   - Search query - OK
+   - Search by person name - OK
 
 - Change from reqwest to a more lightweight http client
 - Error handling
