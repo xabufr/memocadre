@@ -107,7 +107,7 @@ impl ApplicationContext for GlowApplication {
                         let animation = glissade::keyframes::from(0. as f32)
                             .ease_to(
                                 1.,
-                                Duration::from_secs_f32(1.),
+                                self.config.slideshow.transition_duration,
                                 glissade::Easing::QuarticInOut,
                             )
                             .run(self.image_display_start);

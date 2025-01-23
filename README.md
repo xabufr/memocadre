@@ -9,7 +9,7 @@ Todo:
 
 - Configuration
    - Transitions
-   - Durations
+   - Durations - OK
    - Search query
    - Search by person name
 

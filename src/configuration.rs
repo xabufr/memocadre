@@ -16,8 +16,15 @@ pub struct Slideshow {
     /// than this minimum duration if the next photo is not yet available.
     #[serde(with = "humantime_serde", default = "default_display_duration")]
     pub display_duration: Duration,
+
+    /// Duration of the transition between two photos.
+    #[serde(with = "humantime_serde", default = "default_transition_duration")]
+    pub transition_duration: Duration,
 }
 
+fn default_transition_duration() -> Duration {
+    Duration::from_secs(1)
+}
 fn default_display_duration() -> Duration {
     Duration::from_secs(30)
 }
