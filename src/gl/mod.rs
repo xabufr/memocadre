@@ -180,6 +180,12 @@ impl GlContextInner {
         }
     }
 
+    pub fn clear(&self) {
+        unsafe {
+            self.gl.clear(glow::COLOR_BUFFER_BIT);
+        }
+    }
+
     pub fn current_viewport(&self) -> Rect<i32, i32> {
         self.info.borrow().viewport
     }
