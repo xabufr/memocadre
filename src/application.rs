@@ -2,13 +2,13 @@ use epaint::{
     text::{LayoutJob, TextFormat},
     Color32, FontId,
 };
-use glam::{UVec2, Vec2};
 use glissade::Keyframes;
 use log::debug;
 use std::{
     sync::mpsc::TryRecvError,
     time::{Duration, Instant},
 };
+use vek::{Extent2, Rect, Vec2};
 
 use crate::{
     galery::ImageWithDetails,
@@ -185,32 +185,33 @@ pub fn start() {
 }
 
 impl GlowApplication {
-    fn get_ideal_image_size(gl: &GlContext) -> UVec2 {
+    fn get_ideal_image_size(gl: &GlContext) -> Extent2<u32> {
         let hw_max = gl.capabilities().max_texture_size;
-        let hw_max = UVec2::splat(hw_max);
-        let (_, _, width, height) = gl.current_viewport();
+        let hw_max = Extent2::from(hw_max);
+        let vp = gl.current_viewport();
 
-        let fb_dims = UVec2::new(width as _, height as _);
+        let fb_dims = vp.extent().as_();
 
-        let ideal_size = fb_dims.min(hw_max);
+        let ideal_size = Extent2::min(fb_dims, hw_max);
         return ideal_size;
     }
 
     fn load_next_frame(&self, gl: &GlContext, image_with_details: ImageWithDetails) -> Slide {
         let image = image_with_details.image;
         let texture = Texture::new_from_image(GlContext::clone(gl), &image);
-        let (_, _, width, height) = gl.current_viewport();
+        let vp = gl.current_viewport();
 
         let texture = SharedTexture2d::new(texture);
         let mut sprite = Sprite::new(texture.clone());
-        let display_size = Vec2::new(width as _, height as _);
+        let display_size = vp.extent().as_();
+        let (width, height) = vp.extent().into_tuple();
         sprite.resize_respecting_ratio(display_size);
 
-        let free_space = display_size - sprite.size;
-        sprite.position = free_space * 0.5;
+        let free_space = display_size.as_() - sprite.size;
+        sprite.position = (free_space * 0.5).into();
 
         let mut sprites = vec![];
-        if free_space.max_element() > 50.0 {
+        if free_space.reduce_partial_max() > 50.0 {
             let texture_blur = SharedTexture2d::new(self.image_blurr.blur(gl, &texture));
             let mut blur_sprites = [
                 Sprite::new(SharedTexture2d::clone(&texture_blur)),
@@ -221,27 +222,28 @@ impl GlowApplication {
                 blur_sprite.size = sprite.size;
             }
 
-            if free_space.x > 50. {
-                blur_sprites[1].position.x = display_size.x - blur_sprites[1].size.x;
+            if free_space.w > 50. {
+                blur_sprites[1].position.x = display_size.w as f32 - blur_sprites[1].size.w;
 
                 blur_sprites[0].scissor =
-                    Some((0, 0, (free_space.x * 0.5) as i32 + 2, height));
+                    Some(Rect::new(0, 0, (free_space.w * 0.5) as i32 + 2, height));
 
-                blur_sprites[1].scissor = Some((
-                    width - (free_space.x * 0.5) as i32 - 2,
+                blur_sprites[1].scissor = Some(Rect::new(
+                    width - (free_space.w * 0.5) as i32 - 2,
                     0,
-                    (free_space.x * 0.5) as i32 + 2,
+                    (free_space.w * 0.5) as i32 + 2,
                     height,
                 ));
             } else {
-                blur_sprites[1].position.y = display_size.y - blur_sprites[1].size.y;
+                blur_sprites[1].position.y = display_size.h as f32 - blur_sprites[1].size.h;
 
-                blur_sprites[0].scissor = Some((0, 0, width, (free_space.y * 0.5) as i32 + 2));
-                blur_sprites[1].scissor = Some((
+                blur_sprites[0].scissor =
+                    Some(Rect::new(0, 0, width, (free_space.h * 0.5) as i32 + 2));
+                blur_sprites[1].scissor = Some(Rect::new(
                     0,
-                    height - (free_space.y * 0.5) as i32 - 2,
+                    height - (free_space.h * 0.5) as i32 - 2,
                     width,
-                    (free_space.y * 0.5) as i32 + 2,
+                    (free_space.h * 0.5) as i32 + 2,
                 ));
             }
             sprites.extend(blur_sprites.into_iter());

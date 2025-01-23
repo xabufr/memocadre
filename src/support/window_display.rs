@@ -6,6 +6,7 @@ use glutin::{
 };
 use raw_window_handle::HasWindowHandle;
 use std::num::NonZeroU32;
+use vek::Rect;
 use winit::{
     application::ApplicationHandler, event::WindowEvent, event_loop::ActiveEventLoop,
     window::WindowId,
@@ -51,9 +52,12 @@ impl<T: ApplicationContext + 'static> ApplicationHandler<()> for App<T> {
         match event {
             winit::event::WindowEvent::Resized(new_size) => {
                 if let Some(state) = &mut self.state {
-                    state
-                        .gl
-                        .set_viewport((0, 0, new_size.width as _, new_size.height as _));
+                    state.gl.set_viewport(Rect::new(
+                        0,
+                        0,
+                        new_size.width as _,
+                        new_size.height as _,
+                    ));
                     state.context.resized(new_size.width, new_size.height);
                 }
             }
@@ -163,7 +167,7 @@ impl<T: ApplicationContext + 'static> State<T> {
         let gl = unsafe {
             glow::Context::from_loader_function_cstr(|s| gl_config.display().get_proc_address(s))
         };
-        let gl = GlContextInner::new(gl, (0, 0, width as _, height as _));
+        let gl = GlContextInner::new(gl, Rect::new(0, 0, width as _, height as _));
         surface
             .set_swap_interval(
                 &current_context,

@@ -1,12 +1,12 @@
-use glam::UVec2;
 use glow::HasContext;
 use image::{DynamicImage, GenericImageView};
+use vek::{Extent2, Rect, Vec2};
 
 use super::GlContext;
 
 pub struct Texture {
     texture: glow::Texture,
-    size: UVec2,
+    size: Extent2<u32>,
     format: TextureFormat,
     options: TextureOptions,
     gl: GlContext,
@@ -91,7 +91,7 @@ impl Texture {
         tex
     }
 
-    pub fn empty(gl: GlContext, format: TextureFormat, dimensions: UVec2) -> Self {
+    pub fn empty(gl: GlContext, format: TextureFormat, dimensions: Extent2<u32>) -> Self {
         let mut tex = unsafe {
             let texture = gl.create_texture().unwrap();
             gl.bind_texture(TARGET, Some(texture));
@@ -99,8 +99,8 @@ impl Texture {
                 TARGET,
                 0,
                 format.to_gl() as _,
-                dimensions.x as _,
-                dimensions.y as _,
+                dimensions.w as _,
+                dimensions.h as _,
                 0,
                 format.to_gl(),
                 glow::UNSIGNED_BYTE,
@@ -135,9 +135,9 @@ impl Texture {
         }
     }
 
-    pub fn write(&mut self, format: TextureFormat, dimensions: UVec2, data: &[u8]) {
+    pub fn write(&mut self, format: TextureFormat, dimensions: Extent2<u32>, data: &[u8]) {
         assert_eq!(
-            (dimensions.x * dimensions.y) as usize * format.bytes_per_pixel(),
+            (dimensions.w * dimensions.h) as usize * format.bytes_per_pixel(),
             data.len()
         );
         unsafe {
@@ -146,8 +146,8 @@ impl Texture {
                 TARGET,
                 0,
                 format.to_gl() as _,
-                dimensions.x as _,
-                dimensions.y as _,
+                dimensions.w as _,
+                dimensions.h as _,
                 0,
                 format.to_gl(),
                 glow::UNSIGNED_BYTE,
@@ -159,9 +159,9 @@ impl Texture {
         self.size = dimensions;
     }
 
-    pub fn write_sub(&self, offset: UVec2, dimensions: UVec2, data: &[u8]) {
+    pub fn write_sub(&self, region: Rect<u32, u32>, data: &[u8]) {
         assert_eq!(
-            (dimensions.x * dimensions.y) as usize * self.format.bytes_per_pixel(),
+            (region.w * region.h) as usize * self.format.bytes_per_pixel(),
             data.len()
         );
         unsafe {
@@ -169,10 +169,10 @@ impl Texture {
             self.gl.tex_sub_image_2d(
                 TARGET,
                 0,
-                offset.x as _,
-                offset.y as _,
-                dimensions.x as _,
-                dimensions.y as _,
+                region.x as _,
+                region.y as _,
+                region.w as _,
+                region.h as _,
                 self.format.to_gl(),
                 glow::UNSIGNED_BYTE,
                 glow::PixelUnpackData::Slice(Some(data)),
@@ -185,7 +185,7 @@ impl Texture {
         return self.texture;
     }
 
-    pub fn size(&self) -> UVec2 {
+    pub fn size(&self) -> Extent2<u32> {
         return self.size;
     }
 

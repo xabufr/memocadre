@@ -1,9 +1,10 @@
 use glow::HasContext;
+use vek::Rect;
 
-use super::{GlContext, Texture, Viewport};
+use super::{GlContext, Texture, };
 
 pub struct FramebufferGuard<'a> {
-    previous_viewport: Viewport,
+    previous_viewport: Rect<i32, i32>,
     framebuffer: &'a FramebufferObject,
 }
 
@@ -53,8 +54,12 @@ impl FramebufferObject {
     pub fn bind_guard(&self) -> FramebufferGuard {
         let previous_viewport = self.gl.current_viewport();
         let texture = self.texture.as_ref().unwrap();
-        self.gl
-            .set_viewport((0, 0, texture.size().x as i32, texture.size().y as i32));
+        self.gl.set_viewport(Rect::new(
+            0,
+            0,
+            texture.size().w as i32,
+            texture.size().h as i32,
+        ));
         self.bind();
         FramebufferGuard {
             previous_viewport,

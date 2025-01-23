@@ -1,4 +1,4 @@
-use glam::{Mat4, Quat, Vec2, Vec3};
+use vek::{Extent2, FrustumPlanes, Mat4, Rect, Vec2};
 
 use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
@@ -21,21 +21,21 @@ pub struct Sprite {
     pub texture: SharedTexture2d,
     // Position of the sprite in pixels on the screen
     // By default, this is (0, 0)
-    pub position: Vec2,
+    pub position: Vec2<f32>,
     // Size of the sprite in pixels
     // By default, this is the size of the texture
-    pub size: Vec2,
+    pub size: Extent2<f32>,
     //
     pub opacity: f32,
     //
-    pub scissor: Option<(i32, i32, i32, i32)>,
+    pub scissor: Option<Rect<i32, i32>>,
 }
 
 impl Sprite {
     pub fn new(texture: SharedTexture2d) -> Self {
         Self {
-            position: Vec2::ZERO,
-            size: texture.size().as_vec2(),
+            position: Vec2::zero(),
+            size: texture.size().as_(),
             opacity: 1.,
             texture,
             scissor: None,
@@ -43,15 +43,16 @@ impl Sprite {
     }
 
     // Scales the sprite to fit the given dimensions while maintaining aspect ratio
-    pub fn resize_respecting_ratio(&mut self, target_size: Vec2) {
-        let tex_size = self.get_texture_size();
+    pub fn resize_respecting_ratio(&mut self, target_size: Extent2<u32>) {
+        let target_size: Extent2<f32> = target_size.as_();
+        let tex_size: Extent2<f32> = self.get_texture_size().as_();
         let ratio = target_size / tex_size;
-        let ratio = ratio.min_element();
+        let ratio = ratio.reduce_partial_min();
         self.size = tex_size * ratio;
     }
 
-    pub fn get_texture_size(&self) -> Vec2 {
-        self.texture.size().as_vec2()
+    pub fn get_texture_size(&self) -> Extent2<u32> {
+        self.texture.size()
     }
 }
 
@@ -101,15 +102,18 @@ impl GlowImageDrawer {
         Self { vao, program }
     }
     pub fn draw_sprite(&self, gl: &GlContext, sprite: &Sprite) {
-        let model = Mat4::from_scale_rotation_translation(
-            Vec3::from((sprite.size, 0.)),
-            Quat::IDENTITY,
-            Vec3::from((sprite.position, 0.)),
-        );
+        let model = Mat4::scaling_3d(Vec2::from(sprite.size)).translated_2d(sprite.position);
 
-        let (_, _, width, height) = gl.current_viewport();
+        let vp = gl.current_viewport();
 
-        let view = glam::Mat4::orthographic_rh_gl(0., width as _, height as _, 0., -1., 1.);
+        let view = Mat4::orthographic_without_depth_planes(FrustumPlanes {
+            left: 0.,
+            right: vp.w as _,
+            bottom: vp.h as _,
+            top: 0.,
+            far: -1.,
+            near: 1.,
+        });
         let prog_bind = self.program.bind();
 
         prog_bind.set_uniform("opacity", sprite.opacity);

@@ -3,8 +3,8 @@ use epaint::{
     text::{FontDefinitions, LayoutJob},
     Color32, Fonts, ImageData, Mesh, TessellationOptions, Tessellator, TextShape,
 };
-use glam::UVec2;
 use mint::Point2;
+use vek::{FrustumPlanes, Mat4, Rect, Vec2};
 
 use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
@@ -116,8 +116,15 @@ impl EpaintDisplay {
     }
 
     pub fn draw_texts(&self) {
-        let (_, _, width, height) = self.gl.current_viewport();
-        let view = glam::Mat4::orthographic_rh_gl(0., width as _, height as _, 0., -1., 1.);
+        let vp = self.gl.current_viewport();
+        let view = Mat4::orthographic_without_depth_planes(FrustumPlanes {
+            left: 0.,
+            right: vp.w as _,
+            bottom: vp.h as _,
+            top: 0.,
+            far: -1.,
+            near: 1.,
+        });
         let prog = self.program.bind();
         prog.set_uniform("tex", 0);
         self.texture.bind(Some(0));
@@ -188,8 +195,10 @@ impl EpaintDisplay {
         let data = Self::convert_texture(&delta.image);
         let dimensions = (delta.image.width() as u32, delta.image.height() as _).into();
         if let Some(pos) = delta.pos {
-            self.texture
-                .write_sub(UVec2::new(pos[0] as _, pos[1] as _), dimensions, &data);
+            self.texture.write_sub(
+                Rect::from((Vec2::<usize>::from(pos).as_::<u32>(), dimensions)),
+                &data,
+            );
         } else {
             self.tesselator = Tessellator::new(
                 self.pixels_per_point,

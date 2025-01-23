@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use glam::Vec2;
 use glow::{HasContext, NativeProgram};
+use vek::{Extent2, Mat4, Vec2};
 
 use super::GlContext;
 
@@ -58,7 +58,12 @@ impl AsUniformValue for (f32, f32) {
         UniformValue::Vec2(self.0, self.1)
     }
 }
-impl AsUniformValue for Vec2 {
+impl AsUniformValue for Extent2<f32> {
+    fn as_uniform_value(self) -> UniformValue {
+        UniformValue::Vec2(self.w, self.h)
+    }
+}
+impl AsUniformValue for Vec2<f32> {
     fn as_uniform_value(self) -> UniformValue {
         UniformValue::Vec2(self.x, self.y)
     }
@@ -73,9 +78,9 @@ impl AsUniformValue for (f32, f32, f32, f32) {
         UniformValue::Vec4(self.0, self.1, self.2, self.3)
     }
 }
-impl AsUniformValue for glam::Mat4 {
+impl AsUniformValue for Mat4<f32> {
     fn as_uniform_value(self) -> UniformValue {
-        UniformValue::Mat4(self.to_cols_array())
+        UniformValue::Mat4(self.into_col_array())
     }
 }
 

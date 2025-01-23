@@ -85,7 +85,7 @@ impl GlowImageBlurr {
         let program_bind = self.program.bind();
         let _vao_guard = self.vertex_array.bind_guard();
 
-        program_bind.set_uniform("tex_size", texture.size().as_vec2());
+        program_bind.set_uniform("tex_size", texture.size().as_::<f32>());
         program_bind.set_uniform("tex", 0);
 
         for i in 0..=passes {

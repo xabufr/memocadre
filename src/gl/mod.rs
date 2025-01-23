@@ -4,6 +4,7 @@ use shader::ProgramGuard;
 use std::{cell::RefCell, ops::Deref, rc::Rc};
 pub use texture::Texture;
 use vao::VaoBindGuard;
+use vek::Rect;
 
 pub mod buffer_object;
 pub mod framebuffer;
@@ -27,9 +28,8 @@ impl Deref for GlContextInner {
     }
 }
 
-pub type Viewport = (i32, i32, i32, i32);
 pub struct GlContextInfo {
-    viewport: Viewport,
+    viewport: Rect<i32, i32>,
 }
 
 pub struct Capabilities {
@@ -38,7 +38,7 @@ pub struct Capabilities {
 
 pub struct DrawParameters {
     pub blend: Option<BlendMode>,
-    pub scissor: Option<(i32, i32, i32, i32)>,
+    pub scissor: Option<Rect<i32, i32>>,
 }
 
 impl Default for DrawParameters {
@@ -137,7 +137,7 @@ impl BlendFactor {
 }
 
 impl GlContextInner {
-    pub fn new(gl: glow::Context, viewport: Viewport) -> Rc<Self> {
+    pub fn new(gl: glow::Context, viewport: Rect<i32, i32>) -> Rc<Self> {
         Rc::new(Self {
             capacities: Capabilities {
                 max_texture_size: unsafe { gl.get_parameter_i32(glow::MAX_TEXTURE_SIZE) } as u32,
@@ -170,7 +170,7 @@ impl GlContextInner {
                 self.gl.disable(glow::BLEND);
             }
             if let Some(s) = &draw_parameters.scissor {
-                self.gl.scissor(s.0, s.1, s.2, s.3);
+                self.gl.scissor(s.x, s.y, s.w, s.h);
                 self.gl.enable(glow::SCISSOR_TEST);
             } else {
                 self.gl.disable(glow::SCISSOR_TEST);
@@ -180,14 +180,14 @@ impl GlContextInner {
         }
     }
 
-    pub fn current_viewport(&self) -> Viewport {
+    pub fn current_viewport(&self) -> Rect<i32, i32> {
         self.info.borrow().viewport
     }
 
-    pub fn set_viewport(&self, viewport: Viewport) {
+    pub fn set_viewport(&self, viewport: Rect<i32, i32>) {
         unsafe {
             self.gl
-                .viewport(viewport.0, viewport.1, viewport.2, viewport.3)
+                .viewport(viewport.x, viewport.y, viewport.w, viewport.h)
         };
         self.info.borrow_mut().viewport = viewport;
     }

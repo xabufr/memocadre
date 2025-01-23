@@ -3,10 +3,10 @@ use std::sync::{
     Arc, RwLock,
 };
 
-use glam::UVec2;
 use image::{imageops::FilterType, DynamicImage, GenericImageView};
 use log::error;
 use thread_priority::{set_current_thread_priority, ThreadPriority};
+use vek::Extent2;
 
 use crate::galery::ImageWithDetails;
 
@@ -18,11 +18,11 @@ pub struct Worker {
 
 struct WorkerImpl {
     send: SyncSender<Message>,
-    ideal_max_size: RwLock<UVec2>,
+    ideal_max_size: RwLock<Extent2<u32>>,
 }
 
 impl Worker {
-    pub fn new(ideal_max_size: UVec2) -> Self {
+    pub fn new(ideal_max_size: Extent2<u32>) -> Self {
         let (send, recv) = std::sync::mpsc::sync_channel(1);
         let worker_impl = Arc::new({
             WorkerImpl {
@@ -33,7 +33,7 @@ impl Worker {
         Worker { worker_impl, recv }
     }
 
-    pub fn set_ideal_max_size(&self, size: UVec2) {
+    pub fn set_ideal_max_size(&self, size: Extent2<u32>) {
         let mut w = self.worker_impl.ideal_max_size.write().unwrap();
         *w = size;
     }
@@ -66,14 +66,14 @@ impl WorkerImpl {
         }
     }
     fn resize_image_if_necessay(&self, image: DynamicImage) -> DynamicImage {
-        let image_dims: UVec2 = image.dimensions().into();
+        let image_dims: Extent2<u32> = image.dimensions().into();
         let ideal_size = {
             let r = self.ideal_max_size.read().unwrap();
             r.clone()
         };
-        let should_resize = image_dims.cmpgt(ideal_size).any();
+        let should_resize = image_dims.cmpgt(&ideal_size).reduce_or();
         return if should_resize {
-            image.resize(ideal_size.x, ideal_size.y, FilterType::Lanczos3)
+            image.resize(ideal_size.w, ideal_size.h, FilterType::Lanczos3)
         } else {
             image
         };

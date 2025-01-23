@@ -13,6 +13,7 @@ Todo:
    - Search query
    - Search by person name
 
+- Change from reqwest to a more lightweight http client
 - Error handling
 - Sleep when nothing to do
 - Other effects / transitions

@@ -40,6 +40,7 @@ pub struct BufferObject<Type> {
     target: BufferTarget,
     usage: BufferUsage,
     gl: GlContext,
+    /// Size of the buffer in elements
     size: usize,
     _data_type: PhantomData<Type>,
 }
@@ -109,6 +110,7 @@ impl<Type> BufferObject<Type> {
         self.bind();
         BindGuard { buffer: self }
     }
+    /// Size of the buffer in elements
     pub fn size(&self) -> usize {
         self.size
     }
