@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct AssetResponse {
     pub id: String,
     pub exif_info: Option<ExifInfo>,
@@ -17,6 +18,7 @@ pub struct AssetResponse {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct Person {
     pub name: String,
     pub faces: Vec<Face>,
@@ -24,6 +26,7 @@ pub struct Person {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct Face {
     pub id: String,
     pub image_height: i32,
@@ -40,6 +43,7 @@ pub struct Face {
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct ExifInfo {
     pub city: Option<String>,
 }
@@ -78,6 +82,7 @@ pub struct ImmichClient {
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct PersonResponse {
     pub id: String,
     pub birth_date: Option<String>,

@@ -6,7 +6,7 @@ mod immich_client;
 
 use immich_client::{AssetResponse, AssetType, ImmichClient, SearchRandomRequest};
 
-use crate::configuration::{Conf, ImmichPerson, ImmichSource};
+use crate::configuration::{ImmichPerson, ImmichSource};
 
 pub trait Gallery {
     fn get_next_image(&mut self) -> ImageWithDetails;

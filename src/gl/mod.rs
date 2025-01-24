@@ -56,17 +56,20 @@ pub struct BlendMode {
     pub color: BlendEquation,
 }
 #[derive(Copy, Clone)]
+#[allow(dead_code)]
 pub enum BlendEquation {
     Add(BlendFunction),
     Subtract(BlendFunction),
     ReverseSubtract(BlendFunction),
 }
 #[derive(Copy, Clone)]
+#[allow(dead_code)]
 pub struct BlendFunction {
     pub src: BlendFactor,
     pub dst: BlendFactor,
 }
 #[derive(Copy, Clone)]
+#[allow(dead_code)]
 pub enum BlendFactor {
     Zero,
     One,

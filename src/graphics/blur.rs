@@ -11,6 +11,7 @@ use super::Vertex2dUv;
 pub struct GlowImageBlurr {
     vertex_array: VertexArrayObject<Vertex2dUv>,
     program: Program,
+    gl: GlContext,
 }
 
 #[rustfmt::skip]
@@ -22,14 +23,14 @@ const VERTICES: [Vertex2dUv; 4] = [
 ];
 const INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 impl GlowImageBlurr {
-    pub fn new(gl: &GlContext) -> Self {
+    pub fn new(gl: GlContext) -> Self {
         let mut vbo =
-            BufferObject::new_vertex_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
+            BufferObject::new_vertex_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw);
         let mut ebo =
-            ElementBufferObject::new_index_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
+            ElementBufferObject::new_index_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw);
 
         let program = Program::new(
-            GlContext::clone(gl),
+            GlContext::clone(&gl),
             shader::VERTEX_BLUR,
             shader::FRAGMENT_BLUR,
         );
@@ -59,22 +60,31 @@ impl GlowImageBlurr {
 
         vbo.write(&VERTICES);
         ebo.write(&INDICES);
-        let vao = VertexArrayObject::new(GlContext::clone(gl), vbo, ebo, buffer_infos);
+        let vao = VertexArrayObject::new(GlContext::clone(&gl), vbo, ebo, buffer_infos);
 
         Self {
             vertex_array: vao,
             program,
+            gl,
         }
     }
 
-    pub fn blur(&self, gl: &GlContext, texture: &Texture) -> Texture {
+    pub fn blur(&self, texture: &Texture) -> Texture {
         let textures = [
-            Texture::empty(GlContext::clone(gl), TextureFormat::RGB, texture.size()),
-            Texture::empty(GlContext::clone(gl), TextureFormat::RGB, texture.size()),
+            Texture::empty(
+                GlContext::clone(&self.gl),
+                TextureFormat::RGB,
+                texture.size(),
+            ),
+            Texture::empty(
+                GlContext::clone(&self.gl),
+                TextureFormat::RGB,
+                texture.size(),
+            ),
         ];
         let fbos = textures
             .into_iter()
-            .map(|texture| FramebufferObject::with_texture(GlContext::clone(gl), texture))
+            .map(|texture| FramebufferObject::with_texture(GlContext::clone(&self.gl), texture))
             .collect::<Vec<_>>();
 
         let mut source_texture = texture;
@@ -95,7 +105,7 @@ impl GlowImageBlurr {
                 program_bind.set_uniform("dir", (radius, 0.));
                 let _guard = fbos[0].bind_guard();
                 source_texture.bind(Some(0));
-                gl.draw(
+                self.gl.draw(
                     &_vao_guard,
                     &program_bind,
                     INDICES.len() as _,
@@ -110,7 +120,7 @@ impl GlowImageBlurr {
                 program_bind.set_uniform("dir", (0., radius));
                 let _guard = fbos[1].bind_guard();
                 source_texture.bind(Some(0));
-                gl.draw(
+                self.gl.draw(
                     &_vao_guard,
                     &program_bind,
                     INDICES.len() as _,

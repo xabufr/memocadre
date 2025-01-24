@@ -15,6 +15,7 @@ pub struct GlowImageDrawer {
     vao: VertexArrayObject<Vertex2dUv>,
     // index_buffer: glow::NativeBuffer,
     program: Program,
+    gl: GlContext,
 }
 
 pub struct Sprite {
@@ -66,13 +67,13 @@ const VERTICES: [Vertex2dUv; 4] = [
 const INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 
 impl GlowImageDrawer {
-    pub fn new(gl: &GlContext) -> Self {
+    pub fn new(gl: GlContext) -> Self {
         let mut vbo =
-            BufferObject::new_vertex_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
+            BufferObject::new_vertex_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw);
         let mut ebo =
-            ElementBufferObject::new_index_buffer(GlContext::clone(gl), BufferUsage::StaticDraw);
+            ElementBufferObject::new_index_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw);
 
-        let program = Program::new(GlContext::clone(gl), shader::VERTEX, shader::FRAGMENT);
+        let program = Program::new(GlContext::clone(&gl), shader::VERTEX, shader::FRAGMENT);
         let pos = program.get_attrib_location("pos");
         let uv = program.get_attrib_location("uv");
 
@@ -98,13 +99,13 @@ impl GlowImageDrawer {
                 offset: memoffset::offset_of!(Vertex2dUv, uv) as i32,
             },
         ];
-        let vao = VertexArrayObject::new(GlContext::clone(gl), vbo, ebo, buffer_infos);
-        Self { vao, program }
+        let vao = VertexArrayObject::new(GlContext::clone(&gl), vbo, ebo, buffer_infos);
+        Self { vao, program, gl }
     }
-    pub fn draw_sprite(&self, gl: &GlContext, sprite: &Sprite) {
+    pub fn draw_sprite(&self, sprite: &Sprite) {
         let model = Mat4::scaling_3d(Vec2::from(sprite.size)).translated_2d(sprite.position);
 
-        let vp = gl.current_viewport();
+        let vp = self.gl.current_viewport();
 
         let view = Mat4::orthographic_without_depth_planes(FrustumPlanes {
             left: 0.,
@@ -125,7 +126,7 @@ impl GlowImageDrawer {
 
         let _guard = self.vao.bind_guard();
 
-        gl.draw(
+        self.gl.draw(
             &_guard,
             &prog_bind,
             INDICES.len() as _,

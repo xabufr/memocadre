@@ -1,6 +1,6 @@
 use glow::HasContext;
 use image::{DynamicImage, GenericImageView};
-use vek::{Extent2, Rect, Vec2};
+use vek::{Extent2, Rect};
 
 use super::GlContext;
 

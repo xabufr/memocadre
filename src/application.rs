@@ -9,31 +9,30 @@ use std::{
     sync::{mpsc::TryRecvError, Arc},
     time::{Duration, Instant},
 };
-use vek::{Extent2, Rect, Vec2};
+use vek::{Extent2, Rect};
 
 use crate::{
     configuration::Conf,
     galery::ImageWithDetails,
     gl::{GlContext, Texture},
-    graphics::{EpaintDisplay, GlowImageBlurr, GlowImageDrawer, SharedTexture2d, Sprite},
+    graphics::{epaint_display::TextContainer, Graphics, SharedTexture2d, Sprite},
     support::{self, ApplicationContext, State},
     worker::Worker,
 };
 
 pub struct GlowApplication {
-    image_drawer: GlowImageDrawer,
-    image_blurr: GlowImageBlurr,
     slides: Slides,
     counter: FPSCounter,
-    epaint: EpaintDisplay,
     worker: Worker,
     gl: GlContext,
+    graphics: Graphics,
     config: Arc<Conf>,
+    fps_text: TextContainer,
 }
 
 struct Slide {
     sprites: Vec<Sprite>,
-    text: Option<String>,
+    text: Option<TextContainer>,
 }
 
 struct TransitioningSlide {
@@ -116,13 +115,13 @@ impl Slides {
         }
     }
 
-    pub fn draw(&mut self, gl: &GlContext, image_drawer: &GlowImageDrawer) {
+    pub fn draw(&mut self, graphics: &Graphics) {
         match self {
             Slides::None => (),
-            Slides::Single { slide, start: _ } => slide.draw(gl, image_drawer),
+            Slides::Single { slide, start: _ } => slide.draw(graphics),
             Slides::Transitioning(transitioning_slide) => {
-                transitioning_slide.old.draw(gl, image_drawer);
-                transitioning_slide.new.draw(gl, image_drawer);
+                transitioning_slide.old.draw(graphics);
+                transitioning_slide.new.draw(graphics);
             }
         }
     }
@@ -155,13 +154,15 @@ impl ApplicationContext for GlowApplication {
         let config = Arc::new(config);
         let worker = Worker::new(Arc::clone(&config), Self::get_ideal_image_size(&gl));
         worker.start();
+        let mut graphics = Graphics::new(GlContext::clone(&gl));
+        let fps_text = graphics.epaint_mut().create_text_container();
+        fps_text.set_position((10., 10.).into());
         Self {
-            image_drawer: GlowImageDrawer::new(&gl),
-            image_blurr: GlowImageBlurr::new(&gl),
             counter: FPSCounter::new(),
-            epaint: EpaintDisplay::new(GlContext::clone(&gl)),
+            graphics,
             gl,
             slides: Slides::None,
+            fps_text,
             worker,
             config,
         }
@@ -169,7 +170,7 @@ impl ApplicationContext for GlowApplication {
 
     fn draw_frame(&mut self) {
         self.gl.clear();
-        self.epaint.begin_frame();
+        self.graphics.begin_frame();
         if self
             .slides
             .should_load_next(self.config.slideshow.display_duration)
@@ -178,7 +179,7 @@ impl ApplicationContext for GlowApplication {
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => {}
                 Ok(image) => {
-                    let slide = self.load_next_frame(&self.gl, image);
+                    let slide = self.load_next_frame(image);
                     replace_with_or_abort(&mut self.slides, |slides| {
                         slides.load_next(slide, self.config.slideshow.transition_duration)
                     });
@@ -189,47 +190,32 @@ impl ApplicationContext for GlowApplication {
         replace_with_or_abort(&mut self.slides, |slides| slides.update());
         self.counter.count_frame();
 
-        self.slides.draw(&self.gl, &self.image_drawer);
-        // if let Some(slide) = &self.current_slide {
-        //     if let Some(text) = &slide.text {
-        //         self.epaint.add_text(
-        //             [10., 10.],
-        //             LayoutJob::single_section(
-        //                 text.to_string(),
-        //                 TextFormat::simple(FontId::proportional(28.), Color32::WHITE),
-        //             ),
-        //         );
-        //     }
-        //     if let Some(animation) = &slide.animation {
-        //         if animation.is_finished(frame_time) {}
-        //     }
-        //     slide.draw(&self.gl, &self.image_drawer);
-        // }
-
-        self.epaint.add_text(
-            Vec2::new(100., 100.),
-            LayoutJob::single_section(
-                format!(
-                    "FPS: {} ({} frames)",
-                    self.counter.last_fps, self.counter.frames
-                ),
-                TextFormat {
-                    background: Color32::RED,
-                    ..TextFormat::simple(FontId::proportional(28.), Color32::DEBUG_COLOR)
-                },
+        self.fps_text.set_layout(LayoutJob::single_section(
+            format!(
+                "FPS: {} ({} frames)",
+                self.counter.last_fps, self.counter.frames
             ),
-        );
-        self.epaint.update();
-        self.epaint.draw_texts();
+            TextFormat {
+                background: Color32::RED,
+                ..TextFormat::simple(FontId::proportional(28.), Color32::DEBUG_COLOR)
+            },
+        ));
+
+        self.graphics.update();
+        self.slides.draw(&self.graphics);
+        self.graphics.epaint().draw_container(&self.fps_text);
     }
 
     const WINDOW_TITLE: &'static str = "test";
 }
 
 impl Slide {
-    pub fn draw(&self, gl: &GlContext, image_drawer: &GlowImageDrawer) {
+    pub fn draw(&self, graphics: &Graphics) {
         for sprite in self.sprites.iter() {
-            image_drawer.draw_sprite(gl, sprite);
+            graphics.image_drawer().draw_sprite(sprite);
+        }
+        if let Some(text) = &self.text {
+            graphics.epaint().draw_container(text);
         }
     }
 }
@@ -256,10 +242,10 @@ impl GlowApplication {
         return ideal_size;
     }
 
-    fn load_next_frame(&self, gl: &GlContext, image_with_details: ImageWithDetails) -> Slide {
+    fn load_next_frame(&mut self, image_with_details: ImageWithDetails) -> Slide {
         let image = image_with_details.image;
-        let texture = Texture::new_from_image(GlContext::clone(gl), &image);
-        let vp = gl.current_viewport();
+        let texture = Texture::new_from_image(GlContext::clone(&self.gl), &image);
+        let vp = self.gl.current_viewport();
 
         let texture = SharedTexture2d::new(texture);
         let mut sprite = Sprite::new(texture.clone());
@@ -272,7 +258,7 @@ impl GlowApplication {
 
         let mut sprites = vec![];
         if free_space.reduce_partial_max() > 50.0 {
-            let texture_blur = SharedTexture2d::new(self.image_blurr.blur(gl, &texture));
+            let texture_blur = SharedTexture2d::new(self.graphics.blurr().blur(&texture));
             let mut blur_sprites = [
                 Sprite::new(SharedTexture2d::clone(&texture_blur)),
                 Sprite::new(texture_blur),
@@ -319,6 +305,16 @@ impl GlowApplication {
         } else {
             Some(text.join("\n"))
         };
+
+        let text = text.map(|text| {
+            let container = self.graphics.epaint_mut().create_text_container();
+            container.set_layout(LayoutJob::single_section(
+                text,
+                TextFormat::simple(FontId::proportional(28.), Color32::WHITE),
+            ));
+            container.set_position((300., 300.).into());
+            container
+        });
 
         return Slide { sprites, text };
     }
