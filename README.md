@@ -24,7 +24,7 @@ Todo:
 - Background loading / blur with GPU (context sharing)
 
 - bugs:
-   - transition blur background from some to none
+   - transition blur background from some to none - OK
 - refactos:
    - graphic module
 
