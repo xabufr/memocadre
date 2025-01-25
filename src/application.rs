@@ -23,7 +23,7 @@ use crate::{
     worker::Worker,
 };
 
-pub struct GlowApplication {
+pub struct Application {
     slides: Slides,
     counter: FPSCounter,
     worker: Worker,
@@ -153,7 +153,7 @@ impl FPSCounter {
     }
 }
 
-impl ApplicationContext for GlowApplication {
+impl ApplicationContext for Application {
     fn new(config: Conf, gl: GlContext) -> Self {
         let config = Arc::new(config);
         let worker = Worker::new(Arc::clone(&config), Self::get_ideal_image_size(&gl));
@@ -229,13 +229,13 @@ pub fn start(config: Conf) {
     let vars = ["WAYLAND_DISPLAY", "WAYLAND_SOCKET", "DISPLAY"];
     let has_window_system = vars.into_iter().any(|v| std::env::var_os(v).is_some());
     if has_window_system {
-        State::<GlowApplication>::run_loop(config);
+        State::<Application>::run_loop(config);
     } else {
-        support::start_gbm::<GlowApplication>(config);
+        support::start_gbm::<Application>(config);
     }
 }
 
-impl GlowApplication {
+impl Application {
     fn get_ideal_image_size(gl: &GlContext) -> Extent2<u32> {
         let hw_max = gl.capabilities().max_texture_size;
         let hw_max = Extent2::from(hw_max);

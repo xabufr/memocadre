@@ -8,7 +8,7 @@ use crate::gl::{
 
 use super::Vertex2dUv;
 
-pub struct GlowImageBlurr {
+pub struct ImageBlurr {
     vertex_array: VertexArrayObject<Vertex2dUv>,
     program: Program,
     gl: GlContext,
@@ -22,7 +22,7 @@ const VERTICES: [Vertex2dUv; 4] = [
     Vertex2dUv { pos : [ -1.,  1. ], uv: [ 0., 1. ] },
 ];
 const INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
-impl GlowImageBlurr {
+impl ImageBlurr {
     pub fn new(gl: GlContext) -> Self {
         let mut vbo =
             BufferObject::new_vertex_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw);

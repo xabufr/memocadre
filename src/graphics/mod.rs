@@ -1,9 +1,9 @@
 use bytemuck::{Pod, Zeroable};
 use std::rc::Rc;
 
-pub use blur::GlowImageBlurr;
+pub use blur::ImageBlurr;
 pub use epaint_display::EpaintDisplay;
-pub use image_display::{GlowImageDrawer, Sprite};
+pub use image_display::{ImageDrawert, Sprite};
 
 use crate::gl::{GlContext, Texture};
 
@@ -21,15 +21,15 @@ struct Vertex2dUv {
 pub type SharedTexture2d = Rc<Texture>;
 
 pub struct Graphics {
-    image_drawer: GlowImageDrawer,
-    blurr: GlowImageBlurr,
+    image_drawer: ImageDrawert,
+    blurr: ImageBlurr,
     epaint_display: EpaintDisplay,
 }
 
 impl Graphics {
     pub fn new(gl: GlContext) -> Self {
-        let image_drawer = GlowImageDrawer::new(GlContext::clone(&gl));
-        let blurr = GlowImageBlurr::new(GlContext::clone(&gl));
+        let image_drawer = ImageDrawert::new(GlContext::clone(&gl));
+        let blurr = ImageBlurr::new(GlContext::clone(&gl));
         let epaint_display = EpaintDisplay::new(GlContext::clone(&gl));
 
         Self {
@@ -55,11 +55,11 @@ impl Graphics {
         &mut self.epaint_display
     }
 
-    pub fn image_drawer(&self) -> &GlowImageDrawer {
+    pub fn image_drawer(&self) -> &ImageDrawert {
         &self.image_drawer
     }
 
-    pub fn blurr(&self) -> &GlowImageBlurr {
+    pub fn blurr(&self) -> &ImageBlurr {
         &self.blurr
     }
 }

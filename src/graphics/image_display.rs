@@ -8,7 +8,7 @@ use crate::gl::{
 
 use super::{SharedTexture2d, Vertex2dUv};
 
-pub struct GlowImageDrawer {
+pub struct ImageDrawert {
     // vertex_array: glow::NativeVertexArray,
     // index_buffer: ElementBufferObject,
     // vertex_buffer: BufferObject<Vertex2dUv>,
@@ -66,7 +66,7 @@ const VERTICES: [Vertex2dUv; 4] = [
 ];
 const INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 
-impl GlowImageDrawer {
+impl ImageDrawert {
     pub fn new(gl: GlContext) -> Self {
         let mut vbo =
             BufferObject::new_vertex_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw);
