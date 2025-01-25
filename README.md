@@ -15,7 +15,7 @@ Todo:
 
 - Graphics:
    - Info placement
-   - Zoom effect
+   - Zoom effect -> check for background worker first! (otherwise it will be freezed...)
    - Other effects / transitions
    - Other layouts when possible (two photos at the same time)
    - Configurable orientation
