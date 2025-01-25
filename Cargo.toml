@@ -23,10 +23,10 @@ humantime-serde = "1.1.1"
 image = { version = "0.25.5", features = ["default-formats"], default-features = false }
 log = "0.4.22"
 memoffset = "0.9.1"
+minreq = { version = "2.13.0", features = ["https-rustls", "punycode", "json-using-serde"] }
 mint = "0.5.9"
 raw-window-handle = "0.6.2"
 replace_with = "0.1.7"
-reqwest = { version = "0.12.12", features = ["blocking", "charset", "json", "rustls-tls"], default-features = false }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.134"
 thread-priority = "1.2.0"

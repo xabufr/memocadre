@@ -1,6 +1,5 @@
-use bytes::Bytes;
 use log::trace;
-use reqwest::Method;
+use minreq::{Method, Request};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
@@ -77,7 +76,6 @@ pub struct SearchRandomRequest {
 pub struct ImmichClient {
     base_url: String,
     api_key: String,
-    client: reqwest::blocking::Client,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -94,14 +92,14 @@ impl ImmichClient {
         Self {
             base_url: base_url.as_ref().into(),
             api_key: api_key.as_ref().into(),
-            client: reqwest::blocking::Client::new(),
         }
     }
 
     pub fn search_random(&self, query: SearchRandomRequest) -> Vec<AssetResponse> {
         self.post("search/random")
-            .json(&query)
-            .header("Accept", "application/json")
+            .with_json(&query)
+            .unwrap()
+            .with_header("Accept", "application/json")
             .send()
             .unwrap()
             .json()
@@ -110,34 +108,31 @@ impl ImmichClient {
 
     pub fn search_person(&self, name: &str) -> Vec<PersonResponse> {
         self.get(format!("search/person"))
-            .query(&[("name", name)])
+            .with_param("name", name)
             .send()
             .unwrap()
             .json()
             .unwrap()
     }
 
-    pub fn view_assets(&self, id: &str) -> Bytes {
+    pub fn view_assets(&self, id: &str) -> Vec<u8> {
         self.get(format!("assets/{}/thumbnail?size=preview", id))
             .send()
             .unwrap()
-            .bytes()
-            .unwrap()
+            .into_bytes()
     }
 
-    fn post(&self, path: impl AsRef<str>) -> reqwest::blocking::RequestBuilder {
-        self.request(Method::POST, path)
+    fn post(&self, path: impl AsRef<str>) -> Request {
+        self.request(Method::Post, path)
     }
 
-    fn get(&self, path: impl AsRef<str>) -> reqwest::blocking::RequestBuilder {
-        self.request(Method::GET, path)
+    fn get(&self, path: impl AsRef<str>) -> Request {
+        self.request(Method::Get, path)
     }
 
-    fn request(&self, method: Method, path: impl AsRef<str>) -> reqwest::blocking::RequestBuilder {
+    fn request(&self, method: Method, path: impl AsRef<str>) -> Request {
         let url = format!("{}/api/{}", self.base_url, path.as_ref());
         trace!("Requesting Immich with {} {}", method, url);
-        self.client
-            .request(method, url)
-            .header("x-api-key", &self.api_key)
+        Request::new(method, url).with_header("x-api-key", &self.api_key)
     }
 }
