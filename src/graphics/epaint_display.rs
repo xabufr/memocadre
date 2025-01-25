@@ -1,14 +1,14 @@
 use std::{
     borrow::Borrow,
     cell::RefCell,
-    ops::DerefMut,
+    ops::{Deref, DerefMut},
     rc::{Rc, Weak},
 };
 
 use bytemuck::{Pod, Zeroable};
 use epaint::{
     text::{FontDefinitions, LayoutJob},
-    Color32, Fonts, ImageData, Mesh, TessellationOptions, Tessellator, TextShape,
+    Color32, Fonts, ImageData, Mesh, Shape, TessellationOptions, Tessellator, TextShape,
 };
 use vek::{FrustumPlanes, Mat4, Rect, Vec2};
 
@@ -18,6 +18,8 @@ use crate::gl::{
     vao::{BufferInfo, VertexArrayObject},
     BlendMode, DrawParameters, GlContext, Program, Texture,
 };
+
+use super::SharedTexture2d;
 
 pub struct EpaintDisplay {
     fonts: Fonts,
@@ -40,6 +42,12 @@ struct Vertex {
 
 pub struct TextContainer(Rc<RefCell<TextContainerInner>>);
 
+pub struct ShapeContainer {
+    position: Vec2<f32>,
+    vao: VertexArrayObject<Vertex>,
+    texture: Option<SharedTexture2d>,
+}
+
 impl TextContainer {
     pub fn set_layout(&self, job: LayoutJob) {
         self.0.borrow_mut().next_layout = Some(job);
@@ -51,6 +59,7 @@ impl TextContainer {
         self.0.borrow_mut().position = pos;
     }
 }
+
 struct TextContainerInner {
     position: Vec2<f32>,
     text_mesh: Mesh,
@@ -104,43 +113,28 @@ impl EpaintDisplay {
             .begin_pass(self.pixels_per_point, self.max_texture_size);
     }
 
+    pub fn create_shape(
+        &mut self,
+        shape: Shape,
+        texture: Option<SharedTexture2d>,
+    ) -> ShapeContainer {
+        let mut mesh = Mesh::default();
+        self.tesselator.tessellate_shape(shape, &mut mesh);
+
+        let vbo_data = &[];
+        let ebo_data = &[];
+        // TODO avoid double buffer init
+        let mut vao = self.new_vao(vbo_data, ebo_data, BufferUsage::StaticDraw);
+        write_mesh_to_vao(&mesh, &mut vao);
+        ShapeContainer {
+            position: [0., 0.].into(),
+            vao,
+            texture,
+        }
+    }
+
     pub fn create_text_container(&mut self) -> TextContainer {
-        let stride = std::mem::size_of::<Vertex>() as i32;
-        let buffer_infos = vec![
-            BufferInfo {
-                location: self.program.get_attrib_location("pos"),
-                data_type: glow::FLOAT,
-                vector_size: 2,
-                normalized: false,
-                stride,
-                offset: memoffset::offset_of!(Vertex, pos) as i32,
-            },
-            BufferInfo {
-                location: self.program.get_attrib_location("color"),
-                data_type: glow::UNSIGNED_BYTE,
-                vector_size: 4,
-                normalized: false,
-                stride,
-                offset: memoffset::offset_of!(Vertex, color) as i32,
-            },
-            BufferInfo {
-                location: self.program.get_attrib_location("uv"),
-                data_type: glow::FLOAT,
-                vector_size: 2,
-                normalized: false,
-                stride,
-                offset: memoffset::offset_of!(Vertex, uv) as i32,
-            },
-        ];
-        let mut vbo =
-            BufferObject::new_vertex_buffer(GlContext::clone(&self.gl), BufferUsage::DynamicDraw);
-        let mut ebo = ElementBufferObject::new_index_buffer(
-            GlContext::clone(&self.gl),
-            BufferUsage::DynamicDraw,
-        );
-        vbo.write(&[]);
-        ebo.write(&[]);
-        let vao = VertexArrayObject::new(GlContext::clone(&self.gl), vbo, ebo, buffer_infos);
+        let vao = self.new_vao(&[], &[], BufferUsage::DynamicDraw);
 
         let container = TextContainerInner {
             position: [0., 0.].into(),
@@ -164,31 +158,42 @@ impl EpaintDisplay {
             self.tesselator
                 .tessellate_text(shape, &mut container.text_mesh);
 
-            let vertex = container
-                .text_mesh
-                .vertices
-                .iter()
-                .copied()
-                .map(Vertex::from)
-                .collect::<Vec<_>>();
-
-            if container.text_vao.vertex_buffer.size() >= vertex.len() {
-                container.text_vao.vertex_buffer.write_sub(0, &vertex);
-            } else {
-                container.text_vao.vertex_buffer.write(&vertex);
-            }
-            if container.text_vao.element_buffer.size() >= container.text_mesh.indices.len() {
-                container
-                    .text_vao
-                    .element_buffer
-                    .write_sub(0, &container.text_mesh.indices);
-            } else {
-                container
-                    .text_vao
-                    .element_buffer
-                    .write(&container.text_mesh.indices);
-            }
+            write_mesh_to_vao(&container.text_mesh, &mut container.text_vao);
         }
+    }
+
+    pub fn draw_shape(&self, shape: &ShapeContainer) {
+        let vp = self.gl.current_viewport();
+        let view = Mat4::orthographic_without_depth_planes(FrustumPlanes {
+            left: 0.,
+            right: vp.w as _,
+            bottom: vp.h as _,
+            top: 0.,
+            far: -1.,
+            near: 1.,
+        });
+        let prog = self.program.bind();
+        prog.set_uniform("tex", 0);
+        shape
+            .texture
+            .as_ref()
+            .map(|t| t.deref())
+            .unwrap_or(&self.texture)
+            .bind(Some(0));
+        prog.set_uniform("view", view);
+        let model = Mat4::translation_2d(shape.position);
+        prog.set_uniform("model", model);
+        let vao_bind = shape.vao.bind_guard();
+        self.gl.draw(
+            &vao_bind,
+            &prog,
+            shape.vao.element_buffer.size() as _,
+            0,
+            &DrawParameters {
+                blend: Some(BlendMode::alpha()),
+                ..Default::default()
+            },
+        );
     }
 
     pub fn draw_container(&self, container: &TextContainer) {
@@ -283,6 +288,67 @@ impl EpaintDisplay {
                 .collect(),
             _ => unimplemented!(),
         }
+    }
+
+    fn new_vao(
+        &mut self,
+        vbo_data: &[Vertex],
+        ebo_data: &[u32],
+        buffer_usage: BufferUsage,
+    ) -> VertexArrayObject<Vertex> {
+        let stride = std::mem::size_of::<Vertex>() as i32;
+        let buffer_infos = vec![
+            BufferInfo {
+                location: self.program.get_attrib_location("pos"),
+                data_type: glow::FLOAT,
+                vector_size: 2,
+                normalized: false,
+                stride,
+                offset: memoffset::offset_of!(Vertex, pos) as i32,
+            },
+            BufferInfo {
+                location: self.program.get_attrib_location("color"),
+                data_type: glow::UNSIGNED_BYTE,
+                vector_size: 4,
+                normalized: false,
+                stride,
+                offset: memoffset::offset_of!(Vertex, color) as i32,
+            },
+            BufferInfo {
+                location: self.program.get_attrib_location("uv"),
+                data_type: glow::FLOAT,
+                vector_size: 2,
+                normalized: false,
+                stride,
+                offset: memoffset::offset_of!(Vertex, uv) as i32,
+            },
+        ];
+        let mut vbo = BufferObject::new_vertex_buffer(GlContext::clone(&self.gl), buffer_usage);
+        let mut ebo =
+            ElementBufferObject::new_index_buffer(GlContext::clone(&self.gl), buffer_usage);
+        vbo.write(vbo_data);
+        ebo.write(ebo_data);
+        VertexArrayObject::new(GlContext::clone(&self.gl), vbo, ebo, buffer_infos)
+    }
+}
+
+fn write_mesh_to_vao(mesh: &Mesh, vao: &mut VertexArrayObject<Vertex>) {
+    let vertex = mesh
+        .vertices
+        .iter()
+        .copied()
+        .map(Vertex::from)
+        .collect::<Vec<_>>();
+
+    if vao.vertex_buffer.size() >= vertex.len() {
+        vao.vertex_buffer.write_sub(0, &vertex);
+    } else {
+        vao.vertex_buffer.write(&vertex);
+    }
+    if vao.element_buffer.size() >= mesh.indices.len() {
+        vao.element_buffer.write_sub(0, &mesh.indices);
+    } else {
+        vao.element_buffer.write(&mesh.indices);
     }
 }
 fn convert_filter_option(filter: epaint::textures::TextureFilter) -> TextureFiltering {

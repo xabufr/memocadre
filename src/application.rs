@@ -1,6 +1,6 @@
 use epaint::{
     text::{LayoutJob, TextFormat},
-    Color32, FontId,
+    Color32, FontId, Rounding, Shape, Stroke,
 };
 use glissade::Keyframes;
 use log::debug;
@@ -15,7 +15,10 @@ use crate::{
     configuration::Conf,
     galery::ImageWithDetails,
     gl::{GlContext, Texture},
-    graphics::{epaint_display::TextContainer, Graphics, SharedTexture2d, Sprite},
+    graphics::{
+        epaint_display::{ShapeContainer, TextContainer},
+        Graphics, SharedTexture2d, Sprite,
+    },
     support::{self, ApplicationContext, State},
     worker::Worker,
 };
@@ -33,6 +36,7 @@ pub struct GlowApplication {
 struct Slide {
     sprites: Vec<Sprite>,
     text: Option<TextContainer>,
+    shape: ShapeContainer,
 }
 
 struct TransitioningSlide {
@@ -217,6 +221,7 @@ impl Slide {
         if let Some(text) = &self.text {
             graphics.epaint().draw_container(text);
         }
+        graphics.epaint().draw_shape(&self.shape);
     }
 }
 
@@ -257,11 +262,11 @@ impl GlowApplication {
         sprite.position = (free_space * 0.5).into();
 
         let mut sprites = vec![];
+        let texture_blur = SharedTexture2d::new(self.graphics.blurr().blur(&texture));
         if free_space.reduce_partial_max() > 50.0 {
-            let texture_blur = SharedTexture2d::new(self.graphics.blurr().blur(&texture));
             let mut blur_sprites = [
                 Sprite::new(SharedTexture2d::clone(&texture_blur)),
-                Sprite::new(texture_blur),
+                Sprite::new(SharedTexture2d::clone(&texture_blur)),
             ];
 
             for blur_sprite in blur_sprites.iter_mut() {
@@ -316,6 +321,23 @@ impl GlowApplication {
             container
         });
 
-        return Slide { sprites, text };
+        let shape = Shape::Rect(epaint::RectShape {
+            rect: epaint::Rect::from_center_size((50., 50.).into(), (100., 50.).into()),
+            rounding: Rounding::same(25.),
+            fill: Color32::WHITE,
+            stroke: Stroke::NONE,
+            blur_width: 10.,
+            fill_texture_id: Default::default(),
+            uv: epaint::Rect::from_min_max((0.0, 0.0).into(), (1.0, 1.0).into()),
+        });
+        let shape = self
+            .graphics
+            .epaint_mut()
+            .create_shape(shape, Some(texture_blur));
+        return Slide {
+            sprites,
+            text,
+            shape,
+        };
     }
 }
