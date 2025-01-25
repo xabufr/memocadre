@@ -8,15 +8,18 @@ Todo:
    - Extra info (photo date, etc...) - OK ?
 
 - Configuration
+   - Blur (radius, algo...)
    - Transitions
    - Durations - OK
    - Search query - OK
    - Search by person name - OK
+   - Other searches
+   - Multiple searches
 
 - Graphics:
    - Info placement
    - Zoom effect -> check for background worker first! (otherwise it will be freezed...)
-   - Other effects / transitions
+   - Other effects / transitions -> fadeout-fadein
    - Other layouts when possible (two photos at the same time)
    - Configurable orientation
 
