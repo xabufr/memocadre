@@ -21,7 +21,7 @@ Todo:
    - Configurable orientation
 
 - Technical:
-   - Change from reqwest to a more lightweight http client
+   - Change from reqwest to a more lightweight http client - OK
    - Error handling
    - Sleep when nothing to do ?
    - Background loading / blur with GPU (context sharing)
