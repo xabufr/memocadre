@@ -21,6 +21,7 @@ Todo:
    - Configurable orientation
 
 - Technical:
+   - Compute view matrix once
    - Change from reqwest to a more lightweight http client - OK
    - Error handling
    - Sleep when nothing to do ?
