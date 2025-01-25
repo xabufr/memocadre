@@ -1535,7 +1535,6 @@ name = "photo-kiosk"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "bytes",
  "config",
  "drm",
  "env_logger",
