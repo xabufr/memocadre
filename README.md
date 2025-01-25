@@ -4,8 +4,8 @@ Todo:
    - Text - glyph branch -> try epaint OK
    - DRM/GDM/KMS rendering - OK
    - switch to Vek (Rect, better types...) - OK
-   - Smooth shapes (rounded rectangles...)
-   - Extra info (photo date, etc...)
+   - Smooth shapes (rounded rectangles...) - OK
+   - Extra info (photo date, etc...) - OK ?
 
 - Configuration
    - Transitions
@@ -13,20 +13,26 @@ Todo:
    - Search query - OK
    - Search by person name - OK
 
-- Change from reqwest to a more lightweight http client
-- Error handling
-- Sleep when nothing to do
-- Other effects / transitions
-- Other layouts when possible (two photos at the same time)
-- Configurable orientation
+- Graphics:
+   - Info placement
+   - Zoom effect
+   - Other effects / transitions
+   - Other layouts when possible (two photos at the same time)
+   - Configurable orientation
+
+- Technical:
+   - Change from reqwest to a more lightweight http client
+   - Error handling
+   - Sleep when nothing to do ?
+   - Background loading / blur with GPU (context sharing)
+
 - HTTP Api ?
 - publish
-- Background loading / blur with GPU (context sharing)
 
 - bugs:
    - transition blur background from some to none - OK
 - refactos:
-   - graphic module
+   - graphic module - OK
 
 Improves:
 - GBM ressources:
