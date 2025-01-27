@@ -1,6 +1,6 @@
 use epaint::{
     text::{LayoutJob, TextFormat},
-    Color32, FontId, Rounding, Shape, Stroke,
+    Color32, FontId,
 };
 use glissade::Keyframes;
 use log::debug;
@@ -15,10 +15,7 @@ use crate::{
     configuration::Conf,
     galery::ImageWithDetails,
     gl::{GlContext, Texture},
-    graphics::{
-        epaint_display::{ShapeContainer, TextContainer},
-        Graphics, SharedTexture2d, Sprite,
-    },
+    graphics::{epaint_display::TextContainer, Graphics, SharedTexture2d, Sprite},
     support::{self, ApplicationContext, State},
     worker::Worker,
 };
@@ -151,7 +148,7 @@ impl ApplicationContext for Application {
         let worker = Worker::new(Arc::clone(&config), Self::get_ideal_image_size(&gl));
         worker.start();
         let mut graphics = Graphics::new(GlContext::clone(&gl));
-        let fps_text = graphics.epaint_mut().create_text_container();
+        let fps_text = graphics.create_text_container();
         fps_text.set_position((10., 10.).into());
         Self {
             counter: FPSCounter::new(),
@@ -199,7 +196,7 @@ impl ApplicationContext for Application {
 
         self.graphics.update();
         self.slides.draw(&self.graphics);
-        self.graphics.epaint().draw_container(&self.fps_text);
+        self.graphics.draw(&self.fps_text);
     }
 
     const WINDOW_TITLE: &'static str = "test";
@@ -208,10 +205,10 @@ impl ApplicationContext for Application {
 impl Slide {
     pub fn draw(&self, graphics: &Graphics) {
         for sprite in self.sprites.iter() {
-            graphics.image_drawer().draw_sprite(sprite);
+            graphics.draw(sprite);
         }
         if let Some(text) = &self.text {
-            graphics.epaint().draw_container(text);
+            graphics.draw(text);
         }
     }
 
@@ -311,7 +308,7 @@ impl Application {
         };
 
         let text = text.map(|text| {
-            let mut container = self.graphics.epaint_mut().create_text_container();
+            let mut container = self.graphics.create_text_container();
             container.set_layout(LayoutJob {
                 halign: epaint::emath::Align::Center,
                 ..LayoutJob::single_section(
@@ -322,9 +319,7 @@ impl Application {
                     },
                 )
             });
-            self.graphics
-                .epaint_mut()
-                .force_container_update(&mut container);
+            self.graphics.force_text_container_update(&mut container);
             let dims = container.get_dimensions();
             container
                 .set_position((display_size.w as f32 * 0.5, display_size.h as f32 - dims.h).into());

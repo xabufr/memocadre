@@ -1,5 +1,8 @@
 use bytemuck::{Pod, Zeroable};
+use epaint::Shape;
+use epaint_display::{ShapeContainer, TextContainer};
 use std::rc::Rc;
+use vek::{FrustumPlanes, Mat4};
 
 pub use blur::ImageBlurr;
 pub use epaint_display::EpaintDisplay;
@@ -24,6 +27,12 @@ pub struct Graphics {
     image_drawer: ImageDrawert,
     blurr: ImageBlurr,
     epaint_display: EpaintDisplay,
+    view: Mat4<f32>,
+    gl: GlContext,
+}
+
+pub trait Drawable {
+    fn draw(&self, graphics: &Graphics);
 }
 
 impl Graphics {
@@ -36,6 +45,8 @@ impl Graphics {
             image_drawer,
             blurr,
             epaint_display,
+            gl,
+            view: Mat4::zero(),
         }
     }
 
@@ -45,21 +56,58 @@ impl Graphics {
 
     pub fn update(&mut self) {
         self.epaint_display.update();
+
+        // TODO better way to get dims?
+        let vp = self.gl.current_viewport();
+        self.view = Mat4::orthographic_without_depth_planes(FrustumPlanes {
+            left: 0.,
+            right: vp.w as _,
+            bottom: vp.h as _,
+            top: 0.,
+            far: -1.,
+            near: 1.,
+        });
     }
 
-    pub fn epaint(&self) -> &EpaintDisplay {
-        &self.epaint_display
+    pub fn draw<D: Drawable>(&self, drawable: &D) {
+        drawable.draw(self);
     }
 
-    pub fn epaint_mut(&mut self) -> &mut EpaintDisplay {
-        &mut self.epaint_display
+    pub fn create_text_container(&mut self) -> TextContainer {
+        self.epaint_display.create_text_container()
     }
 
-    pub fn image_drawer(&self) -> &ImageDrawert {
-        &self.image_drawer
+    pub fn force_text_container_update(&mut self, container: &TextContainer) {
+        self.epaint_display.force_container_update(container);
+    }
+
+    pub fn create_shape(
+        &mut self,
+        shape: Shape,
+        texture: Option<SharedTexture2d>,
+    ) -> ShapeContainer {
+        self.epaint_display.create_shape(shape, texture)
     }
 
     pub fn blurr(&self) -> &ImageBlurr {
         &self.blurr
+    }
+}
+
+impl Drawable for Sprite {
+    fn draw(&self, graphics: &Graphics) {
+        graphics.image_drawer.draw_sprite(graphics.view, self);
+    }
+}
+
+impl Drawable for TextContainer {
+    fn draw(&self, graphics: &Graphics) {
+        graphics.epaint_display.draw_container(graphics.view, self);
+    }
+}
+
+impl Drawable for ShapeContainer {
+    fn draw(&self, graphics: &Graphics) {
+        graphics.epaint_display.draw_shape(graphics.view, self);
     }
 }

@@ -102,19 +102,9 @@ impl ImageDrawert {
         let vao = VertexArrayObject::new(GlContext::clone(&gl), vbo, ebo, buffer_infos);
         Self { vao, program, gl }
     }
-    pub fn draw_sprite(&self, sprite: &Sprite) {
+    pub fn draw_sprite(&self, view: Mat4<f32>, sprite: &Sprite) {
         let model = Mat4::scaling_3d(Vec2::from(sprite.size)).translated_2d(sprite.position);
 
-        let vp = self.gl.current_viewport();
-
-        let view = Mat4::orthographic_without_depth_planes(FrustumPlanes {
-            left: 0.,
-            right: vp.w as _,
-            bottom: vp.h as _,
-            top: 0.,
-            far: -1.,
-            near: 1.,
-        });
         let prog_bind = self.program.bind();
 
         prog_bind.set_uniform("opacity", sprite.opacity);

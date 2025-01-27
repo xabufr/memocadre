@@ -176,16 +176,7 @@ impl EpaintDisplay {
         }
     }
 
-    pub fn draw_shape(&self, shape: &ShapeContainer) {
-        let vp = self.gl.current_viewport();
-        let view = Mat4::orthographic_without_depth_planes(FrustumPlanes {
-            left: 0.,
-            right: vp.w as _,
-            bottom: vp.h as _,
-            top: 0.,
-            far: -1.,
-            near: 1.,
-        });
+    pub fn draw_shape(&self, view: Mat4<f32>, shape: &ShapeContainer) {
         let prog = self.program.bind();
         prog.set_uniform("tex", 0);
         shape
@@ -210,20 +201,11 @@ impl EpaintDisplay {
         );
     }
 
-    pub fn draw_container(&self, container: &TextContainer) {
+    pub fn draw_container(&self, view: Mat4<f32>, container: &TextContainer) {
         let container = RefCell::borrow(&container.0);
         if container.borrow().shape.is_none() {
             return;
         }
-        let vp = self.gl.current_viewport();
-        let view = Mat4::orthographic_without_depth_planes(FrustumPlanes {
-            left: 0.,
-            right: vp.w as _,
-            bottom: vp.h as _,
-            top: 0.,
-            far: -1.,
-            near: 1.,
-        });
         let prog = self.program.bind();
         prog.set_uniform("tex", 0);
         self.texture.bind(Some(0));
