@@ -14,6 +14,21 @@ pub struct ImageBlurr {
     gl: GlContext,
 }
 
+#[derive(Clone, Copy)]
+pub struct BlurOptions {
+    radius: f32,
+    passes: u8,
+}
+
+impl Default for BlurOptions {
+    fn default() -> Self {
+        BlurOptions {
+            passes: 6,
+            radius: 6.,
+        }
+    }
+}
+
 #[rustfmt::skip]
 const VERTICES: [Vertex2dUv; 4] = [
     Vertex2dUv { pos : [ -1., -1. ], uv: [ 0., 0. ] },
@@ -69,7 +84,7 @@ impl ImageBlurr {
         }
     }
 
-    pub fn blur(&self, texture: &Texture) -> Texture {
+    pub fn blur(&self, BlurOptions { radius, passes }: BlurOptions, texture: &Texture) -> Texture {
         let textures = [
             Texture::empty(
                 GlContext::clone(&self.gl),
@@ -88,9 +103,6 @@ impl ImageBlurr {
             .collect::<Vec<_>>();
 
         let mut source_texture = texture;
-
-        let radius: f32 = 6.0;
-        let passes = 6;
 
         let program_bind = self.program.bind();
         let _vao_guard = self.vertex_array.bind_guard();
