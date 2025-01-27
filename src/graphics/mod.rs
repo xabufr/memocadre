@@ -33,7 +33,7 @@ pub struct Graphics {
 }
 
 pub trait Drawable {
-    fn draw(&self, graphics: &Graphics);
+    fn draw(&self, graphics: &Graphics) -> Result<()>;
 }
 
 impl Graphics {
@@ -72,8 +72,8 @@ impl Graphics {
         });
     }
 
-    pub fn draw<D: Drawable>(&self, drawable: &D) {
-        drawable.draw(self);
+    pub fn draw<D: Drawable>(&self, drawable: &D) -> Result<()> {
+        drawable.draw(self)
     }
 
     pub fn create_text_container(&mut self) -> TextContainer {
@@ -98,19 +98,28 @@ impl Graphics {
 }
 
 impl Drawable for Sprite {
-    fn draw(&self, graphics: &Graphics) {
-        graphics.image_drawer.draw_sprite(graphics.view, self);
+    fn draw(&self, graphics: &Graphics) -> Result<()> {
+        graphics
+            .image_drawer
+            .draw_sprite(graphics.view, self)
+            .context("Cannot draw sprite using ImageDrawer")
     }
 }
 
 impl Drawable for TextContainer {
-    fn draw(&self, graphics: &Graphics) {
-        graphics.epaint_display.draw_container(graphics.view, self);
+    fn draw(&self, graphics: &Graphics) -> Result<()> {
+        graphics
+            .epaint_display
+            .draw_container(graphics.view, self)
+            .context("Cannot draw text using epaint")
     }
 }
 
 impl Drawable for ShapeContainer {
-    fn draw(&self, graphics: &Graphics) {
-        graphics.epaint_display.draw_shape(graphics.view, self);
+    fn draw(&self, graphics: &Graphics) -> Result<()> {
+        graphics
+            .epaint_display
+            .draw_shape(graphics.view, self)
+            .context("Cannot draw shape using epaint")
     }
 }

@@ -178,18 +178,18 @@ impl EpaintDisplay {
         }
     }
 
-    pub fn draw_shape(&self, view: Mat4<f32>, shape: &ShapeContainer) {
+    pub fn draw_shape(&self, view: Mat4<f32>, shape: &ShapeContainer) -> Result<()> {
         let prog = self.program.bind();
-        prog.set_uniform("tex", 0);
+        prog.set_uniform("tex", 0)?;
         shape
             .texture
             .as_ref()
             .map(|t| t.deref())
             .unwrap_or(&self.texture)
             .bind(Some(0));
-        prog.set_uniform("view", view);
+        prog.set_uniform("view", view)?;
         let model = Mat4::translation_2d(shape.position);
-        prog.set_uniform("model", model);
+        prog.set_uniform("model", model)?;
         let vao_bind = shape.vao.bind_guard();
         self.gl.draw(
             &vao_bind,
@@ -201,19 +201,20 @@ impl EpaintDisplay {
                 ..Default::default()
             },
         );
+        Ok(())
     }
 
-    pub fn draw_container(&self, view: Mat4<f32>, container: &TextContainer) {
+    pub fn draw_container(&self, view: Mat4<f32>, container: &TextContainer) -> Result<()> {
         let container = RefCell::borrow(&container.0);
         if container.borrow().shape.is_none() {
-            return;
+            return Ok(());
         }
         let prog = self.program.bind();
-        prog.set_uniform("tex", 0);
+        prog.set_uniform("tex", 0)?;
         self.texture.bind(Some(0));
-        prog.set_uniform("view", view);
+        prog.set_uniform("view", view)?;
         let model = Mat4::translation_2d(container.position);
-        prog.set_uniform("model", model);
+        prog.set_uniform("model", model)?;
         let vao_bind = container.text_vao.bind_guard();
         self.gl.draw(
             &vao_bind,
@@ -225,6 +226,7 @@ impl EpaintDisplay {
                 ..Default::default()
             },
         );
+        Ok(())
     }
 
     pub fn update(&mut self) {

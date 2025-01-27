@@ -109,13 +109,14 @@ impl Slides {
         }
     }
 
-    pub fn draw(&mut self, graphics: &Graphics) {
+    pub fn draw(&mut self, graphics: &Graphics) -> Result<()> {
         match self {
-            Slides::None => (),
+            Slides::None => Ok(()),
             Slides::Single { slide, start: _ } => slide.draw(graphics),
             Slides::Transitioning(transitioning_slide) => {
-                transitioning_slide.old.draw(graphics);
-                transitioning_slide.new.draw(graphics);
+                transitioning_slide.old.draw(graphics)?;
+                transitioning_slide.new.draw(graphics)?;
+                Ok(())
             }
         }
     }
@@ -162,7 +163,7 @@ impl ApplicationContext for Application {
         })
     }
 
-    fn draw_frame(&mut self) {
+    fn draw_frame(&mut self) -> Result<()> {
         self.worker
             .set_ideal_max_size(Self::get_ideal_image_size(&self.gl));
         self.gl.clear();
@@ -175,7 +176,9 @@ impl ApplicationContext for Application {
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => {}
                 Ok(image) => {
-                    let slide = self.load_next_frame(image);
+                    let slide = self
+                        .load_next_frame(image)
+                        .context("Cannot laod next frame")?;
                     replace_with_or_abort(&mut self.slides, |slides| {
                         slides.load_next(slide, self.config.slideshow.transition_duration)
                     });
@@ -198,21 +201,23 @@ impl ApplicationContext for Application {
         ));
 
         self.graphics.update();
-        self.slides.draw(&self.graphics);
-        self.graphics.draw(&self.fps_text);
+        self.slides.draw(&self.graphics)?;
+        self.graphics.draw(&self.fps_text)?;
+        Ok(())
     }
 
     const WINDOW_TITLE: &'static str = "test";
 }
 
 impl Slide {
-    pub fn draw(&self, graphics: &Graphics) {
+    pub fn draw(&self, graphics: &Graphics) -> Result<()> {
         for sprite in self.sprites.iter() {
-            graphics.draw(sprite);
+            graphics.draw(sprite)?;
         }
         if let Some(text) = &self.text {
-            graphics.draw(text);
+            graphics.draw(text)?;
         }
+        Ok(())
     }
 
     pub fn set_opacity(&mut self, alpha: f32) {
@@ -247,7 +252,7 @@ impl Application {
         return ideal_size;
     }
 
-    fn load_next_frame(&mut self, image_with_details: ImageWithDetails) -> Slide {
+    fn load_next_frame(&mut self, image_with_details: ImageWithDetails) -> Result<Slide> {
         let image = image_with_details.image;
         let texture = Texture::new_from_image(GlContext::clone(&self.gl), &image);
         let vp = self.gl.current_viewport();
@@ -256,7 +261,8 @@ impl Application {
         let texture_blur = SharedTexture2d::new(
             self.graphics
                 .blurr()
-                .blur(self.config.slideshow.blur_options, &texture),
+                .blur(self.config.slideshow.blur_options, &texture)
+                .context("Cannot blur image")?,
         );
 
         let mut sprite = Sprite::new(SharedTexture2d::clone(&texture));
@@ -337,6 +343,6 @@ impl Application {
             container
         });
 
-        return Slide { sprites, text };
+        return Ok(Slide { sprites, text });
     }
 }

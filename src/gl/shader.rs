@@ -85,8 +85,12 @@ impl AsUniformValue for Mat4<f32> {
 }
 
 impl<'a> ProgramGuard<'a> {
-    pub fn set_uniform(&self, name: &str, value: impl AsUniformValue) {
-        let location = self.program.uniforms.get(name).unwrap();
+    pub fn set_uniform(&self, name: &str, value: impl AsUniformValue) -> Result<()> {
+        let location = self
+            .program
+            .uniforms
+            .get(name)
+            .with_context(|| format!("Uniform {name} doesn't exists"))?;
         let location = Some(location);
         let value = value.as_uniform_value();
         let gl = &self.program.gl;
@@ -100,6 +104,7 @@ impl<'a> ProgramGuard<'a> {
                 UniformValue::Mat4(v) => gl.uniform_matrix_4_f32_slice(location, false, &v),
             }
         }
+        Ok(())
     }
 }
 

@@ -104,15 +104,15 @@ impl ImageDrawert {
         let vao = VertexArrayObject::new(GlContext::clone(&gl), vbo, ebo, buffer_infos);
         Ok(Self { vao, program, gl })
     }
-    pub fn draw_sprite(&self, view: Mat4<f32>, sprite: &Sprite) {
+    pub fn draw_sprite(&self, view: Mat4<f32>, sprite: &Sprite) -> Result<()> {
         let model = Mat4::scaling_3d(Vec2::from(sprite.size)).translated_2d(sprite.position);
 
         let prog_bind = self.program.bind();
 
-        prog_bind.set_uniform("opacity", sprite.opacity);
-        prog_bind.set_uniform("model", model);
-        prog_bind.set_uniform("view", view);
-        prog_bind.set_uniform("tex", 0);
+        prog_bind.set_uniform("opacity", sprite.opacity)?;
+        prog_bind.set_uniform("model", model)?;
+        prog_bind.set_uniform("view", view)?;
+        prog_bind.set_uniform("tex", 0)?;
 
         sprite.texture.bind(Some(0));
 
@@ -128,6 +128,7 @@ impl ImageDrawert {
                 scissor: sprite.scissor,
             },
         );
+        Ok(())
     }
 }
 

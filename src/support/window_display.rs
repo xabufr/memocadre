@@ -69,7 +69,7 @@ impl<T: ApplicationContext + 'static> ApplicationHandler<()> for App<T> {
             winit::event::WindowEvent::RedrawRequested => {
                 if let Some(state) = &mut self.state {
                     state.context.update();
-                    state.context.draw_frame();
+                    state.context.draw_frame().expect("Cannot draw frame");
                     state
                         .surface
                         .swap_buffers(&state.gl_context)

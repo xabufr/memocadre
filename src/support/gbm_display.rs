@@ -192,7 +192,7 @@ where
 
     let mut app = T::new(app_config, GlContext::clone(&gl)).context("Cannot create application")?;
     loop {
-        app.draw_frame();
+        app.draw_frame().context("Error while drawing a frame")?;
 
         surface
             .swap_buffers(&current_context)

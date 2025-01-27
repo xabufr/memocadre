@@ -89,7 +89,11 @@ impl ImageBlurr {
         })
     }
 
-    pub fn blur(&self, BlurOptions { radius, passes }: BlurOptions, texture: &Texture) -> Texture {
+    pub fn blur(
+        &self,
+        BlurOptions { radius, passes }: BlurOptions,
+        texture: &Texture,
+    ) -> Result<Texture> {
         let textures = [
             Texture::empty(
                 GlContext::clone(&self.gl),
@@ -112,14 +116,14 @@ impl ImageBlurr {
         let program_bind = self.program.bind();
         let _vao_guard = self.vertex_array.bind_guard();
 
-        program_bind.set_uniform("tex_size", texture.size().as_::<f32>());
-        program_bind.set_uniform("tex", 0);
+        program_bind.set_uniform("tex_size", texture.size().as_::<f32>())?;
+        program_bind.set_uniform("tex", 0)?;
 
         for i in 0..=passes {
             let radius = radius * (passes - i) as f32 / (passes as f32);
 
             {
-                program_bind.set_uniform("dir", (radius, 0.));
+                program_bind.set_uniform("dir", (radius, 0.))?;
                 let _guard = fbos[0].bind_guard();
                 source_texture.bind(Some(0));
                 self.gl.draw(
@@ -134,7 +138,7 @@ impl ImageBlurr {
             source_texture = fbos[0].get_texture();
 
             {
-                program_bind.set_uniform("dir", (0., radius));
+                program_bind.set_uniform("dir", (0., radius))?;
                 let _guard = fbos[1].bind_guard();
                 source_texture.bind(Some(0));
                 self.gl.draw(
@@ -148,7 +152,7 @@ impl ImageBlurr {
 
             source_texture = fbos[1].get_texture();
         }
-        return fbos.into_iter().last().unwrap().into_texture();
+        return Ok(fbos.into_iter().last().unwrap().into_texture());
     }
 }
 
