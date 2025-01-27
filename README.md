@@ -1,18 +1,8 @@
 Todo:
 
-- switch to glow -> glium bugs (texture sampling) OK
-   - Text - glyph branch -> try epaint OK
-   - DRM/GDM/KMS rendering - OK
-   - switch to Vek (Rect, better types...) - OK
-   - Smooth shapes (rounded rectangles...) - OK
-   - Extra info (photo date, etc...) - OK ?
-
 - Configuration
    - Blur (radius, algo...) - OK for now
    - Transitions
-   - Durations - OK
-   - Search query - OK
-   - Search by person name - OK
    - Other searches
    - Multiple sources
 
@@ -24,22 +14,16 @@ Todo:
    - Configurable orientation
 
 - Technical:
-   - Direnv configuration - OK
-   - Compute view matrix once - OK
-   - Change from reqwest to a more lightweight http client - OK
    - Error handling
    - Sleep when nothing to do ?
    - Background loading / blur with GPU (context sharing)
    - Investigate text rendering using signed distance fields (SDF)
    - Direnv -> switch to flake
+   - Better init for GBM/winit
+   - Potential GBM leak
 
 - HTTP Api ?
 - publish
-
-- bugs:
-   - transition blur background from some to none - OK
-- refactos:
-   - graphic module - OK
 
 Improves:
 - GBM ressources:
