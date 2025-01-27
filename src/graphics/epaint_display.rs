@@ -10,7 +10,7 @@ use epaint::{
     text::{FontDefinitions, LayoutJob},
     Color32, Fonts, ImageData, Mesh, Shape, TessellationOptions, Tessellator, TextShape,
 };
-use vek::{FrustumPlanes, Mat4, Rect, Vec2};
+use vek::{Extent2, FrustumPlanes, Mat4, Rect, Vec2};
 
 use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
@@ -58,11 +58,25 @@ impl TextContainer {
     pub fn set_position(&self, pos: Vec2<f32>) {
         self.0.borrow_mut().position = pos;
     }
+    pub fn get_dimensions(&self) -> Extent2<f32> {
+        if let Some(shape) = &RefCell::borrow(&self.0).shape {
+            let rect = shape.visual_bounding_rect();
+            Extent2::new(rect.width(), rect.height())
+        } else {
+            Extent2::zero()
+        }
+    }
+    pub fn set_opacity(&self, opacity: f32) {
+        if let Some(shape) = self.0.borrow_mut().shape.as_mut() {
+            shape.opacity_factor = opacity;
+        }
+    }
 }
 
 struct TextContainerInner {
     position: Vec2<f32>,
     text_mesh: Mesh,
+    // TODO implement a pool for old VAOs
     text_vao: VertexArrayObject<Vertex>,
     next_layout: Option<LayoutJob>,
     shape: Option<TextShape>,
@@ -248,6 +262,11 @@ impl EpaintDisplay {
             .collect::<Vec<_>>();
     }
 
+    pub fn force_container_update(&mut self, container: &TextContainer) {
+        let mut container = container.0.borrow_mut();
+        self.update_container(&mut container);
+    }
+
     fn update_texture(&mut self, delta: epaint::ImageDelta) {
         let options = TextureOptions {
             min: convert_filter_option(delta.options.minification),
@@ -351,6 +370,7 @@ fn write_mesh_to_vao(mesh: &Mesh, vao: &mut VertexArrayObject<Vertex>) {
         vao.element_buffer.write(&mesh.indices);
     }
 }
+
 fn convert_filter_option(filter: epaint::textures::TextureFilter) -> TextureFiltering {
     match filter {
         epaint::textures::TextureFilter::Nearest => TextureFiltering::Nearest,

@@ -14,21 +14,23 @@ Todo:
    - Search query - OK
    - Search by person name - OK
    - Other searches
-   - Multiple searches
+   - Multiple sources
 
 - Graphics:
-   - Info placement
+   - Info placement - OK for now
    - Zoom effect -> check for background worker first! (otherwise it will be freezed...)
    - Other effects / transitions -> fadeout-fadein
    - Other layouts when possible (two photos at the same time)
    - Configurable orientation
 
 - Technical:
+   - Direnv configuration
    - Compute view matrix once
    - Change from reqwest to a more lightweight http client - OK
    - Error handling
    - Sleep when nothing to do ?
    - Background loading / blur with GPU (context sharing)
+   - Investigate text rendering using signed distance fields (SDF)
 
 - HTTP Api ?
 - publish

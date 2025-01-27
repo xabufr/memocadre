@@ -36,7 +36,6 @@ pub struct Application {
 struct Slide {
     sprites: Vec<Sprite>,
     text: Option<TextContainer>,
-    shape: ShapeContainer,
 }
 
 struct TransitioningSlide {
@@ -95,25 +94,18 @@ impl Slides {
         match self {
             Slides::None => self,
             Slides::Single { .. } => self,
-            Slides::Transitioning(mut transitioning_slide) => {
-                if transitioning_slide.animation.is_finished(Instant::now()) {
-                    for s in transitioning_slide.new.sprites.iter_mut() {
-                        s.opacity = 1.;
-                    }
+            Slides::Transitioning(mut t) => {
+                if t.animation.is_finished(Instant::now()) {
+                    t.new.set_opacity(1.);
                     Slides::Single {
-                        slide: transitioning_slide.new,
+                        slide: t.new,
                         start: Instant::now(),
                     }
                 } else {
-                    let alpha = transitioning_slide.animation.get(Instant::now());
-                    for s in transitioning_slide.old.sprites.iter_mut() {
-                        s.opacity = alpha;
-                    }
-                    let alpha = 1. - alpha;
-                    for s in transitioning_slide.new.sprites.iter_mut() {
-                        s.opacity = alpha;
-                    }
-                    Slides::Transitioning(transitioning_slide)
+                    let alpha = t.animation.get(Instant::now());
+                    t.old.set_opacity(alpha);
+                    t.new.set_opacity(1. - alpha);
+                    Slides::Transitioning(t)
                 }
             }
         }
@@ -221,7 +213,13 @@ impl Slide {
         if let Some(text) = &self.text {
             graphics.epaint().draw_container(text);
         }
-        graphics.epaint().draw_shape(&self.shape);
+    }
+
+    pub fn set_opacity(&mut self, alpha: f32) {
+        for sprite in self.sprites.iter_mut() {
+            sprite.opacity = alpha;
+        }
+        self.text.as_mut().map(|text| text.set_opacity(alpha));
     }
 }
 
@@ -253,7 +251,9 @@ impl Application {
         let vp = self.gl.current_viewport();
 
         let texture = SharedTexture2d::new(texture);
-        let mut sprite = Sprite::new(texture.clone());
+        let texture_blur = SharedTexture2d::new(self.graphics.blurr().blur(&texture));
+
+        let mut sprite = Sprite::new(SharedTexture2d::clone(&texture));
         let display_size = vp.extent().as_();
         let (width, height) = vp.extent().into_tuple();
         sprite.resize_respecting_ratio(display_size);
@@ -262,7 +262,6 @@ impl Application {
         sprite.position = (free_space * 0.5).into();
 
         let mut sprites = vec![];
-        let texture_blur = SharedTexture2d::new(self.graphics.blurr().blur(&texture));
         if free_space.reduce_partial_max() > 50.0 {
             let mut blur_sprites = [
                 Sprite::new(SharedTexture2d::clone(&texture_blur)),
@@ -312,32 +311,26 @@ impl Application {
         };
 
         let text = text.map(|text| {
-            let container = self.graphics.epaint_mut().create_text_container();
-            container.set_layout(LayoutJob::single_section(
-                text,
-                TextFormat::simple(FontId::proportional(28.), Color32::WHITE),
-            ));
-            container.set_position((300., 300.).into());
+            let mut container = self.graphics.epaint_mut().create_text_container();
+            container.set_layout(LayoutJob {
+                halign: epaint::emath::Align::Center,
+                ..LayoutJob::single_section(
+                    text,
+                    TextFormat {
+                        background: Color32::BLACK.linear_multiply(0.5),
+                        ..TextFormat::simple(FontId::proportional(28.), Color32::WHITE)
+                    },
+                )
+            });
+            self.graphics
+                .epaint_mut()
+                .force_container_update(&mut container);
+            let dims = container.get_dimensions();
+            container
+                .set_position((display_size.w as f32 * 0.5, display_size.h as f32 - dims.h).into());
             container
         });
 
-        let shape = Shape::Rect(epaint::RectShape {
-            rect: epaint::Rect::from_center_size((50., 50.).into(), (100., 50.).into()),
-            rounding: Rounding::same(25.),
-            fill: Color32::WHITE,
-            stroke: Stroke::NONE,
-            blur_width: 10.,
-            fill_texture_id: Default::default(),
-            uv: epaint::Rect::from_min_max((0.0, 0.0).into(), (1.0, 1.0).into()),
-        });
-        let shape = self
-            .graphics
-            .epaint_mut()
-            .create_shape(shape, Some(texture_blur));
-        return Slide {
-            sprites,
-            text,
-            shape,
-        };
+        return Slide { sprites, text };
     }
 }
