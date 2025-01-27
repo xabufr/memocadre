@@ -20,6 +20,7 @@ Todo:
    - Investigate text rendering using signed distance fields (SDF)
    - Direnv -> switch to flake
    - Better init for GBM/winit
+   - Refactor application.rs
 
 - HTTP Api ?
 - publish
