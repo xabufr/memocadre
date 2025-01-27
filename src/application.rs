@@ -162,6 +162,8 @@ impl ApplicationContext for Application {
     }
 
     fn draw_frame(&mut self) {
+        self.worker
+            .set_ideal_max_size(Self::get_ideal_image_size(&self.gl));
         self.gl.clear();
         self.graphics.begin_frame();
         if self
