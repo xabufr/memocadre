@@ -55,8 +55,8 @@ impl ImageBlurr {
         )
         .context("Cannot compile ImageBlurr shader")?;
         let program = program;
-        let pos = program.get_attrib_location("pos");
-        let uv = program.get_attrib_location("uv");
+        let pos = program.get_attrib_location("pos")?;
+        let uv = program.get_attrib_location("uv")?;
 
         let stride = std::mem::size_of::<Vertex2dUv>() as i32;
         let buffer_infos = vec![

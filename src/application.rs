@@ -150,7 +150,9 @@ impl ApplicationContext for Application {
         worker.start();
         let mut graphics =
             Graphics::new(GlContext::clone(&gl)).context("Cannot create Graphics")?;
-        let fps_text = graphics.create_text_container();
+        let fps_text = graphics
+            .create_text_container()
+            .context("Cannot create FPS text container")?;
         fps_text.set_position((10., 10.).into());
         Ok(Self {
             counter: FPSCounter::new(),
@@ -324,24 +326,30 @@ impl Application {
             Some(text.join("\n"))
         };
 
-        let text = text.map(|text| {
-            let mut container = self.graphics.create_text_container();
-            container.set_layout(LayoutJob {
-                halign: epaint::emath::Align::Center,
-                ..LayoutJob::single_section(
-                    text,
-                    TextFormat {
-                        background: Color32::BLACK.linear_multiply(0.5),
-                        ..TextFormat::simple(FontId::proportional(28.), Color32::WHITE)
-                    },
-                )
-            });
-            self.graphics.force_text_container_update(&mut container);
-            let dims = container.get_dimensions();
-            container
-                .set_position((display_size.w as f32 * 0.5, display_size.h as f32 - dims.h).into());
-            container
-        });
+        let text = text
+            .map(|text| -> Result<_> {
+                let mut container = self
+                    .graphics
+                    .create_text_container()
+                    .context("Cannot create text container")?;
+                container.set_layout(LayoutJob {
+                    halign: epaint::emath::Align::Center,
+                    ..LayoutJob::single_section(
+                        text,
+                        TextFormat {
+                            background: Color32::BLACK.linear_multiply(0.5),
+                            ..TextFormat::simple(FontId::proportional(28.), Color32::WHITE)
+                        },
+                    )
+                });
+                self.graphics.force_text_container_update(&mut container);
+                let dims = container.get_dimensions();
+                container.set_position(
+                    (display_size.w as f32 * 0.5, display_size.h as f32 - dims.h).into(),
+                );
+                Ok(container)
+            })
+            .transpose()?;
 
         return Ok(Slide { sprites, text });
     }

@@ -76,8 +76,8 @@ impl ImageDrawert {
 
         let program = Program::new(GlContext::clone(&gl), shader::VERTEX, shader::FRAGMENT)
             .context("Cannot create ImageDrawer shader")?;
-        let pos = program.get_attrib_location("pos");
-        let uv = program.get_attrib_location("uv");
+        let pos = program.get_attrib_location("pos")?;
+        let uv = program.get_attrib_location("uv")?;
 
         vbo.write(&VERTICES);
         ebo.write(&INDICES);

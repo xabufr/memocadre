@@ -133,24 +133,28 @@ impl EpaintDisplay {
         &mut self,
         shape: Shape,
         texture: Option<SharedTexture2d>,
-    ) -> ShapeContainer {
+    ) -> Result<ShapeContainer> {
         let mut mesh = Mesh::default();
         self.tesselator.tessellate_shape(shape, &mut mesh);
 
         let vbo_data = &[];
         let ebo_data = &[];
         // TODO avoid double buffer init
-        let mut vao = self.new_vao(vbo_data, ebo_data, BufferUsage::StaticDraw);
+        let mut vao = self
+            .new_vao(vbo_data, ebo_data, BufferUsage::StaticDraw)
+            .context("Cannot create VAO")?;
         write_mesh_to_vao(&mesh, &mut vao);
-        ShapeContainer {
+        Ok(ShapeContainer {
             position: [0., 0.].into(),
             vao,
             texture,
-        }
+        })
     }
 
-    pub fn create_text_container(&mut self) -> TextContainer {
-        let vao = self.new_vao(&[], &[], BufferUsage::DynamicDraw);
+    pub fn create_text_container(&mut self) -> Result<TextContainer> {
+        let vao = self
+            .new_vao(&[], &[], BufferUsage::DynamicDraw)
+            .context("Cannot create text VAO")?;
 
         let container = TextContainerInner {
             position: [0., 0.].into(),
@@ -161,7 +165,7 @@ impl EpaintDisplay {
         };
         let container = Rc::new(RefCell::new(container));
         self.containers.push(Rc::downgrade(&container));
-        return TextContainer(container);
+        return Ok(TextContainer(container));
     }
 
     fn update_container(&mut self, container: &mut TextContainerInner) {
@@ -300,11 +304,11 @@ impl EpaintDisplay {
         vbo_data: &[Vertex],
         ebo_data: &[u32],
         buffer_usage: BufferUsage,
-    ) -> VertexArrayObject<Vertex> {
+    ) -> Result<VertexArrayObject<Vertex>> {
         let stride = std::mem::size_of::<Vertex>() as i32;
         let buffer_infos = vec![
             BufferInfo {
-                location: self.program.get_attrib_location("pos"),
+                location: self.program.get_attrib_location("pos")?,
                 data_type: glow::FLOAT,
                 vector_size: 2,
                 normalized: false,
@@ -312,7 +316,7 @@ impl EpaintDisplay {
                 offset: memoffset::offset_of!(Vertex, pos) as i32,
             },
             BufferInfo {
-                location: self.program.get_attrib_location("color"),
+                location: self.program.get_attrib_location("color")?,
                 data_type: glow::UNSIGNED_BYTE,
                 vector_size: 4,
                 normalized: false,
@@ -320,7 +324,7 @@ impl EpaintDisplay {
                 offset: memoffset::offset_of!(Vertex, color) as i32,
             },
             BufferInfo {
-                location: self.program.get_attrib_location("uv"),
+                location: self.program.get_attrib_location("uv")?,
                 data_type: glow::FLOAT,
                 vector_size: 2,
                 normalized: false,
@@ -333,7 +337,12 @@ impl EpaintDisplay {
             ElementBufferObject::new_index_buffer(GlContext::clone(&self.gl), buffer_usage);
         vbo.write(vbo_data);
         ebo.write(ebo_data);
-        VertexArrayObject::new(GlContext::clone(&self.gl), vbo, ebo, buffer_infos)
+        Ok(VertexArrayObject::new(
+            GlContext::clone(&self.gl),
+            vbo,
+            ebo,
+            buffer_infos,
+        ))
     }
 }
 

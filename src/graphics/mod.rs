@@ -76,7 +76,7 @@ impl Graphics {
         drawable.draw(self)
     }
 
-    pub fn create_text_container(&mut self) -> TextContainer {
+    pub fn create_text_container(&mut self) -> Result<TextContainer> {
         self.epaint_display.create_text_container()
     }
 
@@ -88,7 +88,7 @@ impl Graphics {
         &mut self,
         shape: Shape,
         texture: Option<SharedTexture2d>,
-    ) -> ShapeContainer {
+    ) -> Result<ShapeContainer> {
         self.epaint_display.create_shape(shape, texture)
     }
 

@@ -147,12 +147,20 @@ impl Program {
         ProgramGuard { program: self }
     }
 
-    pub fn get_attrib_location(&self, name: &str) -> u32 {
-        return unsafe { self.gl.get_attrib_location(self.program, name).unwrap() };
+    pub fn get_attrib_location(&self, name: &str) -> Result<u32> {
+        return Ok(unsafe {
+            self.gl
+                .get_attrib_location(self.program, name)
+                .with_context(|| format!("Cannot get vertex attribute {name}"))?
+        });
     }
 
-    pub fn get_uniform_location(&self, name: &str) -> glow::NativeUniformLocation {
-        return unsafe { self.gl.get_uniform_location(self.program, name).unwrap() };
+    pub fn get_uniform_location(&self, name: &str) -> Result<glow::NativeUniformLocation> {
+        return Ok(unsafe {
+            self.gl
+                .get_uniform_location(self.program, name)
+                .with_context(|| format!("Cannot get uniform {name}"))?
+        });
     }
 
     unsafe fn compile_shader(
