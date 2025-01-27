@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use std::sync::{
     mpsc::{Receiver, SyncSender},
     Arc, RwLock,
@@ -36,14 +37,20 @@ impl Worker {
     }
 
     pub fn set_ideal_max_size(&self, size: Extent2<u32>) {
-        let mut w = self.worker_impl.ideal_max_size.write().unwrap();
+        let mut w = self
+            .worker_impl
+            .ideal_max_size
+            .write()
+            .expect("Cannot lock worker ideal_max_size");
         *w = size;
     }
 
     pub fn start(&self) {
         let worker_impl = self.worker_impl.clone();
         std::thread::spawn(move || {
-            worker_impl.work();
+            worker_impl
+                .work()
+                .expect("Worker encountered an error, abort");
         });
     }
 
@@ -52,7 +59,7 @@ impl Worker {
     }
 }
 impl WorkerImpl {
-    fn work(&self) {
+    fn work(&self) -> Result<()> {
         use crate::galery::{Gallery, ImmichGallery};
         if !set_current_thread_priority(ThreadPriority::Min).is_ok() {
             error!("Cannot change worker thread priority to minimal");
@@ -61,13 +68,18 @@ impl WorkerImpl {
         loop {
             let mut img_with_details = immich.get_next_image();
             img_with_details.image = self.resize_image_if_necessay(img_with_details.image);
-            self.send.send(img_with_details).unwrap();
+            self.send
+                .send(img_with_details)
+                .context("While sending next image to display thread")?;
         }
     }
     fn resize_image_if_necessay(&self, image: DynamicImage) -> DynamicImage {
         let image_dims: Extent2<u32> = image.dimensions().into();
         let ideal_size = {
-            let r = self.ideal_max_size.read().unwrap();
+            let r = self
+                .ideal_max_size
+                .read()
+                .expect("Cannot read ideal_max_size");
             r.clone()
         };
         let should_resize = image_dims.cmpgt(&ideal_size).reduce_or();
