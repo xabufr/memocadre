@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-
+use anyhow::{Context, Error, Result};
 use glow::{HasContext, NativeProgram};
+use std::collections::HashMap;
 use vek::{Extent2, Mat4, Vec2};
 
 use super::GlContext;
@@ -104,27 +104,33 @@ impl<'a> ProgramGuard<'a> {
 }
 
 impl Program {
-    pub fn new(gl: GlContext, vertex: &str, fragment: &str) -> Self {
+    pub fn new(gl: GlContext, vertex: &str, fragment: &str) -> Result<Self> {
         let (program, uniforms) = unsafe {
-            let vertex = Self::compile_shader(&gl, glow::VERTEX_SHADER, vertex).unwrap();
-            let fragment = Self::compile_shader(&gl, glow::FRAGMENT_SHADER, fragment).unwrap();
-            let program = Self::link_program(&gl, &[vertex, fragment]).unwrap();
+            let vertex = Self::compile_shader(&gl, glow::VERTEX_SHADER, vertex)
+                .context("Cannot compile vertex shader")?;
+            let fragment = Self::compile_shader(&gl, glow::FRAGMENT_SHADER, fragment)
+                .context("Cannot compile fragment shader")?;
+            let program = Self::link_program(&gl, &[vertex, fragment])
+                .context("Cannot link shader program")?;
             gl.delete_shader(vertex);
             gl.delete_shader(fragment);
             let uniforms = gl.get_program_parameter_i32(program, glow::ACTIVE_UNIFORMS);
             let uniforms = (0..uniforms)
                 .map(|l| {
-                    let info = gl.get_active_uniform(program, l as u32).unwrap();
-                    (info.name.to_owned(), glow::NativeUniformLocation(l as _))
+                    let info = gl
+                        .get_active_uniform(program, l as u32)
+                        .with_context(|| format!("Cannot get uniform #{l}"))?;
+                    Ok((info.name.to_owned(), glow::NativeUniformLocation(l as _)))
                 })
-                .collect::<HashMap<String, UniformLocation>>();
+                .collect::<Result<HashMap<String, UniformLocation>>>()
+                .context("While creating uniforms cache")?;
             (program, uniforms)
         };
-        Self {
+        Ok(Self {
             program,
             uniforms,
             gl,
-        }
+        })
     }
     pub fn get(&self) -> NativeProgram {
         return self.program;
@@ -148,9 +154,9 @@ impl Program {
         gl: &glow::Context,
         shader_type: u32,
         source: &str,
-    ) -> Result<glow::Shader, String> {
+    ) -> Result<glow::Shader> {
         unsafe {
-            let shader = gl.create_shader(shader_type)?;
+            let shader = gl.create_shader(shader_type).map_err(Error::msg)?;
 
             gl.shader_source(shader, source);
 
@@ -159,7 +165,7 @@ impl Program {
             if gl.get_shader_compile_status(shader) {
                 Ok(shader)
             } else {
-                Err(gl.get_shader_info_log(shader))
+                Err(Error::msg(gl.get_shader_info_log(shader)))
             }
         }
     }
@@ -167,9 +173,9 @@ impl Program {
     unsafe fn link_program<'a, T: IntoIterator<Item = &'a glow::Shader>>(
         gl: &glow::Context,
         shaders: T,
-    ) -> Result<glow::Program, String> {
+    ) -> Result<glow::Program> {
         unsafe {
-            let program = gl.create_program()?;
+            let program = gl.create_program().map_err(Error::msg)?;
 
             for shader in shaders {
                 gl.attach_shader(program, *shader);
@@ -180,7 +186,7 @@ impl Program {
             if gl.get_program_link_status(program) {
                 Ok(program)
             } else {
-                Err(gl.get_program_info_log(program))
+                Err(Error::msg(gl.get_program_info_log(program)))
             }
         }
     }

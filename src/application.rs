@@ -144,13 +144,14 @@ impl FPSCounter {
 }
 
 impl ApplicationContext for Application {
-    fn new(config: Arc<Conf>, gl: GlContext) -> Self {
+    fn new(config: Arc<Conf>, gl: GlContext) -> Result<Self> {
         let worker = Worker::new(Arc::clone(&config), Self::get_ideal_image_size(&gl));
         worker.start();
-        let mut graphics = Graphics::new(GlContext::clone(&gl));
+        let mut graphics =
+            Graphics::new(GlContext::clone(&gl)).context("Cannot create Graphics")?;
         let fps_text = graphics.create_text_container();
         fps_text.set_position((10., 10.).into());
-        Self {
+        Ok(Self {
             counter: FPSCounter::new(),
             graphics,
             gl,
@@ -158,7 +159,7 @@ impl ApplicationContext for Application {
             fps_text,
             worker,
             config,
-        }
+        })
     }
 
     fn draw_frame(&mut self) {

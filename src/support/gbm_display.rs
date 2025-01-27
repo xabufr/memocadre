@@ -190,7 +190,7 @@ where
     let gl = unsafe { Context::from_loader_function_cstr(|s| display.get_proc_address(s)) };
     let gl = GlContextInner::new(gl, Rect::new(0, 0, width as _, height as _));
 
-    let mut app = T::new(app_config, GlContext::clone(&gl));
+    let mut app = T::new(app_config, GlContext::clone(&gl)).context("Cannot create application")?;
     loop {
         app.draw_frame();
 

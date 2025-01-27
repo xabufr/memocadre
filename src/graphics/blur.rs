@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use serde::Deserialize;
 
 use crate::gl::{
@@ -41,7 +42,7 @@ const VERTICES: [Vertex2dUv; 4] = [
 ];
 const INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 impl ImageBlurr {
-    pub fn new(gl: GlContext) -> Self {
+    pub fn new(gl: GlContext) -> Result<Self> {
         let mut vbo =
             BufferObject::new_vertex_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw);
         let mut ebo =
@@ -51,7 +52,8 @@ impl ImageBlurr {
             GlContext::clone(&gl),
             shader::VERTEX_BLUR,
             shader::FRAGMENT_BLUR,
-        );
+        )
+        .context("Cannot compile ImageBlurr shader")?;
         let program = program;
         let pos = program.get_attrib_location("pos");
         let uv = program.get_attrib_location("uv");
@@ -80,11 +82,11 @@ impl ImageBlurr {
         ebo.write(&INDICES);
         let vao = VertexArrayObject::new(GlContext::clone(&gl), vbo, ebo, buffer_infos);
 
-        Self {
+        Ok(Self {
             vertex_array: vao,
             program,
             gl,
-        }
+        })
     }
 
     pub fn blur(&self, BlurOptions { radius, passes }: BlurOptions, texture: &Texture) -> Texture {

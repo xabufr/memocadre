@@ -199,7 +199,7 @@ impl<T: ApplicationContext + 'static> State<T> {
         surface: Surface<WindowSurface>,
         config: Arc<Conf>,
     ) -> Self {
-        let context = T::new(config, GlContext::clone(&gl));
+        let context = T::new(config, GlContext::clone(&gl)).expect("Cannot create application");
         Self {
             gl,
             window,

@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use bytemuck::{Pod, Zeroable};
 use epaint::Shape;
 use epaint_display::{ShapeContainer, TextContainer};
@@ -36,18 +37,20 @@ pub trait Drawable {
 }
 
 impl Graphics {
-    pub fn new(gl: GlContext) -> Self {
-        let image_drawer = ImageDrawert::new(GlContext::clone(&gl));
-        let blurr = ImageBlurr::new(GlContext::clone(&gl));
-        let epaint_display = EpaintDisplay::new(GlContext::clone(&gl));
+    pub fn new(gl: GlContext) -> Result<Self> {
+        let image_drawer =
+            ImageDrawert::new(GlContext::clone(&gl)).context("Cannot create ImageDrawer")?;
+        let blurr = ImageBlurr::new(GlContext::clone(&gl)).context("Cannot create ImageBlurr")?;
+        let epaint_display =
+            EpaintDisplay::new(GlContext::clone(&gl)).context("Cannot create EpaintDisplay")?;
 
-        Self {
+        Ok(Self {
             image_drawer,
             blurr,
             epaint_display,
             gl,
             view: Mat4::zero(),
-        }
+        })
     }
 
     pub fn begin_frame(&mut self) {

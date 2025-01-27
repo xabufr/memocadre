@@ -5,6 +5,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
+use anyhow::{Context, Result};
 use bytemuck::{Pod, Zeroable};
 use epaint::{
     text::{FontDefinitions, LayoutJob},
@@ -93,7 +94,7 @@ impl From<epaint::Vertex> for Vertex {
 }
 
 impl EpaintDisplay {
-    pub fn new(gl: GlContext) -> Self {
+    pub fn new(gl: GlContext) -> Result<Self> {
         let pixels_per_point: f32 = 1.;
         let max_texture_size = gl.capabilities().max_texture_size as usize;
         let fonts = Fonts::new(
@@ -108,9 +109,10 @@ impl EpaintDisplay {
             Vec::new(),
         );
 
-        let program = Program::new(GlContext::clone(&gl), shaders::VERTEX, shaders::FRAGMENT);
+        let program = Program::new(GlContext::clone(&gl), shaders::VERTEX, shaders::FRAGMENT)
+            .context("Cannot compile epaint shader")?;
 
-        Self {
+        Ok(Self {
             fonts,
             pixels_per_point,
             max_texture_size,
@@ -119,7 +121,7 @@ impl EpaintDisplay {
             program,
             gl,
             containers: vec![],
-        }
+        })
     }
 
     pub fn begin_frame(&mut self) {

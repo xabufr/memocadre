@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use vek::{Extent2, Mat4, Rect, Vec2};
 
 use crate::gl::{
@@ -67,13 +68,14 @@ const VERTICES: [Vertex2dUv; 4] = [
 const INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 
 impl ImageDrawert {
-    pub fn new(gl: GlContext) -> Self {
+    pub fn new(gl: GlContext) -> Result<Self> {
         let mut vbo =
             BufferObject::new_vertex_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw);
         let mut ebo =
             ElementBufferObject::new_index_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw);
 
-        let program = Program::new(GlContext::clone(&gl), shader::VERTEX, shader::FRAGMENT);
+        let program = Program::new(GlContext::clone(&gl), shader::VERTEX, shader::FRAGMENT)
+            .context("Cannot create ImageDrawer shader")?;
         let pos = program.get_attrib_location("pos");
         let uv = program.get_attrib_location("uv");
 
@@ -100,7 +102,7 @@ impl ImageDrawert {
             },
         ];
         let vao = VertexArrayObject::new(GlContext::clone(&gl), vbo, ebo, buffer_infos);
-        Self { vao, program, gl }
+        Ok(Self { vao, program, gl })
     }
     pub fn draw_sprite(&self, view: Mat4<f32>, sprite: &Sprite) {
         let model = Mat4::scaling_3d(Vec2::from(sprite.size)).translated_2d(sprite.position);
