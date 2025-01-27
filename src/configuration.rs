@@ -12,28 +12,46 @@ pub struct Conf {
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
+#[serde(default, deny_unknown_fields)]
 pub struct Slideshow {
     /// The minimum amount of time that photos are displayed before switching to the next.
     ///
     /// Please note that on low-power devices, photos may be displayed for longer
     /// than this minimum duration if the next photo is not yet available.
-    #[serde(with = "humantime_serde", default = "default_display_duration")]
+    #[serde(with = "humantime_serde")]
     pub display_duration: Duration,
 
     /// Duration of the transition between two photos.
-    #[serde(with = "humantime_serde", default = "default_transition_duration")]
+    #[serde(with = "humantime_serde")]
     pub transition_duration: Duration,
 
     #[serde(default)]
     pub blur_options: BlurOptions,
+    #[serde(default)]
+    pub background: Background,
 }
 
-fn default_transition_duration() -> Duration {
-    Duration::from_secs(1)
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type", rename_all = "lowercase", deny_unknown_fields)]
+pub enum Background {
+    Black,
+    Burr { min_free_space: u16 },
 }
-fn default_display_duration() -> Duration {
-    Duration::from_secs(30)
+impl Default for Slideshow {
+    fn default() -> Self {
+        Self {
+            background: Background::default(),
+            blur_options: BlurOptions::default(),
+            display_duration: Duration::from_secs(30),
+            transition_duration: Duration::from_secs(1),
+        }
+    }
+}
+
+impl Default for Background {
+    fn default() -> Self {
+        Self::Burr { min_free_space: 50 }
+    }
 }
 
 #[derive(Deserialize, Debug)]

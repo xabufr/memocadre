@@ -12,7 +12,7 @@ use std::{
 use vek::{Extent2, Rect};
 
 use crate::{
-    configuration::Conf,
+    configuration::{Background, Conf},
     galery::ImageWithDetails,
     gl::{GlContext, Texture},
     graphics::{epaint_display::TextContainer, Graphics, SharedTexture2d, Sprite},
@@ -263,41 +263,43 @@ impl Application {
         sprite.position = (free_space * 0.5).into();
 
         let mut sprites = vec![];
-        if free_space.reduce_partial_max() > 50.0 {
-            let mut blur_sprites = [
-                Sprite::new(SharedTexture2d::clone(&texture_blur)),
-                Sprite::new(SharedTexture2d::clone(&texture_blur)),
-            ];
+        if let Background::Burr { min_free_space } = self.config.slideshow.background {
+            if free_space.reduce_partial_max() > min_free_space as f32 {
+                let mut blur_sprites = [
+                    Sprite::new(SharedTexture2d::clone(&texture_blur)),
+                    Sprite::new(SharedTexture2d::clone(&texture_blur)),
+                ];
 
-            for blur_sprite in blur_sprites.iter_mut() {
-                blur_sprite.size = sprite.size;
+                for blur_sprite in blur_sprites.iter_mut() {
+                    blur_sprite.size = sprite.size;
+                }
+
+                if free_space.w > free_space.h {
+                    blur_sprites[1].position.x = display_size.w as f32 - blur_sprites[1].size.w;
+
+                    blur_sprites[0].scissor =
+                        Some(Rect::new(0, 0, (free_space.w * 0.5) as i32 + 2, height));
+
+                    blur_sprites[1].scissor = Some(Rect::new(
+                        width - (free_space.w * 0.5) as i32 - 2,
+                        0,
+                        (free_space.w * 0.5) as i32 + 2,
+                        height,
+                    ));
+                } else {
+                    blur_sprites[1].position.y = display_size.h as f32 - blur_sprites[1].size.h;
+
+                    blur_sprites[0].scissor =
+                        Some(Rect::new(0, 0, width, (free_space.h * 0.5) as i32 + 2));
+                    blur_sprites[1].scissor = Some(Rect::new(
+                        0,
+                        height - (free_space.h * 0.5) as i32 - 2,
+                        width,
+                        (free_space.h * 0.5) as i32 + 2,
+                    ));
+                }
+                sprites.extend(blur_sprites.into_iter());
             }
-
-            if free_space.w > 50. {
-                blur_sprites[1].position.x = display_size.w as f32 - blur_sprites[1].size.w;
-
-                blur_sprites[0].scissor =
-                    Some(Rect::new(0, 0, (free_space.w * 0.5) as i32 + 2, height));
-
-                blur_sprites[1].scissor = Some(Rect::new(
-                    width - (free_space.w * 0.5) as i32 - 2,
-                    0,
-                    (free_space.w * 0.5) as i32 + 2,
-                    height,
-                ));
-            } else {
-                blur_sprites[1].position.y = display_size.h as f32 - blur_sprites[1].size.h;
-
-                blur_sprites[0].scissor =
-                    Some(Rect::new(0, 0, width, (free_space.h * 0.5) as i32 + 2));
-                blur_sprites[1].scissor = Some(Rect::new(
-                    0,
-                    height - (free_space.h * 0.5) as i32 - 2,
-                    width,
-                    (free_space.h * 0.5) as i32 + 2,
-                ));
-            }
-            sprites.extend(blur_sprites.into_iter());
         }
         sprites.push(sprite);
 
