@@ -8,7 +8,7 @@ Todo:
    - Extra info (photo date, etc...) - OK ?
 
 - Configuration
-   - Blur (radius, algo...)
+   - Blur (radius, algo...) - OK for now
    - Transitions
    - Durations - OK
    - Search query - OK
@@ -25,7 +25,7 @@ Todo:
 
 - Technical:
    - Direnv configuration - OK
-   - Compute view matrix once
+   - Compute view matrix once - OK
    - Change from reqwest to a more lightweight http client - OK
    - Error handling
    - Sleep when nothing to do ?
