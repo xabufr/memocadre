@@ -20,7 +20,6 @@ Todo:
    - Investigate text rendering using signed distance fields (SDF)
    - Direnv -> switch to flake
    - Better init for GBM/winit
-   - Potential GBM leak
 
 - HTTP Api ?
 - publish

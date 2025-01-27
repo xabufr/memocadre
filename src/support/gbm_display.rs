@@ -161,7 +161,7 @@ where
     surface.swap_buffers(&current_context).unwrap();
     let mut bo = unsafe { gbm_surface.lock_front_buffer() }.unwrap();
     let bpp = bo.bpp();
-    let fb = device.add_framebuffer(&bo, bpp, bpp).unwrap();
+    let mut fb = device.add_framebuffer(&bo, bpp, bpp).unwrap();
     device
         .set_crtc(
             crtc.handle(),
@@ -182,9 +182,9 @@ where
         surface.swap_buffers(&current_context).unwrap();
 
         let next_bo = unsafe { gbm_surface.lock_front_buffer() }.unwrap();
-        let fb = device.add_framebuffer(&next_bo, bpp, bpp).unwrap();
+        let next_fb = device.add_framebuffer(&next_bo, bpp, bpp).unwrap();
         device
-            .page_flip(crtc.handle(), fb, PageFlipFlags::EVENT, None)
+            .page_flip(crtc.handle(), next_fb, PageFlipFlags::EVENT, None)
             .unwrap();
 
         'outer: loop {
@@ -202,6 +202,7 @@ where
         }
         drop(bo);
         bo = next_bo;
-        // device.destroy_framebuffer(fb).unwrap();
+        device.destroy_framebuffer(fb).unwrap();
+        fb = next_fb;
     }
 }
