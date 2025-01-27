@@ -4,7 +4,7 @@ use epaint_display::{ShapeContainer, TextContainer};
 use std::rc::Rc;
 use vek::{FrustumPlanes, Mat4};
 
-pub use blur::ImageBlurr;
+pub use blur::{BlurOptions, ImageBlurr};
 pub use epaint_display::EpaintDisplay;
 pub use image_display::{ImageDrawert, Sprite};
 

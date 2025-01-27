@@ -1,3 +1,5 @@
+use serde::Deserialize;
+
 use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
     framebuffer::FramebufferObject,
@@ -14,7 +16,8 @@ pub struct ImageBlurr {
     gl: GlContext,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct BlurOptions {
     radius: f32,
     passes: u8,
@@ -23,7 +26,7 @@ pub struct BlurOptions {
 impl Default for BlurOptions {
     fn default() -> Self {
         BlurOptions {
-            passes: 6,
+            passes: 3,
             radius: 6.,
         }
     }

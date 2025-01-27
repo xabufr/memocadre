@@ -2,13 +2,17 @@ use std::time::Duration;
 
 use serde::Deserialize;
 
+use crate::graphics::BlurOptions;
+
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct Conf {
     pub source: ImmichSource,
     pub slideshow: Slideshow,
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct Slideshow {
     /// The minimum amount of time that photos are displayed before switching to the next.
     ///
@@ -20,6 +24,9 @@ pub struct Slideshow {
     /// Duration of the transition between two photos.
     #[serde(with = "humantime_serde", default = "default_transition_duration")]
     pub transition_duration: Duration,
+
+    #[serde(default)]
+    pub blur_options: BlurOptions,
 }
 
 fn default_transition_duration() -> Duration {

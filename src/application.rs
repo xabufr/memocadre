@@ -248,8 +248,11 @@ impl Application {
         let vp = self.gl.current_viewport();
 
         let texture = SharedTexture2d::new(texture);
-        let texture_blur =
-            SharedTexture2d::new(self.graphics.blurr().blur(Default::default(), &texture));
+        let texture_blur = SharedTexture2d::new(
+            self.graphics
+                .blurr()
+                .blur(self.config.slideshow.blur_options, &texture),
+        );
 
         let mut sprite = Sprite::new(SharedTexture2d::clone(&texture));
         let display_size = vp.extent().as_();
