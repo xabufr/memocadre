@@ -10,7 +10,7 @@ use epaint::{
     text::{FontDefinitions, LayoutJob},
     Color32, Fonts, ImageData, Mesh, Shape, TessellationOptions, Tessellator, TextShape,
 };
-use vek::{Extent2, FrustumPlanes, Mat4, Rect, Vec2};
+use vek::{Extent2, Mat4, Rect, Vec2};
 
 use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},

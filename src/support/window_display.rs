@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use glutin::{
     context::{self, PossiblyCurrentContext, Version},
     display::{GetGlDisplay, GlDisplay},
@@ -5,7 +6,7 @@ use glutin::{
     surface::{Surface, WindowSurface},
 };
 use raw_window_handle::HasWindowHandle;
-use std::num::NonZeroU32;
+use std::{num::NonZeroU32, sync::Arc};
 use vek::Rect;
 use winit::{
     application::ApplicationHandler, event::WindowEvent, event_loop::ActiveEventLoop,
@@ -28,7 +29,7 @@ pub struct State<T> {
 }
 
 struct App<T> {
-    config: Option<Conf>,
+    config: Arc<Conf>,
     state: Option<State<T>>,
     visible: bool,
     close_promptly: bool,
@@ -38,11 +39,7 @@ impl<T: ApplicationContext + 'static> ApplicationHandler<()> for App<T> {
     // The resumed/suspended handlers are mostly for Android compatiblity since the context can get lost there at any point.
     // For convenience's sake, the resumed handler is also called on other platforms on program startup.
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        self.state = Some(State::new(
-            event_loop,
-            self.visible,
-            self.config.take().unwrap(),
-        ));
+        self.state = Some(State::new(event_loop, self.visible, self.config.clone()));
         if !self.visible && self.close_promptly {
             event_loop.exit();
         }
@@ -73,7 +70,10 @@ impl<T: ApplicationContext + 'static> ApplicationHandler<()> for App<T> {
                 if let Some(state) = &mut self.state {
                     state.context.update();
                     state.context.draw_frame();
-                    state.surface.swap_buffers(&state.gl_context).unwrap();
+                    state
+                        .surface
+                        .swap_buffers(&state.gl_context)
+                        .expect("Cannot swap window buffers");
                     if self.close_promptly {
                         event_loop.exit();
                     }
@@ -110,7 +110,7 @@ impl<T: ApplicationContext + 'static> State<T> {
     pub fn new(
         event_loop: &winit::event_loop::ActiveEventLoop,
         visible: bool,
-        config: Conf,
+        config: Arc<Conf>,
     ) -> Self {
         let window_attributes = winit::window::Window::default_attributes()
             .with_title(T::WINDOW_TITLE)
@@ -123,10 +123,10 @@ impl<T: ApplicationContext + 'static> State<T> {
         let (window, gl_config) = display_builder
             .build(event_loop, config_template_builder, |mut configs| {
                 // Just use the first configuration since we don't have any special preferences here
-                configs.next().unwrap()
+                configs.next().expect("No available GL config")
             })
-            .unwrap();
-        let window = window.unwrap();
+            .expect("Cannot build GL context");
+        let window = window.expect("No window built");
 
         // Then the configuration which decides which OpenGL version we'll end up using, here we just use the default which is currently 3.3 core
         // When this fails we'll try and create an ES context, this is mainly used on mobile devices or various ARM SBC's
@@ -161,21 +161,21 @@ impl<T: ApplicationContext + 'static> State<T> {
         };
         let attrs = glutin::surface::SurfaceAttributesBuilder::<WindowSurface>::new().build(
             window_handle.into(),
-            NonZeroU32::new(width).unwrap(),
-            NonZeroU32::new(height).unwrap(),
+            NonZeroU32::new(width).expect("Width cannot be 0"),
+            NonZeroU32::new(height).expect("Height cannot be 0"),
         );
         // Now we can create our surface, use it to make our context current and finally create our display
         let surface = unsafe {
             gl_config
                 .display()
                 .create_window_surface(&gl_config, &attrs)
-                .unwrap()
+                .expect("Cannot create window surface")
         };
         let current_context = not_current_gl_context
-            .unwrap()
+            .expect("GL context not initialized")
             .make_current(&surface)
-            .unwrap();
-        println!("starting window");
+            .expect("Cannot activate GL context on window surface");
+
         let gl = unsafe {
             glow::Context::from_loader_function_cstr(|s| gl_config.display().get_proc_address(s))
         };
@@ -183,9 +183,11 @@ impl<T: ApplicationContext + 'static> State<T> {
         surface
             .set_swap_interval(
                 &current_context,
-                glutin::surface::SwapInterval::Wait(NonZeroU32::new(1).unwrap()),
+                glutin::surface::SwapInterval::Wait(
+                    NonZeroU32::new(1).expect("should never happen"),
+                ),
             )
-            .unwrap();
+            .expect("Cannot configure swap for GL buffers");
 
         Self::from_display_window(gl, window, current_context, surface, config)
     }
@@ -195,7 +197,7 @@ impl<T: ApplicationContext + 'static> State<T> {
         window: winit::window::Window,
         gl_context: PossiblyCurrentContext,
         surface: Surface<WindowSurface>,
-        config: Conf,
+        config: Arc<Conf>,
     ) -> Self {
         let context = T::new(config, GlContext::clone(&gl));
         Self {
@@ -208,17 +210,16 @@ impl<T: ApplicationContext + 'static> State<T> {
     }
 
     /// Start the event_loop and keep rendering frames until the program is closed
-    pub fn run_loop(config: Conf) {
+    pub fn run_loop(config: Arc<Conf>) -> Result<()> {
         let event_loop = winit::event_loop::EventLoop::builder()
             .build()
-            .expect("event loop building");
+            .context("event loop building")?;
         let mut app = App::<T> {
-            config: Some(config),
+            config,
             state: None,
             visible: true,
             close_promptly: false,
         };
-        let result = event_loop.run_app(&mut app);
-        result.unwrap();
+        event_loop.run_app(&mut app).context("Running application")
     }
 }

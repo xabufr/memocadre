@@ -1,5 +1,7 @@
+use anyhow::{Context, Result};
 use config::Config;
 use configuration::Conf;
+use log::debug;
 
 mod application;
 mod configuration;
@@ -9,13 +11,16 @@ mod graphics;
 mod support;
 mod worker;
 
-fn main() {
+fn main() -> Result<()> {
     let settings = Config::builder()
         .add_source(::config::File::with_name("config"))
         .build()
-        .unwrap();
-    let config: Conf = settings.try_deserialize().unwrap();
-    println!("{config:#?}");
+        .context("Cannot parse configuration")?;
+    let config: Conf = settings
+        .try_deserialize()
+        .context("Cannot deserialize configuration")?;
+    debug!("Configuration: {config:#?}");
     env_logger::init();
-    application::start(config);
+    application::start(config)?;
+    Ok(())
 }

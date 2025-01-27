@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use epaint::{
     text::{LayoutJob, TextFormat},
     Color32, FontId,
@@ -143,8 +144,7 @@ impl FPSCounter {
 }
 
 impl ApplicationContext for Application {
-    fn new(config: Conf, gl: GlContext) -> Self {
-        let config = Arc::new(config);
+    fn new(config: Arc<Conf>, gl: GlContext) -> Self {
         let worker = Worker::new(Arc::clone(&config), Self::get_ideal_image_size(&gl));
         worker.start();
         let mut graphics = Graphics::new(GlContext::clone(&gl));
@@ -220,14 +220,16 @@ impl Slide {
     }
 }
 
-pub fn start(config: Conf) {
+pub fn start(config: Conf) -> Result<()> {
     let vars = ["WAYLAND_DISPLAY", "WAYLAND_SOCKET", "DISPLAY"];
     let has_window_system = vars.into_iter().any(|v| std::env::var_os(v).is_some());
+    let config = Arc::new(config);
     if has_window_system {
-        State::<Application>::run_loop(config);
+        State::<Application>::run_loop(config)
     } else {
-        support::start_gbm::<Application>(config);
+        support::start_gbm::<Application>(config)
     }
+    .context("While running application")
 }
 
 impl Application {

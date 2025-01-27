@@ -1,3 +1,4 @@
+use anyhow::{Context as _, Result};
 use drm::{
     control::{self, connector, Device as ControlDevice, ModeTypeFlags, PageFlipFlags},
     Device as DrmDevice,
@@ -11,6 +12,7 @@ use glutin::{
     prelude::*,
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
+use log::debug;
 use raw_window_handle::{GbmDisplayHandle, GbmWindowHandle, RawDisplayHandle, RawWindowHandle};
 use std::{
     ffi::c_void,
@@ -18,6 +20,7 @@ use std::{
     num::NonZeroU32,
     os::unix::io::{AsFd, BorrowedFd},
     ptr::NonNull,
+    sync::Arc,
 };
 use vek::Rect;
 
@@ -47,37 +50,44 @@ impl ControlDevice for Card {}
 
 impl Card {
     /// Simple helper method for opening a [`Card`].
-    fn open() -> Self {
+    fn open() -> Result<Self> {
         let mut options = OpenOptions::new();
         options.read(true);
         options.write(true);
 
         // The normal location of the primary device node on Linux
-        Card(options.open("/dev/dri/card0").unwrap())
+        let path = "/dev/dri/card0";
+        Ok(Card(
+            options
+                .open(path)
+                .context(format!("While opening {path}"))?,
+        ))
     }
 }
-pub fn start_gbm<T>(app_config: Conf)
+pub fn start_gbm<T>(app_config: Arc<Conf>) -> Result<()>
 where
     T: ApplicationContext + 'static,
 {
     let devices = glutin::api::egl::device::Device::query_devices()
-        .expect("Failed to query devices")
+        .context("Failed to query devices")?
         .collect::<Vec<_>>();
-    println!("{:?}", devices);
-    println!("Hello, world!");
-    let drm_device = Card::open();
-    let res = drm_device.resource_handles().unwrap();
+    debug!("found devices: {devices:#?}");
+
+    let drm_device = Card::open().context("While opening DRM device")?;
+    let res = drm_device
+        .resource_handles()
+        .context("While listing DRM resources handles")?;
     let connector = res
         .connectors()
         .iter()
         .flat_map(|h| drm_device.get_connector(*h, true))
         .find(|c| c.state() == connector::State::Connected)
-        .unwrap();
+        .context("Cannot find connected connector")?;
     let mode = connector
         .modes()
         .iter()
         .find(|m| m.mode_type().contains(ModeTypeFlags::PREFERRED))
-        .unwrap();
+        .context("Cannot find prefered connector mode")?;
     let crtc = connector
         .encoders()
         .iter()
@@ -85,19 +95,17 @@ where
         .flat_map(|e| e.crtc())
         .flat_map(|c| drm_device.get_crtc(c))
         .next()
-        .unwrap();
+        .context("Cannot get CRTC")?;
+
     let (width, height) = mode.size();
-    println!("{:?}", "device opened");
-    let device = gbm::Device::new(drm_device).unwrap();
-    println!("{:?}", "GBM device opened");
-    println!("{}", device.backend_name());
-    println!("{:?}", device.get_driver().unwrap());
+    let device = gbm::Device::new(drm_device).context("Cannot open GBM device")?;
     let display = unsafe {
-        let ptr: NonNull<c_void> = NonNull::new(device.as_raw() as *mut c_void).unwrap();
+        let ptr: NonNull<c_void> =
+            NonNull::new(device.as_raw() as *mut c_void).context("device pointer is null")?;
         let display = RawDisplayHandle::Gbm(GbmDisplayHandle::new(ptr));
-        glutin::display::Display::new(display, glutin::display::DisplayApiPreference::Egl).unwrap()
+        glutin::display::Display::new(display, glutin::display::DisplayApiPreference::Egl)
+            .context("Cannot initialize glutin display")?
     };
-    println!("display: {:?}", display);
     let config = unsafe {
         let configs = display
             .find_configs(
@@ -105,7 +113,7 @@ where
                     .prefer_hardware_accelerated(Some(true))
                     .build(),
             )
-            .unwrap();
+            .context("Cannot find config")?;
         let configs = configs.collect::<Vec<_>>();
         for config in &configs {
             println!("config: {:?}", config);
@@ -118,7 +126,10 @@ where
             println!("float pixels: {:?}", config.float_pixels());
             println!("samples: {:?}", config.num_samples());
         }
-        configs.into_iter().next().unwrap()
+        configs
+            .into_iter()
+            .next()
+            .context("No available config found")?
     };
     let (surface, window, gbm_surface) = unsafe {
         let gbm_surface = device
@@ -128,9 +139,9 @@ where
                 gbm::Format::Xrgb8888,
                 BufferObjectFlags::SCANOUT | BufferObjectFlags::RENDERING,
             )
-            .unwrap();
+            .context("Cannot create GBM surface")?;
         let window_handle = RawWindowHandle::Gbm(GbmWindowHandle::new(
-            NonNull::new(gbm_surface.as_raw() as *mut c_void).unwrap(),
+            NonNull::new(gbm_surface.as_raw() as *mut c_void).context("GBM surface is null")?,
         ));
         let surface = display
             .create_window_surface(
@@ -141,10 +152,9 @@ where
                     NonZeroU32::new(height as _).unwrap(),
                 ),
             )
-            .unwrap();
+            .context("Cannot create window surface")?;
         (surface, window_handle, gbm_surface)
     };
-    println!("surface: {:?}", surface);
     let not_current_gl_context = unsafe {
         display
             .create_context(
@@ -153,15 +163,20 @@ where
                     .with_context_api(glutin::context::ContextApi::Gles(None))
                     .build(Some(window)),
             )
-            .unwrap()
+            .context("Cannot create openGL context")?
     };
 
-    let current_context = not_current_gl_context.make_current(&surface).unwrap();
-    println!("current context: {:?}", current_context);
-    surface.swap_buffers(&current_context).unwrap();
-    let mut bo = unsafe { gbm_surface.lock_front_buffer() }.unwrap();
+    let current_context = not_current_gl_context
+        .make_current(&surface)
+        .context("Cannot activate GL context on surface")?;
+    surface
+        .swap_buffers(&current_context)
+        .context("Cannot swap buffers")?;
+    let mut bo = unsafe { gbm_surface.lock_front_buffer() }.context("Cannot lock front buffer")?;
     let bpp = bo.bpp();
-    let mut fb = device.add_framebuffer(&bo, bpp, bpp).unwrap();
+    let mut fb = device
+        .add_framebuffer(&bo, bpp, bpp)
+        .context("Cannot get framebuffer")?;
     device
         .set_crtc(
             crtc.handle(),
@@ -170,7 +185,7 @@ where
             &[connector.handle()],
             Some(*mode),
         )
-        .unwrap();
+        .context("Cannot setup DRM device CRTC")?;
 
     let gl = unsafe { Context::from_loader_function_cstr(|s| display.get_proc_address(s)) };
     let gl = GlContextInner::new(gl, Rect::new(0, 0, width as _, height as _));
@@ -179,13 +194,18 @@ where
     loop {
         app.draw_frame();
 
-        surface.swap_buffers(&current_context).unwrap();
+        surface
+            .swap_buffers(&current_context)
+            .context("Cannot swap buffers on surface")?;
 
-        let next_bo = unsafe { gbm_surface.lock_front_buffer() }.unwrap();
-        let next_fb = device.add_framebuffer(&next_bo, bpp, bpp).unwrap();
+        let next_bo =
+            unsafe { gbm_surface.lock_front_buffer() }.context("Cannot lock front buffer")?;
+        let next_fb = device
+            .add_framebuffer(&next_bo, bpp, bpp)
+            .context("Cannot get framebuffer")?;
         device
             .page_flip(crtc.handle(), next_fb, PageFlipFlags::EVENT, None)
-            .unwrap();
+            .context("Cannot request pageflip")?;
 
         'outer: loop {
             let mut events = device.receive_events().unwrap();
@@ -202,7 +222,9 @@ where
         }
         drop(bo);
         bo = next_bo;
-        device.destroy_framebuffer(fb).unwrap();
+        device
+            .destroy_framebuffer(fb)
+            .context("Cannot free old framebuffer")?;
         fb = next_fb;
     }
 }

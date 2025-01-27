@@ -8,6 +8,7 @@ lto = "thin"
 strip = true
 
 [dependencies]
+anyhow = "1.0.95"
 bytemuck = { version = "1.21.0", features = ["derive"] }
 config = { version = "0.15.6", default-features = false, features = ["toml"] }
 drm = "0.14.1"
