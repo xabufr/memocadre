@@ -14,7 +14,8 @@ Todo:
    - Configurable orientation
 
 - Technical:
-   - Error handling
+   - Error handling - OK?
+   - Better immich errors
    - Sleep when nothing to do ?
    - Background loading / blur with GPU (context sharing)
    - Investigate text rendering using signed distance fields (SDF)
