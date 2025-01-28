@@ -1,7 +1,8 @@
+use anyhow::{Error, Result};
 use glow::HasContext;
 use vek::Rect;
 
-use super::{GlContext, Texture, };
+use super::{GlContext, Texture};
 
 pub struct FramebufferGuard<'a> {
     previous_viewport: Rect<i32, i32>,
@@ -26,9 +27,9 @@ pub struct FramebufferObject {
 }
 
 impl FramebufferObject {
-    pub fn with_texture(gl: GlContext, texture: Texture) -> Self {
+    pub fn with_texture(gl: GlContext, texture: Texture) -> Result<Self> {
         unsafe {
-            let fbo = gl.create_framebuffer().unwrap();
+            let fbo = gl.create_framebuffer().map_err(Error::msg)?;
             gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
             gl.framebuffer_texture_2d(
                 glow::FRAMEBUFFER,
@@ -38,11 +39,11 @@ impl FramebufferObject {
                 0,
             );
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
-            return Self {
+            return Ok(Self {
                 framebuffer: fbo,
                 texture: Some(texture),
                 gl,
-            };
+            });
         }
     }
     fn bind(&self) {
@@ -53,7 +54,7 @@ impl FramebufferObject {
     }
     pub fn bind_guard(&self) -> FramebufferGuard {
         let previous_viewport = self.gl.current_viewport();
-        let texture = self.texture.as_ref().unwrap();
+        let texture = self.texture.as_ref().expect("Texture should be present");
         self.gl.set_viewport(Rect::new(
             0,
             0,
@@ -67,10 +68,10 @@ impl FramebufferObject {
         }
     }
     pub fn into_texture(mut self) -> Texture {
-        self.texture.take().unwrap()
+        self.texture.take().expect("Texture should be present")
     }
     pub fn get_texture(&self) -> &Texture {
-        self.texture.as_ref().unwrap()
+        self.texture.as_ref().expect("Texture should be present")
     }
 }
 

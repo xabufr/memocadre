@@ -113,8 +113,11 @@ impl ImageBlurr {
         ];
         let fbos = textures
             .into_iter()
-            .map(|texture| FramebufferObject::with_texture(GlContext::clone(&self.gl), texture))
-            .collect::<Vec<_>>();
+            .map(|texture| {
+                FramebufferObject::with_texture(GlContext::clone(&self.gl), texture)
+                    .context("Cannot create blur framebuffer")
+            })
+            .collect::<Result<Vec<_>>>()?;
 
         let mut source_texture = texture;
 
