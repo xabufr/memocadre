@@ -160,7 +160,11 @@ impl ImageBlurr {
 
             source_texture = fbos[1].get_texture();
         }
-        return Ok(fbos.into_iter().last().unwrap().into_texture());
+        return Ok(fbos
+            .into_iter()
+            .last()
+            .expect("FBOs are not empty")
+            .into_texture());
     }
 }
 
