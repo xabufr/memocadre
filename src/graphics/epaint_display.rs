@@ -333,9 +333,11 @@ impl EpaintDisplay {
                 offset: memoffset::offset_of!(Vertex, uv) as i32,
             },
         ];
-        let mut vbo = BufferObject::new_vertex_buffer(GlContext::clone(&self.gl), buffer_usage);
+        let mut vbo = BufferObject::new_vertex_buffer(GlContext::clone(&self.gl), buffer_usage)
+            .context("Cannot create VertexBuffer")?;
         let mut ebo =
-            ElementBufferObject::new_index_buffer(GlContext::clone(&self.gl), buffer_usage);
+            ElementBufferObject::new_index_buffer(GlContext::clone(&self.gl), buffer_usage)
+                .context("Cannot create ElementBufferArray")?;
         vbo.write(vbo_data);
         ebo.write(ebo_data);
         Ok(VertexArrayObject::new(
@@ -356,12 +358,16 @@ fn write_mesh_to_vao(mesh: &Mesh, vao: &mut VertexArrayObject<Vertex>) {
         .collect::<Vec<_>>();
 
     if vao.vertex_buffer.size() >= vertex.len() {
-        vao.vertex_buffer.write_sub(0, &vertex);
+        vao.vertex_buffer
+            .write_sub(0, &vertex)
+            .expect("Should never happen: vertex buffer has enough space");
     } else {
         vao.vertex_buffer.write(&vertex);
     }
     if vao.element_buffer.size() >= mesh.indices.len() {
-        vao.element_buffer.write_sub(0, &mesh.indices);
+        vao.element_buffer
+            .write_sub(0, &mesh.indices)
+            .expect("Should never happen: element buffer has enough space");
     } else {
         vao.element_buffer.write(&mesh.indices);
     }

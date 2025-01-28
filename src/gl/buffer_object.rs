@@ -1,3 +1,4 @@
+use anyhow::{bail, Context, Error, Result};
 use std::marker::PhantomData;
 
 use super::GlContext;
@@ -68,8 +69,10 @@ impl<Type: NoUninit> BufferObject<Type> {
             );
         }
     }
-    pub fn write_sub(&self, offset: usize, data: &[Type]) {
-        assert!(offset + data.len() <= self.size);
+    pub fn write_sub(&self, offset: usize, data: &[Type]) -> Result<()> {
+        if offset + data.len() > self.size {
+            bail!("BufferObject overflow");
+        }
         let offset = offset * std::mem::size_of::<Type>();
         unsafe {
             self.gl.bind_buffer(self.target.get(), Some(self.object));
@@ -79,22 +82,23 @@ impl<Type: NoUninit> BufferObject<Type> {
                 bytemuck::cast_slice(data),
             );
         }
+        Ok(())
     }
 }
 
 impl<Type> BufferObject<Type> {
-    fn new(gl: GlContext, target: BufferTarget, usage: BufferUsage) -> Self {
-        let object = unsafe { gl.create_buffer().unwrap() };
-        BufferObject {
+    fn new(gl: GlContext, target: BufferTarget, usage: BufferUsage) -> Result<Self> {
+        let object = unsafe { gl.create_buffer().map_err(Error::msg)? };
+        Ok(BufferObject {
             object,
             target,
             usage,
             gl,
             size: 0,
             _data_type: PhantomData,
-        }
+        })
     }
-    pub fn new_vertex_buffer(gl: GlContext, usage: BufferUsage) -> Self {
+    pub fn new_vertex_buffer(gl: GlContext, usage: BufferUsage) -> Result<Self> {
         BufferObject::new(gl, BufferTarget::ArrayBuffer, usage)
     }
     pub fn bind(&self) {
@@ -118,7 +122,7 @@ impl<Type> BufferObject<Type> {
 }
 
 impl BufferObject<u32> {
-    pub fn new_index_buffer(gl: GlContext, usage: BufferUsage) -> Self {
+    pub fn new_index_buffer(gl: GlContext, usage: BufferUsage) -> Result<Self> {
         BufferObject::new(gl, BufferTarget::ElementArrayBuffer, usage)
     }
 }

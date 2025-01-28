@@ -70,9 +70,11 @@ const INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 impl ImageDrawert {
     pub fn new(gl: GlContext) -> Result<Self> {
         let mut vbo =
-            BufferObject::new_vertex_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw);
+            BufferObject::new_vertex_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw)
+                .context("Cannot create VertexArray")?;
         let mut ebo =
-            ElementBufferObject::new_index_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw);
+            ElementBufferObject::new_index_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw)
+                .context("Cannot create ElementBufferArray")?;
 
         let program = Program::new(GlContext::clone(&gl), shader::VERTEX, shader::FRAGMENT)
             .context("Cannot create ImageDrawer shader")?;
