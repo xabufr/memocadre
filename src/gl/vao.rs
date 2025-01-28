@@ -1,3 +1,4 @@
+use anyhow::{Error, Result};
 use bytemuck::NoUninit;
 use glow::HasContext;
 
@@ -50,10 +51,10 @@ impl<V: NoUninit> VertexArrayObject<V> {
         vbo: BufferObject<V>,
         ebo: ElementBufferObject,
         buffer_infos: Vec<BufferInfo>,
-    ) -> Self {
+    ) -> Result<Self> {
         let vao = if supports_vao(&gl) {
             unsafe {
-                let vao = gl.create_vertex_array().unwrap();
+                let vao = gl.create_vertex_array().map_err(Error::msg)?;
 
                 // Store state in the VAO:
                 gl.bind_vertex_array(Some(vao));
@@ -72,13 +73,13 @@ impl<V: NoUninit> VertexArrayObject<V> {
             None
         };
 
-        Self {
+        Ok(Self {
             vao,
             vertex_buffer: vbo,
             element_buffer: ebo,
             buffer_infos,
             gl,
-        }
+        })
     }
 }
 impl<V> VertexArrayObject<V> {

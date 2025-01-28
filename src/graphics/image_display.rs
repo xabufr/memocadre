@@ -103,7 +103,8 @@ impl ImageDrawert {
                 offset: memoffset::offset_of!(Vertex2dUv, uv) as i32,
             },
         ];
-        let vao = VertexArrayObject::new(GlContext::clone(&gl), vbo, ebo, buffer_infos);
+        let vao = VertexArrayObject::new(GlContext::clone(&gl), vbo, ebo, buffer_infos)
+            .context("Cannot create ImageDrawer VAO")?;
         Ok(Self { vao, program, gl })
     }
     pub fn draw_sprite(&self, view: Mat4<f32>, sprite: &Sprite) -> Result<()> {

@@ -82,7 +82,8 @@ impl ImageBlurr {
 
         vbo.write(&VERTICES);
         ebo.write(&INDICES);
-        let vao = VertexArrayObject::new(GlContext::clone(&gl), vbo, ebo, buffer_infos);
+        let vao = VertexArrayObject::new(GlContext::clone(&gl), vbo, ebo, buffer_infos)
+            .context("Cannot create VAO")?;
 
         Ok(Self {
             vertex_array: vao,

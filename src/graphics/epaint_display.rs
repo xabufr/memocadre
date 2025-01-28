@@ -143,7 +143,7 @@ impl EpaintDisplay {
         // TODO avoid double buffer init
         let mut vao = self
             .new_vao(vbo_data, ebo_data, BufferUsage::StaticDraw)
-            .context("Cannot create VAO")?;
+            .context("Cannot create shape VAO")?;
         write_mesh_to_vao(&mesh, &mut vao);
         Ok(ShapeContainer {
             position: [0., 0.].into(),
@@ -340,12 +340,10 @@ impl EpaintDisplay {
                 .context("Cannot create ElementBufferArray")?;
         vbo.write(vbo_data);
         ebo.write(ebo_data);
-        Ok(VertexArrayObject::new(
-            GlContext::clone(&self.gl),
-            vbo,
-            ebo,
-            buffer_infos,
-        ))
+        Ok(
+            VertexArrayObject::new(GlContext::clone(&self.gl), vbo, ebo, buffer_infos)
+                .context("Cannot create VAO")?,
+        )
     }
 }
 
