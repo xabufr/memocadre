@@ -116,7 +116,8 @@ impl EpaintDisplay {
             fonts,
             pixels_per_point,
             max_texture_size,
-            texture: Texture::empty(GlContext::clone(&gl), TextureFormat::RGBA, (0, 0).into()),
+            texture: Texture::empty(GlContext::clone(&gl), TextureFormat::RGBA, (0, 0).into())
+                .context("Cannot create texture")?,
             tesselator,
             program,
             gl,

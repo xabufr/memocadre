@@ -256,7 +256,8 @@ impl Application {
 
     fn load_next_frame(&mut self, image_with_details: ImageWithDetails) -> Result<Slide> {
         let image = image_with_details.image;
-        let texture = Texture::new_from_image(GlContext::clone(&self.gl), &image);
+        let texture = Texture::new_from_image(GlContext::clone(&self.gl), &image)
+            .context("Cannot load main texture")?;
         let vp = self.gl.current_viewport();
 
         let texture = SharedTexture2d::new(texture);

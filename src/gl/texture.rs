@@ -1,3 +1,4 @@
+use anyhow::{Context, Error, Result};
 use glow::HasContext;
 use image::{DynamicImage, GenericImageView};
 use vek::{Extent2, Rect};
@@ -79,21 +80,21 @@ impl TextureWrapMode {
 const TARGET: u32 = glow::TEXTURE_2D;
 
 impl Texture {
-    pub fn new_from_image(gl: GlContext, image: &DynamicImage) -> Self {
+    pub fn new_from_image(gl: GlContext, image: &DynamicImage) -> Result<Self> {
         let mut tex = Self {
             size: image.dimensions().into(),
-            texture: unsafe { Self::load_texture(&gl, image) },
+            texture: unsafe { Self::load_texture(&gl, image)? },
             format: TextureFormat::RGB,
             options: Default::default(),
             gl,
         };
         tex.set_options(Default::default());
-        tex
+        Ok(tex)
     }
 
-    pub fn empty(gl: GlContext, format: TextureFormat, dimensions: Extent2<u32>) -> Self {
+    pub fn empty(gl: GlContext, format: TextureFormat, dimensions: Extent2<u32>) -> Result<Self> {
         let mut tex = unsafe {
-            let texture = gl.create_texture().unwrap();
+            let texture = gl.create_texture().map_err(Error::msg)?;
             gl.bind_texture(TARGET, Some(texture));
             gl.tex_image_2d(
                 TARGET,
@@ -116,7 +117,7 @@ impl Texture {
             }
         };
         tex.set_options(Default::default());
-        return tex;
+        return Ok(tex);
     }
 
     pub fn set_options(&mut self, options: TextureOptions) {
@@ -189,8 +190,8 @@ impl Texture {
         return self.size;
     }
 
-    unsafe fn load_texture(gl: &glow::Context, image: &DynamicImage) -> glow::Texture {
-        let texture = gl.create_texture().unwrap();
+    unsafe fn load_texture(gl: &glow::Context, image: &DynamicImage) -> Result<glow::Texture> {
+        let texture = gl.create_texture().map_err(Error::msg)?;
         gl.bind_texture(TARGET, Some(texture));
         // FIXME set in graphics init
         gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
@@ -207,7 +208,7 @@ impl Texture {
             glow::PixelUnpackData::Slice(Some(image_data.as_slice())),
         );
         gl.bind_texture(TARGET, None);
-        texture
+        Ok(texture)
     }
 
     pub fn bind(&self, channel: Option<u8>) {

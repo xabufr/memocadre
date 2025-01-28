@@ -99,12 +99,14 @@ impl ImageBlurr {
                 GlContext::clone(&self.gl),
                 TextureFormat::RGB,
                 texture.size(),
-            ),
+            )
+            .context("cannot create texture")?,
             Texture::empty(
                 GlContext::clone(&self.gl),
                 TextureFormat::RGB,
                 texture.size(),
-            ),
+            )
+            .context("cannot create texture")?,
         ];
         let fbos = textures
             .into_iter()
