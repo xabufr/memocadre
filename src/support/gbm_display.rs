@@ -208,7 +208,9 @@ where
             .context("Cannot request pageflip")?;
 
         'outer: loop {
-            let mut events = device.receive_events().unwrap();
+            let mut events = device
+                .receive_events()
+                .context("Cannot read DRM device events")?;
             for event in &mut events {
                 match event {
                     control::Event::PageFlip(event) => {
