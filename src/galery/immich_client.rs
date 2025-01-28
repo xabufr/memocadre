@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use log::trace;
 use minreq::{Method, Request};
 use serde::{Deserialize, Serialize};
@@ -95,31 +96,30 @@ impl ImmichClient {
         }
     }
 
-    pub fn search_random(&self, query: SearchRandomRequest) -> Vec<AssetResponse> {
-        self.post("search/random")
-            .with_json(&query)
-            .unwrap()
+    pub fn search_random(&self, query: SearchRandomRequest) -> Result<Vec<AssetResponse>> {
+        Ok(self
+            .post("search/random")
+            .with_json(&query)?
             .with_header("Accept", "application/json")
-            .send()
-            .unwrap()
+            .send()?
             .json()
-            .unwrap()
+            .context("Cannot read response")?)
     }
 
-    pub fn search_person(&self, name: &str) -> Vec<PersonResponse> {
-        self.get(format!("search/person"))
+    pub fn search_person(&self, name: &str) -> Result<Vec<PersonResponse>> {
+        Ok(self
+            .get(format!("search/person"))
             .with_param("name", name)
-            .send()
-            .unwrap()
+            .send()?
             .json()
-            .unwrap()
+            .context("Cannot read response")?)
     }
 
-    pub fn view_assets(&self, id: &str) -> Vec<u8> {
-        self.get(format!("assets/{}/thumbnail?size=preview", id))
-            .send()
-            .unwrap()
-            .into_bytes()
+    pub fn view_assets(&self, id: &str) -> Result<Vec<u8>> {
+        Ok(self
+            .get(format!("assets/{}/thumbnail?size=preview", id))
+            .send()?
+            .into_bytes())
     }
 
     fn post(&self, path: impl AsRef<str>) -> Request {

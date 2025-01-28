@@ -1,4 +1,4 @@
-use anyhow::{Context, Error, Result};
+use anyhow::{Error, Result};
 use glow::HasContext;
 use image::{DynamicImage, GenericImageView};
 use vek::{Extent2, Rect};

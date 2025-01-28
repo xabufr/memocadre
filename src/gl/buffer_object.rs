@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Error, Result};
+use anyhow::{bail, Error, Result};
 use std::marker::PhantomData;
 
 use super::GlContext;

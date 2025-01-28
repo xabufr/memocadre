@@ -21,6 +21,7 @@ glutin = { version = "0.32.1", default-features = false, features = ["egl", "x11
 glutin-winit = { version = "0.5.0", default-features = false, features = ["egl", "x11"] }
 humantime-serde = "1.1.1"
 image = { version = "0.25.5", features = ["default-formats"], default-features = false }
+itertools = "0.14.0"
 log = "0.4.22"
 memoffset = "0.9.1"
 minreq = { version = "2.13.0", features = ["https-rustls", "punycode", "json-using-serde"] }
