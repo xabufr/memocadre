@@ -1,6 +1,7 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use itertools::Itertools;
 
+use log::error;
 mod immich;
 
 use crate::configuration::Source;
@@ -53,8 +54,14 @@ pub fn build_sources(sources: &[Source]) -> Result<Box<dyn Gallery>> {
 
 impl Gallery for GalleryImpl {
     fn get_next_image(&mut self) -> Result<ImageWithDetails> {
-        let res = self.galleries[self.next].get_next_image();
-        self.next = (self.next + 1) % self.galleries.len();
-        res
+        for _ in 0..self.galleries.len() {
+            let res = self.galleries[self.next].get_next_image();
+            self.next = (self.next + 1) % self.galleries.len();
+            match res {
+                Ok(res) => return Ok(res),
+                Err(error) => error!("Cannot get next image: {}", error),
+            }
+        }
+        bail!("All sources have failed")
     }
 }
