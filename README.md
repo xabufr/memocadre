@@ -3,8 +3,8 @@ Todo:
 - Configuration
    - Blur (radius, algo...) - OK for now
    - Transitions
-   - Other searches
-   - Multiple sources
+   - Other searches - Ok
+   - Multiple sources - Ok
 
 - Graphics:
    - Info placement - OK for now
