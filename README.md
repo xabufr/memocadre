@@ -23,6 +23,7 @@ Todo:
    - Direnv -> switch to flake
    - Better init for GBM/winit
    - Refactor application.rs
+   - Write unit tests
 
 - HTTP Api ?
 - publish
