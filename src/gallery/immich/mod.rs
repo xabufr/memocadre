@@ -1,4 +1,4 @@
-use std::{io::Cursor, time::Instant};
+use std::{io::Cursor, ops::Deref, rc::Rc, time::Instant};
 
 use anyhow::{Context, Result};
 use image::ImageReader;
@@ -6,51 +6,81 @@ use itertools::Itertools;
 use log::debug;
 
 use self::client::{AssetResponse, AssetType, ImmichClient, SearchRandomRequest};
-use super::Gallery;
+use super::{Gallery, GalleryProvider};
 use crate::{
-    configuration::{ImmichInstance, ImmichPerson, ImmichSearch, ImmichSearchQuery, ImmichSource},
+    configuration::{ImmichPerson, ImmichSearchQuery, ImmichSource, ImmichSpec},
     gallery::ImageWithDetails,
 };
 
 mod client;
 
-pub struct ImmichGallery {
-    clients_and_searches: Vec<ClientAndSearch>,
-    next_client: usize,
+struct ImmichGalleryProvider {
+    client: Rc<ImmichClient>,
+    search: ImmichRequest,
+    next_assets: Vec<AssetResponse>,
 }
 
-struct ClientAndSearch {
-    client: ImmichClient,
-    searches: Vec<SearchRandomRequest>,
-    next_assets: Vec<Vec<AssetResponse>>,
-    next_search: usize,
+enum ImmichRequest {
+    RandomSearch(SearchRandomRequest),
+    PrivateAlbum { id: String },
+    MemoryLane,
 }
 
-impl ClientAndSearch {
-    fn new(instance: &ImmichInstance, searches: &Vec<ImmichSearch>) -> Result<Self> {
-        let client = ImmichClient::new(&instance.url, &instance.api_key);
-        let searches: Vec<_> = searches
-            .iter()
-            .map(|search| Self::build_search_query(&client, search))
-            .try_collect()?;
-        let next_assets = searches.iter().map(|_| Vec::new()).collect();
-        Ok(Self {
-            client,
-            searches,
-            next_assets,
-            next_search: 0,
-        })
-    }
-
-    fn build_search_query(
-        client: &ImmichClient,
-        source: &ImmichSearch,
-    ) -> Result<SearchRandomRequest> {
-        match source {
-            ImmichSearch::RandomSearch(immich_search_query) => {
-                Self::build_random_search(client, immich_search_query)
-            }
+impl ImmichRequest {
+    fn load_next(&self, client: &ImmichClient) -> Result<Vec<AssetResponse>> {
+        match self {
+            ImmichRequest::RandomSearch(search_random_request) => client
+                .search_random(SearchRandomRequest {
+                    r#type: Some(AssetType::IMAGE),
+                    with_exif: Some(true),
+                    ..search_random_request.clone()
+                })
+                .context("Error while search next assets batch"),
+            ImmichRequest::PrivateAlbum { id } => todo!(),
+            ImmichRequest::MemoryLane => todo!(),
         }
+    }
+}
+
+impl Gallery for ImmichGalleryProvider {
+    fn get_next_image(&mut self) -> Result<ImageWithDetails> {
+        let asset = self.get_next_asset()?;
+        let start = Instant::now();
+        let img_data = self
+            .client
+            .view_assets(&asset.id)
+            .context("Cannot fetch image data")?;
+        let image = ImageReader::new(Cursor::new(&img_data))
+            .with_guessed_format()
+            .context("Cannot guess image format")?
+            .decode()
+            .context("Cannot decode image")?;
+        debug!("Asset downloaded and decoded in {:?}", start.elapsed());
+        return Ok(ImageWithDetails {
+            image,
+            city: asset.exif_info.as_ref().and_then(|i| i.city.clone()),
+            date_time: Some(asset.local_date_time.clone()),
+            people: Vec::new(),
+        });
+    }
+}
+impl GalleryProvider for ImmichGalleryProvider {}
+
+impl ImmichGalleryProvider {
+    fn new(client: &Rc<ImmichClient>, search: &ImmichSpec) -> Result<Self> {
+        let search = match search {
+            ImmichSpec::RandomSearch(immich_search_query) => {
+                let req = Self::build_random_search(client.deref(), immich_search_query)?;
+                ImmichRequest::RandomSearch(req)
+            }
+            ImmichSpec::PrivateAlbum { id } => ImmichRequest::PrivateAlbum { id: id.clone() },
+            ImmichSpec::MemoryLane => ImmichRequest::MemoryLane,
+        };
+        Ok(Self {
+            client: client.clone(),
+            next_assets: Vec::new(),
+            search,
+        })
     }
 
     fn build_random_search(
@@ -78,75 +108,40 @@ impl ClientAndSearch {
                     .collect::<Result<Vec<_>>>()
             })
             .transpose()?;
-        let search = SearchRandomRequest {
+        return Ok(SearchRandomRequest {
             person_ids,
             ..Default::default()
-        };
-        return Ok(search);
+        });
     }
 
     fn get_next_asset(&mut self) -> Result<AssetResponse> {
-        let next = if let Some(next) = self.next_assets[self.next_search].pop() {
+        if let Some(next) = self.next_assets.pop() {
             Ok(next)
         } else {
-            self.next_assets[self.next_search] = self
-                .client
-                .search_random(SearchRandomRequest {
-                    r#type: Some(AssetType::IMAGE),
-                    with_exif: Some(true),
-                    with_people: Some(true),
-                    ..self.searches[self.next_search].clone()
-                })
-                .context("Error while search next assets batch")?;
-            self.next_assets[self.next_search]
+            self.next_assets = self
+                .search
+                .load_next(&self.client)
+                .context("Error while loading next asset batch")?;
+            self.next_assets
                 .pop()
                 .context("Should have at least one asset")
-        };
-        self.next_search = (self.next_search + 1) % self.searches.len();
-        return next;
-    }
-
-    fn get_next_image(&mut self) -> Result<ImageWithDetails> {
-        let asset = self.get_next_asset()?;
-        let start = Instant::now();
-        let img_data = self
-            .client
-            .view_assets(&asset.id)
-            .context("Cannot fetch image data")?;
-        let image = ImageReader::new(Cursor::new(&img_data))
-            .with_guessed_format()
-            .context("Cannot guess image format")?
-            .decode()
-            .context("Cannot decode image")?;
-        debug!("Asset downloaded and decoded in {:?}", start.elapsed());
-        return Ok(ImageWithDetails {
-            image,
-            city: asset.exif_info.as_ref().and_then(|i| i.city.clone()),
-            date_time: Some(asset.local_date_time.clone()),
-            people: Vec::new(),
-        });
+        }
     }
 }
 
-impl Gallery for ImmichGallery {
-    fn get_next_image(&mut self) -> Result<ImageWithDetails> {
-        let res = self.clients_and_searches[self.next_client].get_next_image();
-        self.next_client = (self.next_client + 1) % self.clients_and_searches.len();
-        return res;
-    }
-}
-
-impl ImmichGallery {
-    pub fn new(source: &ImmichSource) -> Result<Self> {
-        let clients_and_searches = source
-            .instance
-            .iter()
-            .chain(source.instances.iter())
-            .map(|instance| ClientAndSearch::new(instance, &source.searches))
-            .try_collect()?;
-        Ok(Self {
-            clients_and_searches,
-            next_client: 0,
+pub fn build_immich_providers(source: &ImmichSource) -> Result<Vec<Box<dyn GalleryProvider>>> {
+    source
+        .instance
+        .iter()
+        .chain(source.instances.iter())
+        .flat_map(|instance| {
+            let client = ImmichClient::new(&instance.url, &instance.api_key);
+            let client = Rc::new(client);
+            source
+                .specs
+                .iter()
+                .map(move |search| ImmichGalleryProvider::new(&client, search))
+                .map_ok(|s| Box::new(s) as Box<dyn GalleryProvider>)
         })
-    }
+        .try_collect()
 }

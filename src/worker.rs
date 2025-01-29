@@ -10,8 +10,8 @@ use thread_priority::{set_current_thread_priority, ThreadPriority};
 use vek::Extent2;
 
 use crate::{
-    configuration::{Conf, Source},
-    gallery::ImageWithDetails,
+    configuration::Conf,
+    gallery::{build_source, ImageWithDetails},
 };
 
 type Message = ImageWithDetails;
@@ -63,15 +63,10 @@ impl Worker {
 }
 impl WorkerImpl {
     fn work(&self) -> Result<()> {
-        use crate::gallery::{Gallery, ImmichGallery};
         if !set_current_thread_priority(ThreadPriority::Min).is_ok() {
             error!("Cannot change worker thread priority to minimal");
         }
-        let mut source = match &self.config.source {
-            Source::Immich(immich_source) => {
-                ImmichGallery::new(&immich_source).context("Cannot create ImmichGallery")?
-            }
-        };
+        let mut source = build_source(&self.config.source).context("Cannot build source")?;
         loop {
             let mut img_with_details = source.get_next_image()?;
             img_with_details.image = self.resize_image_if_necessay(img_with_details.image);

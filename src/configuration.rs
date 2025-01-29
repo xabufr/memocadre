@@ -51,7 +51,7 @@ pub struct ImmichSource {
     pub instance: Option<ImmichInstance>,
     #[serde(default)]
     pub instances: Vec<ImmichInstance>,
-    pub searches: Vec<ImmichSearch>,
+    pub specs: Vec<ImmichSpec>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -62,10 +62,11 @@ pub struct ImmichInstance {
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(rename_all = "lowercase", deny_unknown_fields)]
-pub enum ImmichSearch {
-    #[serde(rename = "random")]
+#[serde(tag = "type", rename_all = "camelCase", deny_unknown_fields)]
+pub enum ImmichSpec {
     RandomSearch(ImmichSearchQuery),
+    PrivateAlbum { id: String },
+    MemoryLane,
 }
 
 #[derive(Deserialize, Debug)]

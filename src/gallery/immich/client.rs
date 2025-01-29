@@ -98,22 +98,27 @@ impl ImmichClient {
     }
 
     pub fn search_random(&self, query: SearchRandomRequest) -> Result<Vec<AssetResponse>> {
-        Ok(self
-            .post("search/random")
+        self.post("search/random")
             .with_json(&query)?
             .with_header("Accept", "application/json")
             .send()?
             .json()
-            .context("Cannot read response")?)
+            .context("Cannot read response")
     }
 
     pub fn search_person(&self, name: &str) -> Result<Vec<PersonResponse>> {
-        Ok(self
-            .get(format!("search/person"))
+        self.get(format!("search/person"))
             .with_param("name", name)
             .send()?
             .json()
-            .context("Cannot read response")?)
+            .context("Cannot read response")
+    }
+
+    pub fn get_asset_details(&self, id: &str) -> Result<AssetResponse> {
+        self.get(format!("asset/{}", id))
+            .send()?
+            .json()
+            .context("Cannot read response")
     }
 
     pub fn view_assets(&self, id: &str) -> Result<Vec<u8>> {

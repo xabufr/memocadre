@@ -2,11 +2,13 @@ use anyhow::Result;
 
 mod immich;
 
-pub use self::immich::ImmichGallery;
+use crate::configuration::Source;
 
 pub trait Gallery {
     fn get_next_image(&mut self) -> Result<ImageWithDetails>;
 }
+
+trait GalleryProvider: Gallery {}
 
 pub struct ImageWithDetails {
     pub image: image::DynamicImage,
@@ -30,4 +32,24 @@ pub struct BoxInImage {
     pub box_y_start: u32,
     pub box_x_end: u32,
     pub box_y_end: u32,
+}
+
+struct GalleryImpl {
+    galleries: Vec<Box<dyn GalleryProvider>>,
+    next: usize,
+}
+
+pub fn build_source(source: &Source) -> Result<Box<dyn Gallery>> {
+    let galleries = match source {
+        Source::Immich(immich_source) => immich::build_immich_providers(immich_source)?,
+    };
+    Ok(Box::new(GalleryImpl { galleries, next: 0 }))
+}
+
+impl Gallery for GalleryImpl {
+    fn get_next_image(&mut self) -> Result<ImageWithDetails> {
+        let res = self.galleries[self.next].get_next_image();
+        self.next = (self.next + 1) % self.galleries.len();
+        res
+    }
 }
