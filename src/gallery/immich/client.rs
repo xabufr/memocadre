@@ -19,6 +19,23 @@ pub struct AssetResponse {
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[allow(dead_code)]
+pub struct AlbumInfo {
+    pub album_name: String,
+    pub id: String,
+    pub assets: Vec<AssetResponse>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+pub struct MemoryLaneElement {
+    pub years_ago: i32,
+    pub assets: Vec<AssetResponse>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct Person {
     pub name: String,
     pub faces: Vec<Face>,
@@ -106,16 +123,32 @@ impl ImmichClient {
             .context("Cannot read response")
     }
 
+    pub fn get_album(&self, id: &str) -> Result<AlbumInfo> {
+        self.get(format!("albums/{id}"))
+            .send()?
+            .json()
+            .context("Cannot read response")
+    }
+
     pub fn search_person(&self, name: &str) -> Result<Vec<PersonResponse>> {
-        self.get(format!("search/person"))
+        self.get("search/person")
             .with_param("name", name)
             .send()?
             .json()
             .context("Cannot read response")
     }
 
+    pub fn get_memory_lane(&self, day: u8, month: u8) -> Result<Vec<MemoryLaneElement>> {
+        self.get("assets/memory-lane")
+            .with_param("day", &day.to_string())
+            .with_param("month", &month.to_string())
+            .send()?
+            .json()
+            .context("Cannot read immich response")
+    }
+
     pub fn get_asset_details(&self, id: &str) -> Result<AssetResponse> {
-        self.get(format!("asset/{}", id))
+        self.get(format!("assets/{id}"))
             .send()?
             .json()
             .context("Cannot read response")
@@ -123,7 +156,7 @@ impl ImmichClient {
 
     pub fn view_assets(&self, id: &str) -> Result<Vec<u8>> {
         Ok(self
-            .get(format!("assets/{}/thumbnail?size=preview", id))
+            .get(format!("assets/{id}/thumbnail?size=preview"))
             .send()?
             .into_bytes())
     }

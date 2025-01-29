@@ -29,15 +29,22 @@ enum ImmichRequest {
 impl ImmichRequest {
     fn load_next(&self, client: &ImmichClient) -> Result<Vec<AssetResponse>> {
         match self {
-            ImmichRequest::RandomSearch(search_random_request) => client
+            ImmichRequest::RandomSearch(search_random_request) => Ok(client
                 .search_random(SearchRandomRequest {
                     r#type: Some(AssetType::IMAGE),
                     with_exif: Some(true),
                     ..search_random_request.clone()
                 })
-                .context("Error while search next assets batch"),
-            ImmichRequest::PrivateAlbum { id } => todo!(),
-            ImmichRequest::MemoryLane => todo!(),
+                .context("Error while search next assets batch")?),
+            ImmichRequest::PrivateAlbum { id } => Ok(client
+                .get_album(id)
+                .context("Cannot get album for next batch")?
+                .assets),
+            ImmichRequest::MemoryLane => Ok(client
+                .get_memory_lane(29, 1)?
+                .into_iter()
+                .flat_map(|l| l.assets)
+                .collect()),
         }
     }
 }
@@ -115,8 +122,8 @@ impl ImmichGalleryProvider {
     }
 
     fn get_next_asset(&mut self) -> Result<AssetResponse> {
-        if let Some(next) = self.next_assets.pop() {
-            Ok(next)
+        let asset = if let Some(next) = self.next_assets.pop() {
+            next
         } else {
             self.next_assets = self
                 .search
@@ -124,8 +131,11 @@ impl ImmichGalleryProvider {
                 .context("Error while loading next asset batch")?;
             self.next_assets
                 .pop()
-                .context("Should have at least one asset")
-        }
+                .context("Should have at least one asset")?
+        };
+        self.client
+            .get_asset_details(&asset.id)
+            .context("Cannot fetch assets with details")
     }
 }
 
