@@ -65,6 +65,7 @@ pub struct ImmichInstance {
 #[serde(tag = "type", rename_all = "camelCase", deny_unknown_fields)]
 pub enum ImmichSpec {
     RandomSearch(ImmichSearchQuery),
+    SmartSearch(ImmichSmartSearchQuery),
     PrivateAlbum { id: String },
     MemoryLane,
 }
@@ -74,6 +75,16 @@ pub enum ImmichSpec {
 pub struct ImmichSearchQuery {
     #[serde(default)]
     pub persons: Option<Vec<ImmichPerson>>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ImmichSmartSearchQuery {
+    #[serde(default)]
+    pub persons: Option<Vec<ImmichPerson>>,
+    pub query: String,
+    #[serde(default)]
+    pub city: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]

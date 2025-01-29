@@ -91,6 +91,37 @@ pub struct SearchRandomRequest {
     pub with_exif: Option<bool>,
 }
 
+#[derive(Serialize, Debug, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SmartSearchRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub library_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub city: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub r#type: Option<AssetType>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub person_ids: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub with_people: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub with_exif: Option<bool>,
+    pub query: String,
+}
+#[derive(Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SmartSearchResponse {
+    pub assets: SmartSearchAssets,
+}
+
+#[derive(Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SmartSearchAssets {
+    pub items: Vec<AssetResponse>,
+}
+
 pub struct ImmichClient {
     base_url: String,
     api_key: String,
@@ -112,6 +143,18 @@ impl ImmichClient {
             base_url: base_url.as_ref().into(),
             api_key: api_key.as_ref().into(),
         }
+    }
+
+    pub fn smart_search(&self, query: SmartSearchRequest) -> Result<SmartSearchResponse> {
+        self.handle_error(
+            self.post("search/smart")
+                .with_json(&query)
+                .context("Cannot send SmartSearch query")?
+                .with_header("Accept", "application/json")
+                .send(),
+        )?
+        .json()
+        .context("Cannot read response")
     }
 
     pub fn search_random(&self, query: SearchRandomRequest) -> Result<Vec<AssetResponse>> {

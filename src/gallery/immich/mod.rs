@@ -1,6 +1,7 @@
 use std::{io::Cursor, ops::Deref, rc::Rc, time::Instant};
 
 use anyhow::{Context, Result};
+use client::SmartSearchRequest;
 use image::ImageReader;
 use itertools::Itertools;
 use log::debug;
@@ -20,8 +21,10 @@ struct ImmichGalleryProvider {
     next_assets: Vec<AssetResponse>,
 }
 
+#[derive(Debug)]
 enum ImmichRequest {
     RandomSearch(SearchRandomRequest),
+    SmartSearch(SmartSearchRequest),
     PrivateAlbum { id: String },
     MemoryLane,
 }
@@ -36,6 +39,15 @@ impl ImmichRequest {
                     ..search_random_request.clone()
                 })
                 .context("Error while search next assets batch")?),
+            ImmichRequest::SmartSearch(request) => Ok(client
+                .smart_search(SmartSearchRequest {
+                    r#type: Some(AssetType::IMAGE),
+                    with_exif: Some(true),
+                    ..request.clone()
+                })
+                .context("Error while smart searching next assets batch")?
+                .assets
+                .items),
             ImmichRequest::PrivateAlbum { id } => Ok(client
                 .get_album(id)
                 .context("Cannot get album for next batch")?
@@ -75,15 +87,23 @@ impl GalleryProvider for ImmichGalleryProvider {}
 
 impl ImmichGalleryProvider {
     fn new(client: &Rc<ImmichClient>, search: &ImmichSpec) -> Result<Self> {
-        let search = match search {
+        let immich_request = match search {
             ImmichSpec::RandomSearch(immich_search_query) => {
                 let req = Self::build_random_search(client.deref(), immich_search_query)
                     .context("While building search request")?;
                 ImmichRequest::RandomSearch(req)
             }
+            ImmichSpec::SmartSearch(search) => ImmichRequest::SmartSearch(SmartSearchRequest {
+                person_ids: Self::get_persons_ids(client.deref(), &search.persons)?,
+                city: search.city.clone(),
+                query: search.query.clone(),
+                ..Default::default()
+            }),
             ImmichSpec::PrivateAlbum { id } => ImmichRequest::PrivateAlbum { id: id.clone() },
             ImmichSpec::MemoryLane => ImmichRequest::MemoryLane,
         };
+        let immich_request = immich_request;
+        let search = immich_request;
         Ok(Self {
             client: client.clone(),
             next_assets: Vec::new(),
@@ -95,8 +115,18 @@ impl ImmichGalleryProvider {
         client: &ImmichClient,
         search: &ImmichSearchQuery,
     ) -> Result<SearchRandomRequest> {
-        let person_ids = search
-            .persons
+        let person_ids = Self::get_persons_ids(client, &search.persons)?;
+        return Ok(SearchRandomRequest {
+            person_ids,
+            ..Default::default()
+        });
+    }
+
+    fn get_persons_ids(
+        client: &ImmichClient,
+        persons: &Option<Vec<ImmichPerson>>,
+    ) -> Result<Option<Vec<String>>> {
+        persons
             .as_ref()
             .map(|persons| -> Result<_> {
                 persons
@@ -116,11 +146,7 @@ impl ImmichGalleryProvider {
                     .flatten_ok()
                     .collect::<Result<Vec<_>>>()
             })
-            .transpose()?;
-        return Ok(SearchRandomRequest {
-            person_ids,
-            ..Default::default()
-        });
+            .transpose()
     }
 
     fn get_next_asset(&mut self) -> Result<AssetResponse> {
