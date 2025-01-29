@@ -151,7 +151,6 @@ impl ApplicationContext for Application {
 
     fn new(config: Arc<Conf>, gl: GlContext) -> Result<Self> {
         let worker = Worker::new(Arc::clone(&config), Self::get_ideal_image_size(&gl));
-        worker.start();
         let mut graphics =
             Graphics::new(GlContext::clone(&gl)).context("Cannot create Graphics")?;
         let fps_text = graphics
@@ -180,7 +179,7 @@ impl ApplicationContext for Application {
         {
             match self.worker.recv().try_recv() {
                 Err(TryRecvError::Empty) => {}
-                Err(TryRecvError::Disconnected) => {}
+                Err(error) => Err(error).context("Cannot get next image")?,
                 Ok(image) => {
                     let slide = self
                         .load_next_frame(image)

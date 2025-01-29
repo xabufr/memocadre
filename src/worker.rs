@@ -1,6 +1,6 @@
 use std::sync::{
     mpsc::{Receiver, SyncSender},
-    Arc, RwLock,
+    Arc, RwLock, Weak,
 };
 
 use anyhow::{Context, Result};
@@ -16,7 +16,7 @@ use crate::{
 
 type Message = ImageWithDetails;
 pub struct Worker {
-    worker_impl: Arc<WorkerImpl>,
+    worker_impl: Weak<WorkerImpl>,
     recv: Receiver<Message>,
 }
 
@@ -36,25 +36,26 @@ impl Worker {
                 config,
             }
         });
-        Worker { worker_impl, recv }
-    }
-
-    pub fn set_ideal_max_size(&self, size: Extent2<u32>) {
-        let mut w = self
-            .worker_impl
-            .ideal_max_size
-            .write()
-            .expect("Cannot lock worker ideal_max_size");
-        *w = size;
-    }
-
-    pub fn start(&self) {
-        let worker_impl = self.worker_impl.clone();
+        let worker_impl_weak = Arc::downgrade(&worker_impl);
         std::thread::spawn(move || {
             worker_impl
                 .work()
                 .expect("Worker encountered an error, abort");
         });
+        Worker {
+            worker_impl: worker_impl_weak,
+            recv,
+        }
+    }
+
+    pub fn set_ideal_max_size(&self, size: Extent2<u32>) {
+        if let Some(worker_impl) = self.worker_impl.upgrade() {
+            let mut w = worker_impl
+                .ideal_max_size
+                .write()
+                .expect("Cannot lock worker ideal_max_size");
+            *w = size;
+        }
     }
 
     pub fn recv(&self) -> &Receiver<Message> {
