@@ -1,6 +1,6 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use log::trace;
-use minreq::{Method, Request};
+use minreq::{Method, Request, Response};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
@@ -115,50 +115,68 @@ impl ImmichClient {
     }
 
     pub fn search_random(&self, query: SearchRandomRequest) -> Result<Vec<AssetResponse>> {
-        self.post("search/random")
-            .with_json(&query)?
-            .with_header("Accept", "application/json")
-            .send()?
-            .json()
-            .context("Cannot read response")
+        self.handle_error(
+            self.post("search/random")
+                .with_json(&query)?
+                .with_header("Accept", "application/json")
+                .send(),
+        )?
+        .json()
+        .context("Cannot read response")
     }
 
     pub fn get_album(&self, id: &str) -> Result<AlbumInfo> {
-        self.get(format!("albums/{id}"))
-            .send()?
+        self.handle_error(self.get(format!("albums/{id}")).send())?
             .json()
             .context("Cannot read response")
     }
 
     pub fn search_person(&self, name: &str) -> Result<Vec<PersonResponse>> {
-        self.get("search/person")
-            .with_param("name", name)
-            .send()?
+        self.handle_error(self.get("search/person").with_param("name", name).send())?
             .json()
             .context("Cannot read response")
     }
 
     pub fn get_memory_lane(&self, day: u8, month: u8) -> Result<Vec<MemoryLaneElement>> {
-        self.get("assets/memory-lane")
-            .with_param("day", &day.to_string())
-            .with_param("month", &month.to_string())
-            .send()?
-            .json()
-            .context("Cannot read immich response")
+        self.handle_error(
+            self.get("assets/memory-lane")
+                .with_param("day", &day.to_string())
+                .with_param("month", &month.to_string())
+                .send(),
+        )?
+        .json()
+        .context("Cannot read immich response")
     }
 
     pub fn get_asset_details(&self, id: &str) -> Result<AssetResponse> {
-        self.get(format!("assets/{id}"))
-            .send()?
+        self.handle_error(self.get(format!("assets/{id}")).send())?
             .json()
             .context("Cannot read response")
     }
 
     pub fn view_assets(&self, id: &str) -> Result<Vec<u8>> {
         Ok(self
-            .get(format!("assets/{id}/thumbnail?size=preview"))
-            .send()?
+            .handle_error(
+                self.get(format!("assets/{id}/thumbnail?size=preview"))
+                    .send(),
+            )?
             .into_bytes())
+    }
+
+    fn handle_error(
+        &self,
+        response: core::result::Result<Response, minreq::Error>,
+    ) -> Result<Response> {
+        let response = response.context("Cannot send request")?;
+        if response.status_code >= 400 {
+            Err(anyhow!(
+                "Response error: status code {} ({})",
+                response.status_code,
+                response.reason_phrase
+            ))
+        } else {
+            Ok(response)
+        }
     }
 
     fn post(&self, path: impl AsRef<str>) -> Request {

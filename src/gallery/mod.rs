@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use itertools::Itertools;
 
 use log::error;
@@ -44,8 +44,10 @@ struct GalleryImpl {
 pub fn build_sources(sources: &[Source]) -> Result<Box<dyn Gallery>> {
     let galleries = sources
         .iter()
-        .map(|source| match source {
-            Source::Immich(immich_source) => immich::build_immich_providers(immich_source),
+        .enumerate()
+        .map(|(id, source)| match source {
+            Source::Immich(immich_source) => immich::build_immich_providers(immich_source)
+                .context(format!("Cannot build source {id}")),
         })
         .flatten_ok()
         .try_collect()?;

@@ -77,7 +77,8 @@ impl ImmichGalleryProvider {
     fn new(client: &Rc<ImmichClient>, search: &ImmichSpec) -> Result<Self> {
         let search = match search {
             ImmichSpec::RandomSearch(immich_search_query) => {
-                let req = Self::build_random_search(client.deref(), immich_search_query)?;
+                let req = Self::build_random_search(client.deref(), immich_search_query)
+                    .context("While building search request")?;
                 ImmichRequest::RandomSearch(req)
             }
             ImmichSpec::PrivateAlbum { id } => ImmichRequest::PrivateAlbum { id: id.clone() },
@@ -105,7 +106,8 @@ impl ImmichGalleryProvider {
                             // FIXME handle non-existing
                             ImmichPerson::Id(id) => vec![id.to_owned()],
                             ImmichPerson::Name(name) => client
-                                .search_person(name)?
+                                .search_person(name)
+                                .context("Cannot list persons")?
                                 .into_iter()
                                 .map(|p| p.id)
                                 .collect(),
@@ -144,14 +146,18 @@ pub fn build_immich_providers(source: &ImmichSource) -> Result<Vec<Box<dyn Galle
         .instance
         .iter()
         .chain(source.instances.iter())
-        .flat_map(|instance| {
+        .enumerate()
+        .flat_map(|(id, instance)| {
             let client = ImmichClient::new(&instance.url, &instance.api_key);
             let client = Rc::new(client);
             source
                 .specs
                 .iter()
                 .map(move |search| ImmichGalleryProvider::new(&client, search))
-                .map_ok(|s| Box::new(s) as Box<dyn GalleryProvider>)
+                .map(move |p| match p {
+                    Ok(p) => Ok(Box::new(p) as Box<dyn GalleryProvider>),
+                    Err(err) => Err(err).context(format!("Cannot build for client {id}")),
+                })
         })
         .try_collect()
 }
