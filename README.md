@@ -7,16 +7,16 @@ Todo:
    - Multiple sources - Ok
 
 - Graphics:
+   - Configurable orientation
+   - Better texts (date format)
    - Info placement - OK for now
    - Zoom effect -> check for background worker first! (otherwise it will be freezed...)
    - Other effects / transitions -> fadeout-fadein
    - Other layouts when possible (two photos at the same time)
-   - Configurable orientation
-   - Better texts (date format)
 
 - Technical:
    - Error handling - OK?
-   - Better immich errors
+   - Better immich errors - OK?
    - Sleep when nothing to do ?
    - Background loading / blur with GPU (context sharing)
    - Investigate text rendering using signed distance fields (SDF)
