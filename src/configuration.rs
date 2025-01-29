@@ -7,7 +7,7 @@ use crate::graphics::BlurOptions;
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Conf {
-    pub source: Source,
+    pub sources: Vec<Source>,
     pub slideshow: Slideshow,
 }
 

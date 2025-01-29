@@ -1,4 +1,5 @@
 use anyhow::Result;
+use itertools::Itertools;
 
 mod immich;
 
@@ -39,10 +40,14 @@ struct GalleryImpl {
     next: usize,
 }
 
-pub fn build_source(source: &Source) -> Result<Box<dyn Gallery>> {
-    let galleries = match source {
-        Source::Immich(immich_source) => immich::build_immich_providers(immich_source)?,
-    };
+pub fn build_sources(sources: &[Source]) -> Result<Box<dyn Gallery>> {
+    let galleries = sources
+        .iter()
+        .map(|source| match source {
+            Source::Immich(immich_source) => immich::build_immich_providers(immich_source),
+        })
+        .flatten_ok()
+        .try_collect()?;
     Ok(Box::new(GalleryImpl { galleries, next: 0 }))
 }
 
