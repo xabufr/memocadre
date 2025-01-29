@@ -1,11 +1,12 @@
 use anyhow::{Context, Result};
 use config::Config;
-use configuration::Conf;
 use log::debug;
+
+use self::configuration::Conf;
 
 mod application;
 mod configuration;
-mod galery;
+mod gallery;
 mod gl;
 mod graphics;
 mod support;

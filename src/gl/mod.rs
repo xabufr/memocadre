@@ -1,10 +1,11 @@
-use glow::HasContext;
-pub use shader::Program;
-use shader::ProgramGuard;
 use std::{cell::RefCell, ops::Deref, rc::Rc};
-pub use texture::Texture;
+
+use glow::HasContext;
 use vao::VaoBindGuard;
 use vek::Rect;
+
+use self::shader::ProgramGuard;
+pub use self::{shader::Program, texture::Texture};
 
 pub mod buffer_object;
 pub mod framebuffer;
@@ -109,6 +110,7 @@ impl BlendEquation {
             BlendEquation::ReverseSubtract(_) => glow::FUNC_REVERSE_SUBTRACT,
         }
     }
+
     pub fn get_function(&self) -> &BlendFunction {
         match self {
             BlendEquation::Add(f) => f,

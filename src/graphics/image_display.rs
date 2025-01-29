@@ -1,13 +1,12 @@
 use anyhow::{Context, Result};
 use vek::{Extent2, Mat4, Rect, Vec2};
 
+use super::{SharedTexture2d, Vertex2dUv};
 use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
     vao::{BufferInfo, VertexArrayObject},
     BlendMode, DrawParameters, GlContext, Program,
 };
-
-use super::{SharedTexture2d, Vertex2dUv};
 
 pub struct ImageDrawert {
     // vertex_array: glow::NativeVertexArray,
@@ -107,6 +106,7 @@ impl ImageDrawert {
             .context("Cannot create ImageDrawer VAO")?;
         Ok(Self { vao, program, gl })
     }
+
     pub fn draw_sprite(&self, view: Mat4<f32>, sprite: &Sprite) -> Result<()> {
         let model = Mat4::scaling_3d(Vec2::from(sprite.size)).translated_2d(sprite.position);
 

@@ -1,12 +1,14 @@
-use anyhow::Result;
 use std::sync::Arc;
+
+use anyhow::Result;
 
 mod gbm_display;
 mod window_display;
 
-use crate::{configuration::Conf, gl::GlContext};
 pub use gbm_display::start_gbm;
 pub use window_display::State;
+
+use crate::{configuration::Conf, gl::GlContext};
 
 pub trait ApplicationContext: Sized {
     fn draw_frame(&mut self) -> Result<()> {

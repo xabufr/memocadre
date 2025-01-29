@@ -88,6 +88,7 @@ pub struct PersonResponse {
     pub name: String,
 }
 
+// TODO Handle status code error
 impl ImmichClient {
     pub fn new(base_url: impl AsRef<str>, api_key: impl AsRef<str>) -> Self {
         Self {

@@ -1,6 +1,7 @@
+use std::collections::HashMap;
+
 use anyhow::{Context, Error, Result};
 use glow::{HasContext, NativeProgram};
-use std::collections::HashMap;
 use vek::{Extent2, Mat4, Vec2};
 
 use super::GlContext;
@@ -137,9 +138,7 @@ impl Program {
             gl,
         })
     }
-    pub fn get(&self) -> NativeProgram {
-        return self.program;
-    }
+
     pub fn bind(&self) -> ProgramGuard {
         unsafe {
             self.gl.use_program(Some(self.program));
@@ -152,14 +151,6 @@ impl Program {
             self.gl
                 .get_attrib_location(self.program, name)
                 .with_context(|| format!("Cannot get vertex attribute {name}"))?
-        });
-    }
-
-    pub fn get_uniform_location(&self, name: &str) -> Result<glow::NativeUniformLocation> {
-        return Ok(unsafe {
-            self.gl
-                .get_uniform_location(self.program, name)
-                .with_context(|| format!("Cannot get uniform {name}"))?
         });
     }
 

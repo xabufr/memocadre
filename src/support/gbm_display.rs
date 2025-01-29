@@ -1,3 +1,12 @@
+use std::{
+    ffi::c_void,
+    fs::{File, OpenOptions},
+    num::NonZeroU32,
+    os::unix::io::{AsFd, BorrowedFd},
+    ptr::NonNull,
+    sync::Arc,
+};
+
 use anyhow::{Context as _, Result};
 use drm::{
     control::{self, connector, Device as ControlDevice, ModeTypeFlags, PageFlipFlags},
@@ -14,22 +23,13 @@ use glutin::{
 };
 use log::debug;
 use raw_window_handle::{GbmDisplayHandle, GbmWindowHandle, RawDisplayHandle, RawWindowHandle};
-use std::{
-    ffi::c_void,
-    fs::{File, OpenOptions},
-    num::NonZeroU32,
-    os::unix::io::{AsFd, BorrowedFd},
-    ptr::NonNull,
-    sync::Arc,
-};
 use vek::Rect;
 
+use super::ApplicationContext;
 use crate::{
     configuration::Conf,
     gl::{GlContext, GlContextInner},
 };
-
-use super::ApplicationContext;
 
 #[derive(Debug)]
 /// A simple wrapper for a device node.

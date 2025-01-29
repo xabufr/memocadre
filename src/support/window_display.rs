@@ -1,3 +1,5 @@
+use std::{num::NonZeroU32, sync::Arc};
+
 use anyhow::{Context, Result};
 use glutin::{
     context::{self, PossiblyCurrentContext, Version},
@@ -6,19 +8,17 @@ use glutin::{
     surface::{Surface, WindowSurface},
 };
 use raw_window_handle::HasWindowHandle;
-use std::{num::NonZeroU32, sync::Arc};
 use vek::Rect;
 use winit::{
     application::ApplicationHandler, event::WindowEvent, event_loop::ActiveEventLoop,
     window::WindowId,
 };
 
+use super::ApplicationContext;
 use crate::{
     configuration::Conf,
     gl::{GlContext, GlContextInner},
 };
-
-use super::ApplicationContext;
 
 pub struct State<T> {
     pub gl: GlContext,
@@ -44,6 +44,7 @@ impl<T: ApplicationContext + 'static> ApplicationHandler<()> for App<T> {
             event_loop.exit();
         }
     }
+
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
         self.state = None;
     }

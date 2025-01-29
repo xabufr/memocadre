@@ -1,9 +1,10 @@
-use anyhow::{bail, Error, Result};
 use std::marker::PhantomData;
 
-use super::GlContext;
+use anyhow::{bail, Error, Result};
 use bytemuck::NoUninit;
 use glow::HasContext;
+
+use super::GlContext;
 
 #[derive(Copy, Clone, Debug)]
 pub enum BufferTarget {
@@ -47,16 +48,6 @@ pub struct BufferObject<Type> {
     _data_type: PhantomData<Type>,
 }
 
-pub struct BindGuard<'a, T> {
-    buffer: &'a BufferObject<T>,
-}
-
-impl<'a, T> Drop for BindGuard<'a, T> {
-    fn drop(&mut self) {
-        self.buffer.unbind();
-    }
-}
-
 impl<Type: NoUninit> BufferObject<Type> {
     pub fn write(&mut self, data: &[Type]) {
         self.size = data.len();
@@ -69,6 +60,7 @@ impl<Type: NoUninit> BufferObject<Type> {
             );
         }
     }
+
     pub fn write_sub(&self, offset: usize, data: &[Type]) -> Result<()> {
         if offset + data.len() > self.size {
             bail!("BufferObject overflow");
@@ -98,23 +90,23 @@ impl<Type> BufferObject<Type> {
             _data_type: PhantomData,
         })
     }
+
     pub fn new_vertex_buffer(gl: GlContext, usage: BufferUsage) -> Result<Self> {
         BufferObject::new(gl, BufferTarget::ArrayBuffer, usage)
     }
+
     pub fn bind(&self) {
         unsafe {
             self.gl.bind_buffer(self.target.get(), Some(self.object));
         }
     }
+
     pub fn unbind(&self) {
         unsafe {
             self.gl.bind_buffer(self.target.get(), None);
         }
     }
-    pub fn bind_guard(&self) -> BindGuard<Type> {
-        self.bind();
-        BindGuard { buffer: self }
-    }
+
     /// Size of the buffer in elements
     pub fn size(&self) -> usize {
         self.size

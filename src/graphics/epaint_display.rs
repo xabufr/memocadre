@@ -13,14 +13,13 @@ use epaint::{
 };
 use vek::{Extent2, Mat4, Rect, Vec2};
 
+use super::SharedTexture2d;
 use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
     texture::{TextureFiltering, TextureFormat, TextureOptions, TextureWrapMode},
     vao::{BufferInfo, VertexArrayObject},
     BlendMode, DrawParameters, GlContext, Program, Texture,
 };
-
-use super::SharedTexture2d;
 
 pub struct EpaintDisplay {
     fonts: Fonts,
@@ -53,12 +52,16 @@ impl TextContainer {
     pub fn set_layout(&self, job: LayoutJob) {
         self.0.borrow_mut().next_layout = Some(job);
     }
+
+    #[allow(dead_code)]
     pub fn get_position(&self) -> Vec2<f32> {
         RefCell::borrow(&self.0).position
     }
+
     pub fn set_position(&self, pos: Vec2<f32>) {
         self.0.borrow_mut().position = pos;
     }
+
     pub fn get_dimensions(&self) -> Extent2<f32> {
         if let Some(shape) = &RefCell::borrow(&self.0).shape {
             let rect = shape.visual_bounding_rect();
@@ -67,6 +70,7 @@ impl TextContainer {
             Extent2::zero()
         }
     }
+
     pub fn set_opacity(&self, opacity: f32) {
         if let Some(shape) = self.0.borrow_mut().shape.as_mut() {
             shape.opacity_factor = opacity;
@@ -130,6 +134,7 @@ impl EpaintDisplay {
             .begin_pass(self.pixels_per_point, self.max_texture_size);
     }
 
+    #[allow(dead_code)]
     pub fn create_shape(
         &mut self,
         shape: Shape,

@@ -1,3 +1,8 @@
+use std::{
+    sync::{mpsc::TryRecvError, Arc},
+    time::{Duration, Instant},
+};
+
 use anyhow::{Context, Result};
 use epaint::{
     text::{LayoutJob, TextFormat},
@@ -6,15 +11,11 @@ use epaint::{
 use glissade::Keyframes;
 use log::debug;
 use replace_with::replace_with_or_abort;
-use std::{
-    sync::{mpsc::TryRecvError, Arc},
-    time::{Duration, Instant},
-};
 use vek::{Extent2, Rect};
 
 use crate::{
     configuration::{Background, Conf},
-    galery::ImageWithDetails,
+    gallery::ImageWithDetails,
     gl::{GlContext, Texture},
     graphics::{epaint_display::TextContainer, Graphics, SharedTexture2d, Sprite},
     support::{self, ApplicationContext, State},
@@ -62,6 +63,7 @@ impl Slides {
             Slides::Transitioning(_) => false,
         }
     }
+
     pub fn load_next(self, slide: Slide, transition_duration: Duration) -> Self {
         match self {
             Slides::None => Slides::Single {
@@ -145,6 +147,8 @@ impl FPSCounter {
 }
 
 impl ApplicationContext for Application {
+    const WINDOW_TITLE: &'static str = "test";
+
     fn new(config: Arc<Conf>, gl: GlContext) -> Result<Self> {
         let worker = Worker::new(Arc::clone(&config), Self::get_ideal_image_size(&gl));
         worker.start();
@@ -207,8 +211,6 @@ impl ApplicationContext for Application {
         self.graphics.draw(&self.fps_text)?;
         Ok(())
     }
-
-    const WINDOW_TITLE: &'static str = "test";
 }
 
 impl Slide {

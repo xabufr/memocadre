@@ -52,6 +52,7 @@ impl TextureFormat {
             TextureFormat::RGB => glow::RGB,
         }
     }
+
     fn bytes_per_pixel(&self) -> usize {
         match self {
             TextureFormat::RGBA => 4,

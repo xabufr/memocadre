@@ -46,12 +46,14 @@ impl FramebufferObject {
             });
         }
     }
+
     fn bind(&self) {
         unsafe {
             self.gl
                 .bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));
         }
     }
+
     pub fn bind_guard(&self) -> FramebufferGuard {
         let previous_viewport = self.gl.current_viewport();
         let texture = self.texture.as_ref().expect("Texture should be present");
@@ -67,9 +69,11 @@ impl FramebufferObject {
             framebuffer: self,
         }
     }
+
     pub fn into_texture(mut self) -> Texture {
         self.texture.take().expect("Texture should be present")
     }
+
     pub fn get_texture(&self) -> &Texture {
         self.texture.as_ref().expect("Texture should be present")
     }

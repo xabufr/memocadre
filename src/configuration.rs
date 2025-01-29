@@ -7,7 +7,7 @@ use crate::graphics::BlurOptions;
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Conf {
-    pub source: ImmichSource,
+    pub source: Source,
     pub slideshow: Slideshow,
 }
 
@@ -37,6 +37,51 @@ pub enum Background {
     Black,
     Burr { min_free_space: u16 },
 }
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type", rename_all = "lowercase", deny_unknown_fields)]
+pub enum Source {
+    Immich(ImmichSource),
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ImmichSource {
+    #[serde(default, flatten)]
+    pub instance: Option<ImmichInstance>,
+    #[serde(default)]
+    pub instances: Vec<ImmichInstance>,
+    pub searches: Vec<ImmichSearch>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ImmichInstance {
+    pub url: String,
+    pub api_key: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "lowercase", deny_unknown_fields)]
+pub enum ImmichSearch {
+    #[serde(rename = "random")]
+    RandomSearch(ImmichSearchQuery),
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ImmichSearchQuery {
+    #[serde(default)]
+    pub persons: Option<Vec<ImmichPerson>>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "lowercase", deny_unknown_fields)]
+pub enum ImmichPerson {
+    Id(String),
+    Name(String),
+}
+
 impl Default for Slideshow {
     fn default() -> Self {
         Self {
@@ -52,25 +97,4 @@ impl Default for Background {
     fn default() -> Self {
         Self::Burr { min_free_space: 50 }
     }
-}
-
-#[derive(Deserialize, Debug)]
-pub struct ImmichSource {
-    pub url: String,
-    pub api_key: String,
-    #[serde(default)]
-    pub search: Option<ImmichSearchQuery>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct ImmichSearchQuery {
-    #[serde(default)]
-    pub persons: Option<Vec<ImmichPerson>>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "lowercase")]
-pub enum ImmichPerson {
-    Id(String),
-    Name(String),
 }

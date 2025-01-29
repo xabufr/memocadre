@@ -111,6 +111,7 @@ impl<V> VertexArrayObject<V> {
             }
         }
     }
+
     pub fn bind_guard(&self) -> VaoBindGuard<V> {
         self.bind();
         VaoBindGuard { array_object: self }

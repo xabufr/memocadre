@@ -12,6 +12,7 @@ Todo:
    - Other effects / transitions -> fadeout-fadein
    - Other layouts when possible (two photos at the same time)
    - Configurable orientation
+   - Better texts (date format)
 
 - Technical:
    - Error handling - OK?

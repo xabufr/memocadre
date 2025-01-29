@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use serde::Deserialize;
 
+use super::Vertex2dUv;
 use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
     framebuffer::FramebufferObject,
@@ -8,8 +9,6 @@ use crate::gl::{
     vao::{BufferInfo, VertexArrayObject},
     GlContext, Program, Texture,
 };
-
-use super::Vertex2dUv;
 
 pub struct ImageBlurr {
     vertex_array: VertexArrayObject<Vertex2dUv>,

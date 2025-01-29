@@ -1,14 +1,16 @@
+use std::rc::Rc;
+
 use anyhow::{Context, Result};
 use bytemuck::{Pod, Zeroable};
 use epaint::Shape;
-use epaint_display::{ShapeContainer, TextContainer};
-use std::rc::Rc;
 use vek::{FrustumPlanes, Mat4};
 
-pub use blur::{BlurOptions, ImageBlurr};
-pub use epaint_display::EpaintDisplay;
-pub use image_display::{ImageDrawert, Sprite};
-
+use self::epaint_display::{ShapeContainer, TextContainer};
+pub use self::{
+    blur::{BlurOptions, ImageBlurr},
+    epaint_display::EpaintDisplay,
+    image_display::{ImageDrawert, Sprite},
+};
 use crate::gl::{GlContext, Texture};
 
 mod blur;
@@ -84,6 +86,7 @@ impl Graphics {
         self.epaint_display.force_container_update(container);
     }
 
+    #[allow(dead_code)]
     pub fn create_shape(
         &mut self,
         shape: Shape,

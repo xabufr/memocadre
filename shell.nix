@@ -14,7 +14,7 @@ pkgs.mkShell {
     libxkbcommon
     mesa
   ];
-
+ # TODO add rust nightly for fmt
   shellHook = ''
     export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${
       with pkgs;
