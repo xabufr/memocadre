@@ -3,7 +3,7 @@ use std::{f32::consts::PI, rc::Rc};
 use anyhow::{Context, Result};
 use bytemuck::{Pod, Zeroable};
 use epaint::Shape;
-use vek::{Extent2, FrustumPlanes, Mat4, Vec2, Vec3, Vec4};
+use vek::{Extent2, FrustumPlanes, Mat4};
 
 use self::epaint_display::{ShapeContainer, TextContainer};
 pub use self::{

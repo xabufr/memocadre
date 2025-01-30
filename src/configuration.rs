@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use serde::Deserialize;
 use serde_repr::Deserialize_repr;
-use vek::vec::repr_c;
 
 use crate::graphics::BlurOptions;
 
