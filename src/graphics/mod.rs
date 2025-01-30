@@ -1,9 +1,9 @@
-use std::rc::Rc;
+use std::{f32::consts::PI, rc::Rc};
 
 use anyhow::{Context, Result};
 use bytemuck::{Pod, Zeroable};
 use epaint::Shape;
-use vek::{FrustumPlanes, Mat4};
+use vek::{Extent2, FrustumPlanes, Mat4, Vec2, Vec3, Vec4};
 
 use self::epaint_display::{ShapeContainer, TextContainer};
 pub use self::{
@@ -26,11 +26,32 @@ struct Vertex2dUv {
 
 pub type SharedTexture2d = Rc<Texture>;
 
+#[derive(Clone, Copy)]
+enum OrientationName {
+    Angle0,
+    Angle90,
+    Angle180,
+    Angle270,
+}
+
+impl OrientationName {
+    fn get_mat(&self) -> Mat4<f32> {
+        match self {
+            Self::Angle0 => Mat4::identity(),
+            Self::Angle90 => Mat4::rotation_z(PI * 0.5),
+            Self::Angle180 => Mat4::rotation_z(PI),
+            Self::Angle270 => Mat4::rotation_z(PI * 1.5),
+        }
+    }
+}
+
 pub struct Graphics {
     image_drawer: ImageDrawert,
     blurr: ImageBlurr,
     epaint_display: EpaintDisplay,
     view: Mat4<f32>,
+    orientation: OrientationName,
+    dimensions: Extent2<u32>,
     gl: GlContext,
 }
 
@@ -46,32 +67,31 @@ impl Graphics {
         let epaint_display =
             EpaintDisplay::new(GlContext::clone(&gl)).context("Cannot create EpaintDisplay")?;
 
-        Ok(Self {
+        let mut graphics = Self {
             image_drawer,
             blurr,
             epaint_display,
             gl,
+            orientation: OrientationName::Angle180,
+            dimensions: Extent2::default(),
             view: Mat4::zero(),
-        })
+        };
+        graphics.update_vp();
+        Ok(graphics)
     }
 
     pub fn begin_frame(&mut self) {
         self.epaint_display.begin_frame();
+
+        self.update_vp();
     }
 
     pub fn update(&mut self) {
         self.epaint_display.update();
+    }
 
-        // TODO better way to get dims?
-        let vp = self.gl.current_viewport();
-        self.view = Mat4::orthographic_without_depth_planes(FrustumPlanes {
-            left: 0.,
-            right: vp.w as _,
-            bottom: vp.h as _,
-            top: 0.,
-            far: -1.,
-            near: 1.,
-        });
+    pub fn get_dimensions(&self) -> Extent2<u32> {
+        self.dimensions
     }
 
     pub fn draw<D: Drawable>(&self, drawable: &D) -> Result<()> {
@@ -97,6 +117,27 @@ impl Graphics {
 
     pub fn blurr(&self) -> &ImageBlurr {
         &self.blurr
+    }
+
+    fn update_vp(&mut self) {
+        // TODO better way to get dims?
+        let vp = self.gl.current_viewport();
+        self.dimensions = vp.extent().as_();
+        match self.orientation {
+            OrientationName::Angle0 | OrientationName::Angle180 => {}
+            OrientationName::Angle90 | OrientationName::Angle270 => {
+                self.dimensions.swap(0, 1);
+            }
+        }
+        self.view = self.orientation.get_mat()
+            * Mat4::orthographic_without_depth_planes(FrustumPlanes {
+                left: 0.,
+                right: self.dimensions.w as _,
+                bottom: self.dimensions.h as _,
+                top: 0.,
+                far: -1.,
+                near: 1.,
+            });
     }
 }
 

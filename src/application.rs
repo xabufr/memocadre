@@ -150,9 +150,12 @@ impl ApplicationContext for Application {
     const WINDOW_TITLE: &'static str = "test";
 
     fn new(config: Arc<Conf>, gl: GlContext) -> Result<Self> {
-        let worker = Worker::new(Arc::clone(&config), Self::get_ideal_image_size(&gl));
         let mut graphics =
             Graphics::new(GlContext::clone(&gl)).context("Cannot create Graphics")?;
+        let worker = Worker::new(
+            Arc::clone(&config),
+            Self::get_ideal_image_size(&gl, &graphics),
+        );
         let fps_text = graphics
             .create_text_container()
             .context("Cannot create FPS text container")?;
@@ -169,10 +172,11 @@ impl ApplicationContext for Application {
     }
 
     fn draw_frame(&mut self) -> Result<()> {
-        self.worker
-            .set_ideal_max_size(Self::get_ideal_image_size(&self.gl));
         self.gl.clear();
         self.graphics.begin_frame();
+        self.worker
+            .set_ideal_max_size(Self::get_ideal_image_size(&self.gl, &self.graphics));
+
         if self
             .slides
             .should_load_next(self.config.slideshow.display_duration)
@@ -206,6 +210,7 @@ impl ApplicationContext for Application {
         ));
 
         self.graphics.update();
+
         self.slides.draw(&self.graphics)?;
         self.graphics.draw(&self.fps_text)?;
         Ok(())
@@ -244,12 +249,11 @@ pub fn start(config: Conf) -> Result<()> {
 }
 
 impl Application {
-    fn get_ideal_image_size(gl: &GlContext) -> Extent2<u32> {
+    fn get_ideal_image_size(gl: &GlContext, graphics: &Graphics) -> Extent2<u32> {
         let hw_max = gl.capabilities().max_texture_size;
         let hw_max = Extent2::from(hw_max);
-        let vp = gl.current_viewport();
 
-        let fb_dims = vp.extent().as_();
+        let fb_dims = graphics.get_dimensions();
 
         let ideal_size = Extent2::min(fb_dims, hw_max);
         return ideal_size;
@@ -259,7 +263,6 @@ impl Application {
         let image = image_with_details.image;
         let texture = Texture::new_from_image(GlContext::clone(&self.gl), &image)
             .context("Cannot load main texture")?;
-        let vp = self.gl.current_viewport();
 
         let texture = SharedTexture2d::new(texture);
         let texture_blur = SharedTexture2d::new(
@@ -270,8 +273,8 @@ impl Application {
         );
 
         let mut sprite = Sprite::new(SharedTexture2d::clone(&texture));
-        let display_size = vp.extent().as_();
-        let (width, height) = vp.extent().into_tuple();
+        let display_size = self.graphics.get_dimensions();
+        let (width, height) = display_size.as_::<i32>().into_tuple();
         sprite.resize_respecting_ratio(display_size);
 
         let free_space = display_size.as_() - sprite.size;
@@ -290,27 +293,38 @@ impl Application {
                 }
 
                 if free_space.w > free_space.h {
-                    blur_sprites[1].position.x = display_size.w as f32 - blur_sprites[1].size.w;
-
-                    blur_sprites[0].scissor =
-                        Some(Rect::new(0, 0, (free_space.w * 0.5) as i32 + 2, height));
-
-                    blur_sprites[1].scissor = Some(Rect::new(
-                        width - (free_space.w * 0.5) as i32 - 2,
+                    blur_sprites[0].size.w = (free_space.w * 0.5) as f32;
+                    blur_sprites[0].set_sub_rect(Rect::new(
                         0,
-                        (free_space.w * 0.5) as i32 + 2,
+                        0,
+                        (free_space.w * 0.5) as _,
+                        height,
+                    ));
+
+                    blur_sprites[1].position.x = display_size.w as f32 - free_space.w * 0.5;
+                    blur_sprites[1].size.w = (free_space.w * 0.5) as f32;
+                    blur_sprites[1].set_sub_rect(Rect::new(
+                        texture.size().w as i32 - (free_space.w * 0.5) as i32,
+                        0,
+                        (free_space.w * 0.5) as _,
                         height,
                     ));
                 } else {
-                    blur_sprites[1].position.y = display_size.h as f32 - blur_sprites[1].size.h;
-
-                    blur_sprites[0].scissor =
-                        Some(Rect::new(0, 0, width, (free_space.h * 0.5) as i32 + 2));
-                    blur_sprites[1].scissor = Some(Rect::new(
+                    blur_sprites[0].size.h = (free_space.h * 0.5) as f32;
+                    blur_sprites[0].set_sub_rect(Rect::new(
                         0,
-                        height - (free_space.h * 0.5) as i32 - 2,
+                        0,
                         width,
-                        (free_space.h * 0.5) as i32 + 2,
+                        (free_space.h * 0.5) as i32,
+                    ));
+
+                    blur_sprites[1].position.y = display_size.h as f32 - free_space.h * 0.5;
+                    blur_sprites[1].size.h = (free_space.h * 0.5) as f32;
+                    blur_sprites[1].set_sub_rect(Rect::new(
+                        0,
+                        texture.size().h as i32 - (free_space.h * 0.5) as i32,
+                        width,
+                        (free_space.h * 0.5) as i32,
                     ));
                 }
                 sprites.extend(blur_sprites.into_iter());

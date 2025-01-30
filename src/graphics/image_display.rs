@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use vek::{Extent2, Mat4, Rect, Vec2};
+use vek::{num_traits::Inv, Extent2, Mat4, Rect, Vec2};
 
 use super::{SharedTexture2d, Vertex2dUv};
 use crate::gl::{
@@ -30,7 +30,11 @@ pub struct Sprite {
     pub opacity: f32,
     //
     pub scissor: Option<Rect<i32, i32>>,
+
+    sub_rect: (Vec2<f32>, Vec2<f32>),
 }
+
+const DEFAULT_SUB_RECT: (Vec2<f32>, Vec2<f32>) = (Vec2::new(0.5, 0.5), Vec2::new(0.5, 0.5));
 
 impl Sprite {
     pub fn new(texture: SharedTexture2d) -> Self {
@@ -40,6 +44,7 @@ impl Sprite {
             opacity: 1.,
             texture,
             scissor: None,
+            sub_rect: DEFAULT_SUB_RECT,
         }
     }
 
@@ -54,6 +59,14 @@ impl Sprite {
 
     pub fn get_texture_size(&self) -> Extent2<u32> {
         self.texture.size()
+    }
+
+    pub fn set_sub_rect(&mut self, sub_rect: Rect<i32, i32>) {
+        let tex_size = self.get_texture_size();
+        let tr = Vec2::from(tex_size.as_::<f32>()).inv();
+        let uv_offset_center = sub_rect.center().as_::<f32>() * tr;
+        let uv_offset_size = sub_rect.extent().as_::<f32>() * tr * 0.5;
+        self.sub_rect = (uv_offset_center, uv_offset_size.into());
     }
 }
 
@@ -116,6 +129,8 @@ impl ImageDrawert {
         prog_bind.set_uniform("model", model)?;
         prog_bind.set_uniform("view", view)?;
         prog_bind.set_uniform("tex", 0)?;
+        prog_bind.set_uniform("uv_offset_center", sprite.sub_rect.0)?;
+        prog_bind.set_uniform("uv_offset_size", sprite.sub_rect.1)?;
 
         sprite.texture.bind(Some(0));
 
@@ -140,6 +155,8 @@ mod shader {
     attribute vec2 pos;
     attribute vec2 uv;
 
+    uniform vec2 uv_offset_center;
+    uniform vec2 uv_offset_size;
     uniform mat4 model;
     uniform mat4 view;
 
@@ -147,8 +164,8 @@ mod shader {
 
     void main() {
         gl_Position = view * model * vec4(pos, 0, 1);
-        texcoord = uv;
-    }"#;
+        texcoord = (2. * uv - 1.) * uv_offset_size + uv_offset_center;
+        }"#;
 
     pub const FRAGMENT: &str = r#"#version 100
     varying lowp vec2 texcoord;

@@ -64,8 +64,8 @@ impl Worker {
 }
 impl WorkerImpl {
     fn work(&self) -> Result<()> {
-        if !set_current_thread_priority(ThreadPriority::Min).is_ok() {
-            error!("Cannot change worker thread priority to minimal");
+        if let Err(err) = set_current_thread_priority(ThreadPriority::Min) {
+            error!("Cannot change worker thread priority to minimal: {:?}", err);
         }
         let mut source = build_sources(&self.config.sources).context("Cannot build source")?;
         loop {

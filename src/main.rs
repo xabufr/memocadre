@@ -13,6 +13,7 @@ mod support;
 mod worker;
 
 fn main() -> Result<()> {
+    env_logger::init();
     let settings = Config::builder()
         .add_source(::config::File::with_name("config"))
         .build()
@@ -21,7 +22,6 @@ fn main() -> Result<()> {
         .try_deserialize()
         .context("Cannot deserialize configuration")?;
     debug!("Configuration: {config:#?}");
-    env_logger::init();
     application::start(config)?;
     Ok(())
 }

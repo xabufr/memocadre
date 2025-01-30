@@ -61,7 +61,7 @@ impl Gallery for GalleryImpl {
             self.next = (self.next + 1) % self.galleries.len();
             match res {
                 Ok(res) => return Ok(res),
-                Err(error) => error!("Cannot get next image: {}", error),
+                Err(error) => error!("Cannot get next image: {:?}", error),
             }
         }
         bail!("All sources have failed")

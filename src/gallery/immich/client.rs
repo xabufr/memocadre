@@ -136,7 +136,6 @@ pub struct PersonResponse {
     pub name: String,
 }
 
-// TODO Handle status code error
 impl ImmichClient {
     pub fn new(base_url: impl AsRef<str>, api_key: impl AsRef<str>) -> Self {
         Self {
@@ -146,7 +145,7 @@ impl ImmichClient {
     }
 
     pub fn smart_search(&self, query: SmartSearchRequest) -> Result<SmartSearchResponse> {
-        self.handle_error(
+        self.handle_response_error(
             self.post("search/smart")
                 .with_json(&query)
                 .context("Cannot send SmartSearch query")?
@@ -154,59 +153,59 @@ impl ImmichClient {
                 .send(),
         )?
         .json()
-        .context("Cannot read response")
+        .context("Cannot read immich smart_search response")
     }
 
     pub fn search_random(&self, query: SearchRandomRequest) -> Result<Vec<AssetResponse>> {
-        self.handle_error(
+        self.handle_response_error(
             self.post("search/random")
                 .with_json(&query)?
                 .with_header("Accept", "application/json")
                 .send(),
         )?
         .json()
-        .context("Cannot read response")
+        .context("Cannot read immich search_random response")
     }
 
     pub fn get_album(&self, id: &str) -> Result<AlbumInfo> {
-        self.handle_error(self.get(format!("albums/{id}")).send())?
+        self.handle_response_error(self.get(format!("albums/{id}")).send())?
             .json()
-            .context("Cannot read response")
+            .context("Cannot read immich album response")
     }
 
     pub fn search_person(&self, name: &str) -> Result<Vec<PersonResponse>> {
-        self.handle_error(self.get("search/person").with_param("name", name).send())?
+        self.handle_response_error(self.get("search/person").with_param("name", name).send())?
             .json()
-            .context("Cannot read response")
+            .context("Cannot read immich person response")
     }
 
     pub fn get_memory_lane(&self, day: u8, month: u8) -> Result<Vec<MemoryLaneElement>> {
-        self.handle_error(
+        self.handle_response_error(
             self.get("assets/memory-lane")
                 .with_param("day", &day.to_string())
                 .with_param("month", &month.to_string())
                 .send(),
         )?
         .json()
-        .context("Cannot read immich response")
+        .context("Cannot read immich memory lane response")
     }
 
     pub fn get_asset_details(&self, id: &str) -> Result<AssetResponse> {
-        self.handle_error(self.get(format!("assets/{id}")).send())?
+        self.handle_response_error(self.get(format!("assets/{id}")).send())?
             .json()
-            .context("Cannot read response")
+            .context("Cannot read immich asset response")
     }
 
     pub fn view_assets(&self, id: &str) -> Result<Vec<u8>> {
         Ok(self
-            .handle_error(
+            .handle_response_error(
                 self.get(format!("assets/{id}/thumbnail?size=preview"))
                     .send(),
             )?
             .into_bytes())
     }
 
-    fn handle_error(
+    fn handle_response_error(
         &self,
         response: core::result::Result<Response, minreq::Error>,
     ) -> Result<Response> {

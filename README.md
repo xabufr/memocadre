@@ -24,9 +24,13 @@ Todo:
    - Better init for GBM/winit
    - Refactor application.rs
    - Write unit tests
+   - switch to https://lib.rs/crates/schematic for config?
 
 - HTTP Api ?
 - publish
+
+Bugs:
+  - Handle next page for smartSearch
 
 Improves:
 - GBM ressources:
