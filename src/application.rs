@@ -150,8 +150,8 @@ impl ApplicationContext for Application {
     const WINDOW_TITLE: &'static str = "test";
 
     fn new(config: Arc<Conf>, gl: GlContext) -> Result<Self> {
-        let mut graphics =
-            Graphics::new(GlContext::clone(&gl)).context("Cannot create Graphics")?;
+        let mut graphics = Graphics::new(GlContext::clone(&gl), config.slideshow.rotation)
+            .context("Cannot create Graphics")?;
         let worker = Worker::new(
             Arc::clone(&config),
             Self::get_ideal_image_size(&gl, &graphics),

@@ -11,7 +11,10 @@ pub use self::{
     epaint_display::EpaintDisplay,
     image_display::{ImageDrawert, Sprite},
 };
-use crate::gl::{GlContext, Texture};
+use crate::{
+    configuration::OrientationName,
+    gl::{GlContext, Texture},
+};
 
 mod blur;
 pub mod epaint_display;
@@ -26,12 +29,18 @@ struct Vertex2dUv {
 
 pub type SharedTexture2d = Rc<Texture>;
 
-#[derive(Clone, Copy)]
-enum OrientationName {
-    Angle0,
-    Angle90,
-    Angle180,
-    Angle270,
+struct Orientation {
+    name: OrientationName,
+    value: Mat4<f32>,
+}
+
+impl Orientation {
+    fn create(name: OrientationName) -> Self {
+        Self {
+            name,
+            value: name.get_mat(),
+        }
+    }
 }
 
 impl OrientationName {
@@ -50,7 +59,7 @@ pub struct Graphics {
     blurr: ImageBlurr,
     epaint_display: EpaintDisplay,
     view: Mat4<f32>,
-    orientation: OrientationName,
+    orientation: Orientation,
     dimensions: Extent2<u32>,
     gl: GlContext,
 }
@@ -60,7 +69,7 @@ pub trait Drawable {
 }
 
 impl Graphics {
-    pub fn new(gl: GlContext) -> Result<Self> {
+    pub fn new(gl: GlContext, orientation: OrientationName) -> Result<Self> {
         let image_drawer =
             ImageDrawert::new(GlContext::clone(&gl)).context("Cannot create ImageDrawer")?;
         let blurr = ImageBlurr::new(GlContext::clone(&gl)).context("Cannot create ImageBlurr")?;
@@ -72,7 +81,7 @@ impl Graphics {
             blurr,
             epaint_display,
             gl,
-            orientation: OrientationName::Angle180,
+            orientation: Orientation::create(orientation),
             dimensions: Extent2::default(),
             view: Mat4::zero(),
         };
@@ -123,13 +132,13 @@ impl Graphics {
         // TODO better way to get dims?
         let vp = self.gl.current_viewport();
         self.dimensions = vp.extent().as_();
-        match self.orientation {
+        match self.orientation.name {
             OrientationName::Angle0 | OrientationName::Angle180 => {}
             OrientationName::Angle90 | OrientationName::Angle270 => {
                 self.dimensions.swap(0, 1);
             }
         }
-        self.view = self.orientation.get_mat()
+        self.view = self.orientation.value
             * Mat4::orthographic_without_depth_planes(FrustumPlanes {
                 left: 0.,
                 right: self.dimensions.w as _,

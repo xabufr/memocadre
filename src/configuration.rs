@@ -29,6 +29,8 @@ pub struct Slideshow {
     pub blur_options: BlurOptions,
     #[serde(default)]
     pub background: Background,
+    #[serde(default)]
+    pub rotation: OrientationName,
 }
 
 #[derive(Deserialize, Debug)]
@@ -94,6 +96,15 @@ pub enum ImmichPerson {
     Name(String),
 }
 
+#[derive(Clone, Copy, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub enum OrientationName {
+    Angle0,
+    Angle90,
+    Angle180,
+    Angle270,
+}
+
 impl Default for Slideshow {
     fn default() -> Self {
         Self {
@@ -101,6 +112,7 @@ impl Default for Slideshow {
             blur_options: BlurOptions::default(),
             display_duration: Duration::from_secs(30),
             transition_duration: Duration::from_secs(1),
+            rotation: Default::default(),
         }
     }
 }
@@ -108,5 +120,11 @@ impl Default for Slideshow {
 impl Default for Background {
     fn default() -> Self {
         Self::Burr { min_free_space: 50 }
+    }
+}
+
+impl Default for OrientationName {
+    fn default() -> Self {
+        OrientationName::Angle0
     }
 }
