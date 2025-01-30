@@ -1,6 +1,8 @@
 use std::time::Duration;
 
 use serde::Deserialize;
+use serde_repr::Deserialize_repr;
+use vek::vec::repr_c;
 
 use crate::graphics::BlurOptions;
 
@@ -96,13 +98,14 @@ pub enum ImmichPerson {
     Name(String),
 }
 
-#[derive(Clone, Copy, Deserialize, Debug)]
+#[derive(Clone, Copy, Deserialize_repr, Debug)]
 #[serde(deny_unknown_fields)]
+#[repr(u16)]
 pub enum OrientationName {
-    Angle0,
-    Angle90,
-    Angle180,
-    Angle270,
+    Angle0 = 0,
+    Angle90 = 90,
+    Angle180 = 180,
+    Angle270 = 270,
 }
 
 impl Default for Slideshow {
