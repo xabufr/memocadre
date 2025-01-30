@@ -7,7 +7,7 @@ Todo:
    - Multiple sources - Ok
 
 - Graphics:
-   - Configurable orientation
+   - Configurable orientation - OK
    - Better texts (date format)
    - Info placement - OK for now
    - Zoom effect -> check for background worker first! (otherwise it will be freezed...)
