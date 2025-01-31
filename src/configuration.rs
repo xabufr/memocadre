@@ -11,6 +11,8 @@ use crate::graphics::BlurOptions;
 pub struct Conf {
     pub sources: Vec<Source>,
     pub slideshow: Slideshow,
+    #[serde(default)]
+    pub debug: DebugSettings,
 }
 
 #[derive(Deserialize, Debug)]
@@ -31,6 +33,12 @@ pub struct Slideshow {
     pub background: Background,
     pub rotation: OrientationName,
     pub date: DateFormat,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct DebugSettings {
+    pub show_fps: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -119,6 +127,12 @@ pub enum OrientationName {
     Angle90 = 90,
     Angle180 = 180,
     Angle270 = 270,
+}
+
+impl Default for DebugSettings {
+    fn default() -> Self {
+        Self { show_fps: false }
+    }
 }
 
 impl Default for Slideshow {

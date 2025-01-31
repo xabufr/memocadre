@@ -1,3 +1,7 @@
+mod blur;
+mod epaint_display;
+mod image_display;
+
 use std::{f32::consts::PI, rc::Rc};
 
 use anyhow::{Context, Result};
@@ -6,20 +10,16 @@ use epaint::Shape;
 use image::DynamicImage;
 use vek::{Extent2, FrustumPlanes, Mat4};
 
-use self::epaint_display::{ShapeContainer, TextContainer};
+use self::epaint_display::EpaintDisplay;
 pub use self::{
     blur::{BlurOptions, ImageBlurr},
-    epaint_display::EpaintDisplay,
+    epaint_display::{ShapeContainer, TextContainer},
     image_display::{ImageDrawert, Sprite},
 };
 use crate::{
     configuration::OrientationName,
     gl::{GlContext, Texture},
 };
-
-mod blur;
-pub mod epaint_display;
-mod image_display;
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]

@@ -11,7 +11,7 @@ use vek::Rect;
 use crate::{
     configuration::{Background, Conf},
     gallery::ImageWithDetails,
-    graphics::{epaint_display::TextContainer, Drawable, Graphics, SharedTexture2d, Sprite},
+    graphics::{Drawable, Graphics, SharedTexture2d, Sprite, TextContainer},
 };
 
 pub struct Slide {

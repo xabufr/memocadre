@@ -4,10 +4,6 @@ mod slide;
 use std::sync::{mpsc::TryRecvError, Arc};
 
 use anyhow::{Context, Result};
-use epaint::{
-    text::{LayoutJob, TextFormat},
-    Color32, FontId,
-};
 use replace_with::replace_with_or_abort;
 use slide::Slides;
 use vek::Extent2;
@@ -37,14 +33,18 @@ impl ApplicationContext for Application {
             Arc::clone(&config),
             Self::get_ideal_image_size(&gl, &graphics),
         );
-        let fps = FPSCounter::new(&mut graphics)?;
+        let fps = if config.debug.show_fps {
+            Some(FPSCounter::new(&mut graphics)?)
+        } else {
+            None
+        };
         Ok(Self {
             graphics,
             gl,
             slides: Slides::None,
             worker,
             config,
-            fps: Some(fps),
+            fps,
         })
     }
 

@@ -7,7 +7,7 @@ use epaint::{
 };
 use log::debug;
 
-use crate::graphics::{self, epaint_display::TextContainer, Drawable, Graphics};
+use crate::graphics::{Drawable, Graphics, TextContainer};
 
 pub struct FPSCounter {
     last_fps: u32,
