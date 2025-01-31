@@ -3,12 +3,10 @@ Todo:
 - Configuration
    - Blur (radius, algo...) - OK for now
    - Transitions
-   - Other searches - Ok
-   - Multiple sources - Ok
 
 - Graphics:
-   - Configurable orientation - OK
-   - Better texts (date format)
+   - Pixel perfect
+   - Handle descriptions from immich (memory lane, etc...)
    - Info placement - OK for now
    - Zoom effect -> check for background worker first! (otherwise it will be freezed...)
    - Other effects / transitions -> fadeout-fadein

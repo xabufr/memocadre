@@ -332,7 +332,11 @@ impl Application {
         }
         sprites.push(sprite);
 
-        let text = [image_with_details.city, image_with_details.date_time]
+        let date = image_with_details.date.map(|date| {
+            date.date_naive().format_localized(&self.config.slideshow.date.format, self.config.slideshow.date.locale)
+                .to_string()
+        });
+        let text = [image_with_details.city, date]
             .into_iter()
             .flatten()
             .collect::<Vec<_>>();

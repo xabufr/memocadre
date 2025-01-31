@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
+use chrono::{DateTime, Utc};
 use itertools::Itertools;
-
 use log::error;
 mod immich;
 
@@ -15,7 +15,7 @@ trait GalleryProvider: Gallery {}
 pub struct ImageWithDetails {
     pub image: image::DynamicImage,
     pub city: Option<String>,
-    pub date_time: Option<String>,
+    pub date: Option<DateTime<Utc>>,
     #[allow(dead_code)]
     pub people: Vec<Person>,
 }

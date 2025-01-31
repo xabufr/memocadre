@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use serde::Deserialize;
+use chrono::Locale;
+use serde::{Deserialize, Deserializer};
 use serde_repr::Deserialize_repr;
 
 use crate::graphics::BlurOptions;
@@ -26,14 +27,27 @@ pub struct Slideshow {
     #[serde(with = "humantime_serde")]
     pub transition_duration: Duration,
 
-    #[serde(default)]
     pub blur_options: BlurOptions,
-    #[serde(default)]
     pub background: Background,
-    #[serde(default)]
     pub rotation: OrientationName,
+    pub date: DateFormat,
 }
 
+#[derive(Deserialize, Debug)]
+#[serde(default, deny_unknown_fields)]
+pub struct DateFormat {
+    pub format: String,
+    #[serde(deserialize_with = "deser_locale")]
+    pub locale: Locale,
+}
+fn deser_locale<'de, D>(deser: D) -> Result<Locale, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(deser)?;
+    s.parse()
+        .map_err(|e| serde::de::Error::custom(format!("Invalid locale: {:?}", e)))
+}
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type", rename_all = "lowercase", deny_unknown_fields)]
 pub enum Background {
@@ -115,6 +129,7 @@ impl Default for Slideshow {
             display_duration: Duration::from_secs(30),
             transition_duration: Duration::from_secs(1),
             rotation: Default::default(),
+            date: Default::default(),
         }
     }
 }
@@ -128,5 +143,14 @@ impl Default for Background {
 impl Default for OrientationName {
     fn default() -> Self {
         OrientationName::Angle0
+    }
+}
+
+impl Default for DateFormat {
+    fn default() -> Self {
+        Self {
+            format: "%A, %e. %B %Y".to_string(),
+            locale: Locale::en_US,
+        }
     }
 }

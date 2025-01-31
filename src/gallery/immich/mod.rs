@@ -78,7 +78,7 @@ impl Gallery for ImmichGalleryProvider {
         return Ok(ImageWithDetails {
             image,
             city: asset.exif_info.as_ref().and_then(|i| i.city.clone()),
-            date_time: Some(asset.local_date_time.clone()),
+            date: Some(asset.file_created_at),
             people: Vec::new(),
         });
     }

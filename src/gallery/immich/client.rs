@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use chrono::{DateTime, Utc};
 use log::trace;
 use minreq::{Method, Request, Response};
 use serde::{Deserialize, Serialize};
@@ -9,7 +10,8 @@ use serde::{Deserialize, Serialize};
 pub struct AssetResponse {
     pub id: String,
     pub exif_info: Option<ExifInfo>,
-    pub local_date_time: String,
+    pub local_date_time: DateTime<Utc>,
+    pub file_created_at: DateTime<Utc>,
     pub r#type: AssetType,
     pub people: Vec<Person>,
     #[serde(default = "Vec::default")]
@@ -63,6 +65,7 @@ pub struct Face {
 #[allow(dead_code)]
 pub struct ExifInfo {
     pub city: Option<String>,
+    pub date_time_original: Option<DateTime<Utc>>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy)]
