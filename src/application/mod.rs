@@ -10,9 +10,9 @@ use epaint::{
     text::{LayoutJob, TextFormat},
     Color32, FontId,
 };
-use glissade::Keyframes;
 use log::debug;
 use replace_with::replace_with_or_abort;
+use slide::Slides;
 use vek::{Extent2, Rect};
 
 use self::slide::Slide;
@@ -35,91 +35,10 @@ pub struct Application {
     fps_text: TextContainer,
 }
 
-struct TransitioningSlide {
-    old: Slide,
-    new: Slide,
-    animation: Box<dyn glissade::Animated<f32, Instant>>,
-}
-
 struct FPSCounter {
     last_fps: u32,
     last_instant: Instant,
     frames: u32,
-}
-
-enum Slides {
-    None,
-    Single { slide: Slide, start: Instant },
-    Transitioning(TransitioningSlide),
-}
-
-impl Slides {
-    pub fn should_load_next(&self, display_time: Duration) -> bool {
-        match self {
-            Slides::None => true,
-            Slides::Single { slide: _, start } => start.elapsed() >= display_time,
-            Slides::Transitioning(_) => false,
-        }
-    }
-
-    pub fn load_next(self, slide: Slide, transition_duration: Duration) -> Self {
-        match self {
-            Slides::None => Slides::Single {
-                slide,
-                start: Instant::now(),
-            },
-            Slides::Single {
-                slide: old,
-                start: _,
-            }
-            | Slides::Transitioning(TransitioningSlide {
-                old: _,
-                new: old,
-                animation: _,
-            }) => Slides::Transitioning(TransitioningSlide {
-                old,
-                new: slide,
-                animation: Box::new(
-                    glissade::keyframes::from(1. as f32)
-                        .ease_to(0., transition_duration, glissade::Easing::QuarticInOut)
-                        .run(Instant::now()),
-                ),
-            }),
-        }
-    }
-
-    pub fn update(self) -> Self {
-        match self {
-            Slides::None => self,
-            Slides::Single { .. } => self,
-            Slides::Transitioning(mut t) => {
-                if t.animation.is_finished(Instant::now()) {
-                    t.new.set_opacity(1.);
-                    Slides::Single {
-                        slide: t.new,
-                        start: Instant::now(),
-                    }
-                } else {
-                    let alpha = t.animation.get(Instant::now());
-                    t.old.set_opacity(alpha);
-                    t.new.set_opacity(1. - alpha);
-                    Slides::Transitioning(t)
-                }
-            }
-        }
-    }
-
-    pub fn draw(&mut self, graphics: &Graphics) -> Result<()> {
-        match self {
-            Slides::None => Ok(()),
-            Slides::Single { slide, start: _ } => graphics.draw(slide),
-            Slides::Transitioning(transitioning_slide) => {
-                graphics.draw(&transitioning_slide.old)?;
-                graphics.draw(&transitioning_slide.new)?;
-                Ok(())
-            }
-        }
-    }
 }
 
 impl FPSCounter {
@@ -209,7 +128,7 @@ impl ApplicationContext for Application {
 
         self.graphics.update();
 
-        self.slides.draw(&self.graphics)?;
+        self.graphics.draw(&self.slides)?;
         self.graphics.draw(&self.fps_text)?;
         Ok(())
     }
