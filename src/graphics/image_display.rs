@@ -48,6 +48,7 @@ impl Sprite {
         }
     }
 
+    // TODO test me!
     // Scales the sprite to fit the given dimensions while maintaining aspect ratio
     pub fn resize_respecting_ratio(&mut self, target_size: Extent2<u32>) {
         let target_size: Extent2<f32> = target_size.as_();
@@ -61,6 +62,7 @@ impl Sprite {
         self.texture.size()
     }
 
+    // TODO test me!
     pub fn set_sub_rect(&mut self, sub_rect: Rect<i32, i32>) {
         let tex_size = self.get_texture_size();
         let tr = Vec2::from(tex_size.as_::<f32>()).inv();
