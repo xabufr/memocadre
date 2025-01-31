@@ -35,7 +35,7 @@ impl Slide {
         Self { sprites, text }
     }
 
-    // TODO Should refactor this looong method (and test it too!)
+    // TODO: Should refactor this looong method (and test it too!)
     pub fn create(
         image_with_details: ImageWithDetails,
         graphics: &mut Graphics,

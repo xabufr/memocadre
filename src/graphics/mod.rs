@@ -45,6 +45,7 @@ impl Orientation {
 }
 
 impl OrientationName {
+    // TODO: make this a const fn
     fn get_mat(&self) -> Mat4<f32> {
         match self {
             Self::Angle0 => Mat4::identity(),
@@ -134,7 +135,7 @@ impl Graphics {
     }
 
     fn update_vp(&mut self) {
-        // TODO better way to get dims?
+        // TODO: better way to get dims?
         let vp = self.gl.current_viewport();
         self.dimensions = vp.extent().as_();
         match self.orientation.name {
