@@ -43,9 +43,10 @@ struct Vertex {
 pub struct TextContainer(Rc<RefCell<TextContainerInner>>);
 
 pub struct ShapeContainer {
-    position: Vec2<f32>,
+    pub position: Vec2<f32>,
     vao: VertexArrayObject<Vertex>,
     texture: Option<SharedTexture2d>,
+    pub opacity_factor: f32,
 }
 
 impl TextContainer {
@@ -60,6 +61,21 @@ impl TextContainer {
 
     pub fn set_position(&self, pos: Vec2<f32>) {
         self.0.borrow_mut().position = pos;
+    }
+
+    pub fn get_bounding_rect(&self) -> Rect<f32, f32> {
+        let inner = RefCell::borrow(&self.0);
+        if let Some(shape) = &inner.shape {
+            let rect = shape.visual_bounding_rect();
+            Rect::new(
+                rect.min.x + inner.position.x,
+                rect.min.y + inner.position.y,
+                rect.width(),
+                rect.height(),
+            )
+        } else {
+            Rect::new(0., 0., 0., 0.)
+        }
     }
 
     pub fn get_dimensions(&self) -> Extent2<f32> {
@@ -154,6 +170,7 @@ impl EpaintDisplay {
             position: [0., 0.].into(),
             vao,
             texture,
+            opacity_factor: 1f32,
         })
     }
 
@@ -200,6 +217,7 @@ impl EpaintDisplay {
         prog.set_uniform("view", view)?;
         let model = Mat4::translation_2d(shape.position);
         prog.set_uniform("model", model)?;
+        prog.set_uniform("opacity", shape.opacity_factor)?;
         let vao_bind = shape.vao.bind_guard();
         self.gl.draw(
             &vao_bind,
@@ -225,6 +243,7 @@ impl EpaintDisplay {
         prog.set_uniform("view", view)?;
         let model = Mat4::translation_2d(container.position);
         prog.set_uniform("model", model)?;
+        prog.set_uniform("opacity", 1f32)?;
         let vao_bind = container.text_vao.bind_guard();
         self.gl.draw(
             &vao_bind,
@@ -392,6 +411,7 @@ mod shaders {
     uniform mat4 view;
     uniform mat4 model;
     uniform vec2 u_screen_size;
+    uniform float opacity;
 
     varying lowp vec2 texcoord;
     varying lowp vec4 texcolor;
@@ -403,7 +423,8 @@ mod shaders {
         //                    0.0,
         //                    1.0);
         texcoord = uv;
-        texcolor = color / 255.0;
+        vec4 raw_color = color / 255.0;
+        texcolor = vec4(raw_color.rgb, raw_color.a * opacity);
     }
     "#;
 

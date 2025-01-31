@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result};
 use epaint::{
     text::{LayoutJob, TextFormat},
-    Color32, FontId,
+    Color32, FontId, Pos2, RectShape,
 };
 use glissade::Keyframes;
 use vek::Rect;
@@ -11,12 +11,12 @@ use vek::Rect;
 use crate::{
     configuration::{Background, Conf},
     gallery::ImageWithDetails,
-    graphics::{Drawable, Graphics, SharedTexture2d, Sprite, TextContainer},
+    graphics::{Drawable, Graphics, ShapeContainer, SharedTexture2d, Sprite, TextContainer},
 };
 
 pub struct Slide {
     sprites: Vec<Sprite>,
-    text: Option<TextContainer>,
+    text: Option<(TextContainer, ShapeContainer)>,
 }
 
 pub enum Slides {
@@ -24,6 +24,7 @@ pub enum Slides {
     Single { slide: Slide, start: Instant },
     Transitioning(TransitioningSlide),
 }
+
 pub struct TransitioningSlide {
     old: Slide,
     new: Slide,
@@ -31,10 +32,6 @@ pub struct TransitioningSlide {
 }
 
 impl Slide {
-    pub fn new(sprites: Vec<Sprite>, text: Option<TextContainer>) -> Self {
-        Self { sprites, text }
-    }
-
     // TODO: Should refactor this looong method (and test it too!)
     pub fn create(
         image_with_details: ImageWithDetails,
@@ -129,38 +126,67 @@ impl Slide {
             Some(text.join("\n"))
         };
 
+        let bottom_padding = 10f32;
+        let bg_padding = 5f32;
         let text = text
             .map(|text| -> Result<_> {
-                let mut container = graphics
-                    .create_text_container()
-                    .context("Cannot create text container")?;
-                container.set_layout(LayoutJob {
-                    halign: epaint::emath::Align::Center,
-                    ..LayoutJob::single_section(
-                        text,
-                        TextFormat {
-                            background: Color32::BLACK.linear_multiply(0.5),
-                            ..TextFormat::simple(FontId::proportional(28.), Color32::WHITE)
-                        },
-                    )
-                });
-                graphics.force_text_container_update(&mut container);
-                let dims = container.get_dimensions();
-                container.set_position(
-                    (display_size.w as f32 * 0.5, display_size.h as f32 - dims.h).into(),
-                );
-                Ok(container)
+                let container = {
+                    let mut container = graphics
+                        .create_text_container()
+                        .context("Cannot create text container")?;
+                    container.set_layout(LayoutJob {
+                        halign: epaint::emath::Align::Center,
+                        ..LayoutJob::single_section(
+                            text,
+                            TextFormat {
+                                // background: Color32::BLACK.linear_multiply(0.5),
+                                ..TextFormat::simple(FontId::proportional(28.), Color32::WHITE)
+                            },
+                        )
+                    });
+                    graphics.force_text_container_update(&mut container);
+                    let dims = container.get_dimensions();
+                    container.set_position(
+                        (
+                            display_size.w as f32 * 0.5,
+                            display_size.h as f32 - dims.h - bottom_padding - bg_padding,
+                        )
+                            .into(),
+                    );
+                    container
+                };
+                let shape = {
+                    let dims = container.get_dimensions() + bg_padding * 2.;
+                    let rect = RectShape {
+                        blur_width: bg_padding,
+                        ..RectShape::filled(
+                            epaint::Rect::from_min_size(
+                                Pos2::ZERO,
+                                epaint::Vec2::new(dims.w, dims.h),
+                            ),
+                            10f32,
+                            Color32::BLACK.linear_multiply(0.5),
+                        )
+                    };
+                    let mut shape = graphics.create_shape(rect.into(), None)?;
+                    shape.position = container.get_bounding_rect().position() - bg_padding;
+                    shape
+                };
+                Ok((container, shape))
             })
             .transpose()?;
 
-        return Ok(Slide::new(sprites, text));
+        return Ok(Slide { sprites, text });
     }
 
     pub fn set_opacity(&mut self, alpha: f32) {
         for sprite in self.sprites.iter_mut() {
             sprite.opacity = alpha;
         }
-        self.text.as_mut().map(|text| text.set_opacity(alpha));
+        self.text.as_mut().map(|(text, bg)| {
+            text.set_opacity(alpha);
+            bg.opacity_factor = alpha;
+        });
     }
 }
 
@@ -226,7 +252,8 @@ impl Drawable for Slide {
         for sprite in self.sprites.iter() {
             graphics.draw(sprite)?;
         }
-        if let Some(text) = &self.text {
+        if let Some((text, bg)) = &self.text {
+            graphics.draw(bg)?;
             graphics.draw(text)?;
         }
         Ok(())
