@@ -1,3 +1,5 @@
+mod slide;
+
 use std::{
     sync::{mpsc::TryRecvError, Arc},
     time::{Duration, Instant},
@@ -13,6 +15,7 @@ use log::debug;
 use replace_with::replace_with_or_abort;
 use vek::{Extent2, Rect};
 
+use self::slide::Slide;
 use crate::{
     configuration::{Background, Conf},
     gallery::ImageWithDetails,
@@ -30,11 +33,6 @@ pub struct Application {
     graphics: Graphics,
     config: Arc<Conf>,
     fps_text: TextContainer,
-}
-
-struct Slide {
-    sprites: Vec<Sprite>,
-    text: Option<TextContainer>,
 }
 
 struct TransitioningSlide {
@@ -114,10 +112,10 @@ impl Slides {
     pub fn draw(&mut self, graphics: &Graphics) -> Result<()> {
         match self {
             Slides::None => Ok(()),
-            Slides::Single { slide, start: _ } => slide.draw(graphics),
+            Slides::Single { slide, start: _ } => graphics.draw(slide),
             Slides::Transitioning(transitioning_slide) => {
-                transitioning_slide.old.draw(graphics)?;
-                transitioning_slide.new.draw(graphics)?;
+                graphics.draw(&transitioning_slide.old)?;
+                graphics.draw(&transitioning_slide.new)?;
                 Ok(())
             }
         }
@@ -214,25 +212,6 @@ impl ApplicationContext for Application {
         self.slides.draw(&self.graphics)?;
         self.graphics.draw(&self.fps_text)?;
         Ok(())
-    }
-}
-
-impl Slide {
-    pub fn draw(&self, graphics: &Graphics) -> Result<()> {
-        for sprite in self.sprites.iter() {
-            graphics.draw(sprite)?;
-        }
-        if let Some(text) = &self.text {
-            graphics.draw(text)?;
-        }
-        Ok(())
-    }
-
-    pub fn set_opacity(&mut self, alpha: f32) {
-        for sprite in self.sprites.iter_mut() {
-            sprite.opacity = alpha;
-        }
-        self.text.as_mut().map(|text| text.set_opacity(alpha));
     }
 }
 
@@ -363,6 +342,6 @@ impl Application {
             })
             .transpose()?;
 
-        return Ok(Slide { sprites, text });
+        return Ok(Slide::new(sprites, text));
     }
 }
