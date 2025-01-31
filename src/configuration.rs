@@ -35,7 +35,7 @@ pub struct Slideshow {
     pub date: DateFormat,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Default)]
 #[serde(deny_unknown_fields)]
 pub struct DebugSettings {
     pub show_fps: bool,
@@ -119,20 +119,15 @@ pub enum ImmichPerson {
     Name(String),
 }
 
-#[derive(Clone, Copy, Deserialize_repr, Debug)]
+#[derive(Clone, Copy, Deserialize_repr, Debug, Default)]
 #[serde(deny_unknown_fields)]
 #[repr(u16)]
 pub enum OrientationName {
+    #[default]
     Angle0 = 0,
     Angle90 = 90,
     Angle180 = 180,
     Angle270 = 270,
-}
-
-impl Default for DebugSettings {
-    fn default() -> Self {
-        Self { show_fps: false }
-    }
 }
 
 impl Default for Slideshow {
@@ -151,12 +146,6 @@ impl Default for Slideshow {
 impl Default for Background {
     fn default() -> Self {
         Self::Burr { min_free_space: 50 }
-    }
-}
-
-impl Default for OrientationName {
-    fn default() -> Self {
-        OrientationName::Angle0
     }
 }
 

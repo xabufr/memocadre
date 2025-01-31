@@ -20,9 +20,10 @@ pub struct TextureOptions {
     pub wrap: TextureWrapMode,
 }
 
+#[derive(Copy, Clone)]
 pub enum TextureFormat {
-    RGBA,
-    RGB,
+    Rgba,
+    Rgb,
 }
 #[derive(Copy, Clone)]
 pub enum TextureFiltering {
@@ -46,22 +47,22 @@ impl Default for TextureFiltering {
     }
 }
 impl TextureFormat {
-    fn to_gl(&self) -> u32 {
+    fn to_gl(self) -> u32 {
         match self {
-            TextureFormat::RGBA => glow::RGBA,
-            TextureFormat::RGB => glow::RGB,
+            TextureFormat::Rgba => glow::RGBA,
+            TextureFormat::Rgb => glow::RGB,
         }
     }
 
-    fn bytes_per_pixel(&self) -> usize {
+    fn bytes_per_pixel(self) -> usize {
         match self {
-            TextureFormat::RGBA => 4,
-            TextureFormat::RGB => 3,
+            TextureFormat::Rgba => 4,
+            TextureFormat::Rgb => 3,
         }
     }
 }
 impl TextureFiltering {
-    fn to_gl(&self) -> i32 {
+    fn to_gl(self) -> i32 {
         match self {
             TextureFiltering::Nearest => glow::NEAREST as _,
             TextureFiltering::Linear => glow::LINEAR as _,
@@ -69,7 +70,7 @@ impl TextureFiltering {
     }
 }
 impl TextureWrapMode {
-    fn to_gl(&self) -> i32 {
+    fn to_gl(self) -> i32 {
         (match self {
             TextureWrapMode::ClampToEdge => glow::CLAMP_TO_EDGE,
             TextureWrapMode::MirroredRepeat => glow::MIRRORED_REPEAT,
@@ -85,7 +86,7 @@ impl Texture {
         let mut tex = Self {
             size: image.dimensions().into(),
             texture: unsafe { Self::load_texture(&gl, image)? },
-            format: TextureFormat::RGB,
+            format: TextureFormat::Rgb,
             options: Default::default(),
             gl,
         };
@@ -118,7 +119,7 @@ impl Texture {
             }
         };
         tex.set_options(Default::default());
-        return Ok(tex);
+        Ok(tex)
     }
 
     pub fn set_options(&mut self, options: TextureOptions) {
@@ -184,11 +185,11 @@ impl Texture {
     }
 
     pub fn get(&self) -> glow::Texture {
-        return self.texture;
+        self.texture
     }
 
     pub fn size(&self) -> Extent2<u32> {
-        return self.size;
+        self.size
     }
 
     unsafe fn load_texture(gl: &glow::Context, image: &DynamicImage) -> Result<glow::Texture> {

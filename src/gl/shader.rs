@@ -35,65 +35,65 @@ pub enum UniformValue {
     Mat4([f32; 16]),
 }
 
-pub trait AsUniformValue {
-    fn as_uniform_value(self) -> UniformValue;
+pub trait ToUniformValue {
+    fn to_uniform_value(self) -> UniformValue;
 }
-impl AsUniformValue for UniformValue {
-    fn as_uniform_value(self) -> UniformValue {
+impl ToUniformValue for UniformValue {
+    fn to_uniform_value(self) -> UniformValue {
         self
     }
 }
 
-impl AsUniformValue for f32 {
-    fn as_uniform_value(self) -> UniformValue {
+impl ToUniformValue for f32 {
+    fn to_uniform_value(self) -> UniformValue {
         UniformValue::Float(self)
     }
 }
-impl AsUniformValue for i32 {
-    fn as_uniform_value(self) -> UniformValue {
+impl ToUniformValue for i32 {
+    fn to_uniform_value(self) -> UniformValue {
         UniformValue::SignedInt(self)
     }
 }
-impl AsUniformValue for (f32, f32) {
-    fn as_uniform_value(self) -> UniformValue {
+impl ToUniformValue for (f32, f32) {
+    fn to_uniform_value(self) -> UniformValue {
         UniformValue::Vec2(self.0, self.1)
     }
 }
-impl AsUniformValue for Extent2<f32> {
-    fn as_uniform_value(self) -> UniformValue {
+impl ToUniformValue for Extent2<f32> {
+    fn to_uniform_value(self) -> UniformValue {
         UniformValue::Vec2(self.w, self.h)
     }
 }
-impl AsUniformValue for Vec2<f32> {
-    fn as_uniform_value(self) -> UniformValue {
+impl ToUniformValue for Vec2<f32> {
+    fn to_uniform_value(self) -> UniformValue {
         UniformValue::Vec2(self.x, self.y)
     }
 }
-impl AsUniformValue for (f32, f32, f32) {
-    fn as_uniform_value(self) -> UniformValue {
+impl ToUniformValue for (f32, f32, f32) {
+    fn to_uniform_value(self) -> UniformValue {
         UniformValue::Vec3(self.0, self.1, self.2)
     }
 }
-impl AsUniformValue for (f32, f32, f32, f32) {
-    fn as_uniform_value(self) -> UniformValue {
+impl ToUniformValue for (f32, f32, f32, f32) {
+    fn to_uniform_value(self) -> UniformValue {
         UniformValue::Vec4(self.0, self.1, self.2, self.3)
     }
 }
-impl AsUniformValue for Mat4<f32> {
-    fn as_uniform_value(self) -> UniformValue {
+impl ToUniformValue for Mat4<f32> {
+    fn to_uniform_value(self) -> UniformValue {
         UniformValue::Mat4(self.into_col_array())
     }
 }
 
-impl<'a> ProgramGuard<'a> {
-    pub fn set_uniform(&self, name: &str, value: impl AsUniformValue) -> Result<()> {
+impl ProgramGuard<'_> {
+    pub fn set_uniform(&self, name: &str, value: impl ToUniformValue) -> Result<()> {
         let location = self
             .program
             .uniforms
             .get(name)
             .with_context(|| format!("Uniform {name} doesn't exists"))?;
         let location = Some(location);
-        let value = value.as_uniform_value();
+        let value = value.to_uniform_value();
         let gl = &self.program.gl;
         unsafe {
             match value {
@@ -147,11 +147,11 @@ impl Program {
     }
 
     pub fn get_attrib_location(&self, name: &str) -> Result<u32> {
-        return Ok(unsafe {
+        Ok(unsafe {
             self.gl
                 .get_attrib_location(self.program, name)
                 .with_context(|| format!("Cannot get vertex attribute {name}"))?
-        });
+        })
     }
 
     unsafe fn compile_shader(

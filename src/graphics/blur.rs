@@ -42,11 +42,10 @@ const VERTICES: [Vertex2dUv; 4] = [
 const INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 impl ImageBlurr {
     pub fn new(gl: GlContext) -> Result<Self> {
-        let mut vbo =
-            BufferObject::new_vertex_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw)
-                .context("Cannot create vertex buffer")?;
+        let mut vbo = BufferObject::new_vertex_buffer(GlContext::clone(&gl), BufferUsage::Static)
+            .context("Cannot create vertex buffer")?;
         let mut ebo =
-            ElementBufferObject::new_index_buffer(GlContext::clone(&gl), BufferUsage::StaticDraw)
+            ElementBufferObject::new_index_buffer(GlContext::clone(&gl), BufferUsage::Static)
                 .context("Cannot create ElementArrayBuffer")?;
 
         let program = Program::new(
@@ -99,13 +98,13 @@ impl ImageBlurr {
         let textures = [
             Texture::empty(
                 GlContext::clone(&self.gl),
-                TextureFormat::RGB,
+                TextureFormat::Rgb,
                 texture.size(),
             )
             .context("cannot create texture")?,
             Texture::empty(
                 GlContext::clone(&self.gl),
-                TextureFormat::RGB,
+                TextureFormat::Rgb,
                 texture.size(),
             )
             .context("cannot create texture")?,
@@ -159,11 +158,11 @@ impl ImageBlurr {
 
             source_texture = fbos[1].get_texture();
         }
-        return Ok(fbos
+        Ok(fbos
             .into_iter()
             .last()
             .expect("FBOs are not empty")
-            .into_texture());
+            .into_texture())
     }
 }
 

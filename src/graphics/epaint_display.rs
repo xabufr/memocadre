@@ -1,7 +1,7 @@
 use std::{
     borrow::Borrow,
     cell::RefCell,
-    ops::{Deref, DerefMut},
+    ops::DerefMut,
     rc::{Rc, Weak},
 };
 
@@ -136,7 +136,7 @@ impl EpaintDisplay {
             fonts,
             pixels_per_point,
             max_texture_size,
-            texture: Texture::empty(GlContext::clone(&gl), TextureFormat::RGBA, (0, 0).into())
+            texture: Texture::empty(GlContext::clone(&gl), TextureFormat::Rgba, (0, 0).into())
                 .context("Cannot create texture")?,
             tesselator,
             program,
@@ -163,7 +163,7 @@ impl EpaintDisplay {
         let ebo_data = &[];
         // TODO avoid double buffer init
         let mut vao = self
-            .new_vao(vbo_data, ebo_data, BufferUsage::StaticDraw)
+            .new_vao(vbo_data, ebo_data, BufferUsage::Static)
             .context("Cannot create shape VAO")?;
         write_mesh_to_vao(&mesh, &mut vao);
         Ok(ShapeContainer {
@@ -176,7 +176,7 @@ impl EpaintDisplay {
 
     pub fn create_text_container(&mut self) -> Result<TextContainer> {
         let vao = self
-            .new_vao(&[], &[], BufferUsage::DynamicDraw)
+            .new_vao(&[], &[], BufferUsage::Dynamic)
             .context("Cannot create text VAO")?;
 
         let container = TextContainerInner {
@@ -188,7 +188,7 @@ impl EpaintDisplay {
         };
         let container = Rc::new(RefCell::new(container));
         self.containers.push(Rc::downgrade(&container));
-        return Ok(TextContainer(container));
+        Ok(TextContainer(container))
     }
 
     fn update_container(&mut self, container: &mut TextContainerInner) {
@@ -210,8 +210,7 @@ impl EpaintDisplay {
         prog.set_uniform("tex", 0)?;
         shape
             .texture
-            .as_ref()
-            .map(|t| t.deref())
+            .as_deref()
             .unwrap_or(&self.texture)
             .bind(Some(0));
         prog.set_uniform("view", view)?;
@@ -310,7 +309,7 @@ impl EpaintDisplay {
                 delta.image.size(),
                 Vec::new(),
             );
-            self.texture.write(TextureFormat::RGBA, dimensions, &data);
+            self.texture.write(TextureFormat::Rgba, dimensions, &data);
         }
     }
 
@@ -364,10 +363,8 @@ impl EpaintDisplay {
                 .context("Cannot create ElementBufferArray")?;
         vbo.write(vbo_data);
         ebo.write(ebo_data);
-        Ok(
-            VertexArrayObject::new(GlContext::clone(&self.gl), vbo, ebo, buffer_infos)
-                .context("Cannot create VAO")?,
-        )
+        VertexArrayObject::new(GlContext::clone(&self.gl), vbo, ebo, buffer_infos)
+            .context("Cannot create VAO")
     }
 }
 

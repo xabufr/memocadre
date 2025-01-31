@@ -34,14 +34,14 @@ impl ImmichRequest {
         match self {
             ImmichRequest::RandomSearch(search_random_request) => Ok(client
                 .search_random(SearchRandomRequest {
-                    r#type: Some(AssetType::IMAGE),
+                    r#type: Some(AssetType::Image),
                     with_exif: Some(true),
                     ..search_random_request.clone()
                 })
                 .context("Error while search next assets batch")?),
             ImmichRequest::SmartSearch(request) => Ok(client
                 .smart_search(SmartSearchRequest {
-                    r#type: Some(AssetType::IMAGE),
+                    r#type: Some(AssetType::Image),
                     with_exif: Some(true),
                     ..request.clone()
                 })
@@ -75,12 +75,12 @@ impl Gallery for ImmichGalleryProvider {
             .decode()
             .context("Cannot decode image")?;
         debug!("Asset downloaded and decoded in {:?}", start.elapsed());
-        return Ok(ImageWithDetails {
+        Ok(ImageWithDetails {
             image,
             city: asset.exif_info.as_ref().and_then(|i| i.city.clone()),
             date: Some(asset.file_created_at),
             people: Vec::new(),
-        });
+        })
     }
 }
 impl GalleryProvider for ImmichGalleryProvider {}
@@ -102,7 +102,6 @@ impl ImmichGalleryProvider {
             ImmichSpec::PrivateAlbum { id } => ImmichRequest::PrivateAlbum { id: id.clone() },
             ImmichSpec::MemoryLane => ImmichRequest::MemoryLane,
         };
-        let immich_request = immich_request;
         let search = immich_request;
         Ok(Self {
             client: client.clone(),
@@ -116,10 +115,10 @@ impl ImmichGalleryProvider {
         search: &ImmichSearchQuery,
     ) -> Result<SearchRandomRequest> {
         let person_ids = Self::get_persons_ids(client, &search.persons)?;
-        return Ok(SearchRandomRequest {
+        Ok(SearchRandomRequest {
             person_ids,
             ..Default::default()
-        });
+        })
     }
 
     fn get_persons_ids(

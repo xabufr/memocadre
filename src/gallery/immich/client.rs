@@ -71,10 +71,10 @@ pub struct ExifInfo {
 #[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum AssetType {
-    IMAGE,
-    VIDEO,
-    AUDIO,
-    OTHER,
+    Image,
+    Video,
+    Audio,
+    Other,
 }
 
 #[derive(Serialize, Debug, Default, Clone)]
@@ -185,8 +185,8 @@ impl ImmichClient {
     pub fn get_memory_lane(&self, day: u8, month: u8) -> Result<Vec<MemoryLaneElement>> {
         self.handle_response_error(
             self.get("assets/memory-lane")
-                .with_param("day", &day.to_string())
-                .with_param("month", &month.to_string())
+                .with_param("day", day.to_string())
+                .with_param("month", month.to_string())
                 .send(),
         )?
         .json()

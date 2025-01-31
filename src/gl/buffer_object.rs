@@ -15,13 +15,13 @@ pub enum BufferTarget {
 #[derive(Copy, Clone, Debug)]
 #[allow(dead_code)]
 pub enum BufferUsage {
-    StaticDraw,
-    StreamDraw,
-    DynamicDraw,
+    Static,
+    Stream,
+    Dynamic,
 }
 
 impl BufferTarget {
-    fn get(&self) -> u32 {
+    fn to_gl(self) -> u32 {
         match self {
             BufferTarget::ArrayBuffer => glow::ARRAY_BUFFER,
             BufferTarget::ElementArrayBuffer => glow::ELEMENT_ARRAY_BUFFER,
@@ -30,11 +30,11 @@ impl BufferTarget {
 }
 
 impl BufferUsage {
-    fn get(&self) -> u32 {
+    fn to_gl(self) -> u32 {
         match self {
-            BufferUsage::StaticDraw => glow::STATIC_DRAW,
-            BufferUsage::StreamDraw => glow::STREAM_DRAW,
-            BufferUsage::DynamicDraw => glow::DYNAMIC_DRAW,
+            BufferUsage::Static => glow::STATIC_DRAW,
+            BufferUsage::Stream => glow::STREAM_DRAW,
+            BufferUsage::Dynamic => glow::DYNAMIC_DRAW,
         }
     }
 }
@@ -52,11 +52,11 @@ impl<Type: NoUninit> BufferObject<Type> {
     pub fn write(&mut self, data: &[Type]) {
         self.size = data.len();
         unsafe {
-            self.gl.bind_buffer(self.target.get(), Some(self.object));
+            self.gl.bind_buffer(self.target.to_gl(), Some(self.object));
             self.gl.buffer_data_u8_slice(
-                self.target.get(),
+                self.target.to_gl(),
                 bytemuck::cast_slice(data),
-                self.usage.get(),
+                self.usage.to_gl(),
             );
         }
     }
@@ -67,9 +67,9 @@ impl<Type: NoUninit> BufferObject<Type> {
         }
         let offset = offset * std::mem::size_of::<Type>();
         unsafe {
-            self.gl.bind_buffer(self.target.get(), Some(self.object));
+            self.gl.bind_buffer(self.target.to_gl(), Some(self.object));
             self.gl.buffer_sub_data_u8_slice(
-                self.target.get(),
+                self.target.to_gl(),
                 offset as _,
                 bytemuck::cast_slice(data),
             );
@@ -97,13 +97,13 @@ impl<Type> BufferObject<Type> {
 
     pub fn bind(&self) {
         unsafe {
-            self.gl.bind_buffer(self.target.get(), Some(self.object));
+            self.gl.bind_buffer(self.target.to_gl(), Some(self.object));
         }
     }
 
     pub fn unbind(&self) {
         unsafe {
-            self.gl.bind_buffer(self.target.get(), None);
+            self.gl.bind_buffer(self.target.to_gl(), None);
         }
     }
 

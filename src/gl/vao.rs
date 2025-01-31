@@ -24,9 +24,9 @@ pub struct BufferInfo {
 pub struct VaoBindGuard<'a, V> {
     array_object: &'a VertexArrayObject<V>,
 }
-impl<'a, V> Drop for VaoBindGuard<'a, V> {
+impl<V> Drop for VaoBindGuard<'_, V> {
     fn drop(&mut self) {
-        if let Some(_) = &self.array_object.vao {
+        if self.array_object.vao.is_some() {
             unsafe { self.array_object.gl.bind_vertex_array(None) };
         } else {
             self.array_object.vertex_buffer.unbind();

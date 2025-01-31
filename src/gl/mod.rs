@@ -37,18 +37,10 @@ pub struct Capabilities {
     pub max_texture_size: u32,
 }
 
+#[derive(Default)]
 pub struct DrawParameters {
     pub blend: Option<BlendMode>,
     pub scissor: Option<Rect<i32, i32>>,
-}
-
-impl Default for DrawParameters {
-    fn default() -> Self {
-        DrawParameters {
-            blend: None,
-            scissor: None,
-        }
-    }
 }
 
 #[derive(Copy, Clone)]
@@ -103,7 +95,7 @@ impl BlendMode {
     }
 }
 impl BlendEquation {
-    pub fn to_gl(&self) -> u32 {
+    pub fn to_gl(self) -> u32 {
         match self {
             BlendEquation::Add(_) => glow::FUNC_ADD,
             BlendEquation::Subtract(_) => glow::FUNC_SUBTRACT,
@@ -120,7 +112,7 @@ impl BlendEquation {
     }
 }
 impl BlendFactor {
-    pub fn to_gl(&self) -> u32 {
+    pub fn to_gl(self) -> u32 {
         match self {
             BlendFactor::Zero => glow::ZERO,
             BlendFactor::One => glow::ONE,

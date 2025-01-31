@@ -9,7 +9,7 @@ pub struct FramebufferGuard<'a> {
     framebuffer: &'a FramebufferObject,
 }
 
-impl<'a> Drop for FramebufferGuard<'a> {
+impl Drop for FramebufferGuard<'_> {
     fn drop(&mut self) {
         unsafe {
             self.framebuffer
@@ -39,11 +39,11 @@ impl FramebufferObject {
                 0,
             );
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
-            return Ok(Self {
+            Ok(Self {
                 framebuffer: fbo,
                 texture: Some(texture),
                 gl,
-            });
+            })
         }
     }
 

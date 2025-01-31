@@ -84,13 +84,13 @@ impl WorkerImpl {
                 .ideal_max_size
                 .read()
                 .expect("Cannot read ideal_max_size");
-            r.clone()
+            *r
         };
         let should_resize = image_dims.cmpgt(&ideal_size).reduce_or();
-        return if should_resize {
+        if should_resize {
             image.resize(ideal_size.w, ideal_size.h, FilterType::Lanczos3)
         } else {
             image
-        };
+        }
     }
 }

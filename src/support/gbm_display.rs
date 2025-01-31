@@ -212,13 +212,10 @@ where
                 .receive_events()
                 .context("Cannot read DRM device events")?;
             for event in &mut events {
-                match event {
-                    control::Event::PageFlip(event) => {
-                        if event.crtc == crtc.handle() {
-                            break 'outer;
-                        }
+                if let control::Event::PageFlip(event) = event {
+                    if event.crtc == crtc.handle() {
+                        break 'outer;
                     }
-                    _ => (),
                 }
             }
         }

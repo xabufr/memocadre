@@ -94,7 +94,6 @@ impl Application {
 
         let fb_dims = graphics.get_dimensions();
 
-        let ideal_size = Extent2::min(fb_dims, hw_max);
-        return ideal_size;
+        Extent2::min(fb_dims, hw_max)
     }
 }

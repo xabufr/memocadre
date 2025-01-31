@@ -142,7 +142,7 @@ impl<T: ApplicationContext + 'static> State<T> {
             .with_context_api(context::ContextApi::Gles(Version::new(2, 0).into()))
             .build(Some(window_handle.into()));
 
-        let not_current_gl_context = Some(unsafe {
+        let not_current_gl_context = unsafe {
             gl_config
                 .display()
                 .create_context(&gl_config, &context_attributes)
@@ -152,7 +152,7 @@ impl<T: ApplicationContext + 'static> State<T> {
                         .create_context(&gl_config, &fallback_context_attributes)
                         .expect("failed to create context")
                 })
-        });
+        };
 
         // Determine our framebuffer size based on the window size, or default to 800x600 if it's invisible
         let (width, height): (u32, u32) = if visible {
@@ -173,7 +173,6 @@ impl<T: ApplicationContext + 'static> State<T> {
                 .expect("Cannot create window surface")
         };
         let current_context = not_current_gl_context
-            .expect("GL context not initialized")
             .make_current(&surface)
             .expect("Cannot activate GL context on window surface");
 

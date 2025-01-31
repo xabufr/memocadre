@@ -72,7 +72,7 @@ impl Slide {
                 }
 
                 if free_space.w > free_space.h {
-                    blur_sprites[0].size.w = (free_space.w * 0.5) as f32;
+                    blur_sprites[0].size.w = free_space.w * 0.5;
                     blur_sprites[0].set_sub_rect(Rect::new(
                         0,
                         0,
@@ -81,7 +81,7 @@ impl Slide {
                     ));
 
                     blur_sprites[1].position.x = display_size.w as f32 - free_space.w * 0.5;
-                    blur_sprites[1].size.w = (free_space.w * 0.5) as f32;
+                    blur_sprites[1].size.w = free_space.w * 0.5;
                     blur_sprites[1].set_sub_rect(Rect::new(
                         texture.size().w as i32 - (free_space.w * 0.5) as i32,
                         0,
@@ -89,7 +89,7 @@ impl Slide {
                         height,
                     ));
                 } else {
-                    blur_sprites[0].size.h = (free_space.h * 0.5) as f32;
+                    blur_sprites[0].size.h = free_space.h * 0.5;
                     blur_sprites[0].set_sub_rect(Rect::new(
                         0,
                         0,
@@ -98,7 +98,7 @@ impl Slide {
                     ));
 
                     blur_sprites[1].position.y = display_size.h as f32 - free_space.h * 0.5;
-                    blur_sprites[1].size.h = (free_space.h * 0.5) as f32;
+                    blur_sprites[1].size.h = free_space.h * 0.5;
                     blur_sprites[1].set_sub_rect(Rect::new(
                         0,
                         texture.size().h as i32 - (free_space.h * 0.5) as i32,
@@ -106,7 +106,7 @@ impl Slide {
                         (free_space.h * 0.5) as i32,
                     ));
                 }
-                sprites.extend(blur_sprites.into_iter());
+                sprites.extend(blur_sprites);
             }
         }
         sprites.push(sprite);
@@ -131,7 +131,7 @@ impl Slide {
         let text = text
             .map(|text| -> Result<_> {
                 let container = {
-                    let mut container = graphics
+                    let container = graphics
                         .create_text_container()
                         .context("Cannot create text container")?;
                     container.set_layout(LayoutJob {
@@ -144,7 +144,7 @@ impl Slide {
                             },
                         )
                     });
-                    graphics.force_text_container_update(&mut container);
+                    graphics.force_text_container_update(&container);
                     let dims = container.get_dimensions();
                     container.set_position(
                         (
@@ -176,17 +176,18 @@ impl Slide {
             })
             .transpose()?;
 
-        return Ok(Slide { sprites, text });
+        Ok(Slide { sprites, text })
     }
 
     pub fn set_opacity(&mut self, alpha: f32) {
         for sprite in self.sprites.iter_mut() {
             sprite.opacity = alpha;
         }
-        self.text.as_mut().map(|(text, bg)| {
+        if let Some((text, bg)) = &mut self.text {
             text.set_opacity(alpha);
             bg.opacity_factor = alpha;
-        });
+            bg.opacity_factor = alpha;
+        };
     }
 }
 
@@ -217,7 +218,7 @@ impl Slides {
                 old,
                 new: slide,
                 animation: Box::new(
-                    glissade::keyframes::from(1. as f32)
+                    glissade::keyframes::from(1_f32)
                         .ease_to(0., transition_duration, glissade::Easing::QuarticInOut)
                         .run(Instant::now()),
                 ),
