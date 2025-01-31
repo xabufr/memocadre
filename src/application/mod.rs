@@ -1,66 +1,30 @@
+mod fps;
 mod slide;
 
-use std::{
-    sync::{mpsc::TryRecvError, Arc},
-    time::{Duration, Instant},
-};
+use std::sync::{mpsc::TryRecvError, Arc};
 
 use anyhow::{Context, Result};
 use epaint::{
     text::{LayoutJob, TextFormat},
     Color32, FontId,
 };
-use log::debug;
 use replace_with::replace_with_or_abort;
 use slide::Slides;
-use vek::{Extent2, Rect};
+use vek::Extent2;
 
-use self::slide::Slide;
+use self::{fps::FPSCounter, slide::Slide};
 use crate::{
-    configuration::{Background, Conf},
-    gallery::ImageWithDetails,
-    gl::{GlContext, Texture},
-    graphics::{epaint_display::TextContainer, Graphics, SharedTexture2d, Sprite},
-    support::ApplicationContext,
+    configuration::Conf, gl::GlContext, graphics::Graphics, support::ApplicationContext,
     worker::Worker,
 };
 
 pub struct Application {
     slides: Slides,
-    counter: FPSCounter,
     worker: Worker,
     gl: GlContext,
     graphics: Graphics,
     config: Arc<Conf>,
-    fps_text: TextContainer,
-}
-
-struct FPSCounter {
-    last_fps: u32,
-    last_instant: Instant,
-    frames: u32,
-}
-
-impl FPSCounter {
-    fn count_frame(&mut self) {
-        let now = Instant::now();
-        let elapsed = now - self.last_instant;
-        if elapsed > Duration::from_secs(1) {
-            self.last_fps = self.frames;
-            self.last_instant = now;
-            self.frames = 0;
-            debug!("FPS: {}", self.last_fps);
-        }
-        self.frames += 1;
-    }
-
-    fn new() -> Self {
-        FPSCounter {
-            last_fps: 0,
-            last_instant: Instant::now(),
-            frames: 0,
-        }
-    }
+    fps: Option<FPSCounter>,
 }
 
 impl ApplicationContext for Application {
@@ -73,18 +37,14 @@ impl ApplicationContext for Application {
             Arc::clone(&config),
             Self::get_ideal_image_size(&gl, &graphics),
         );
-        let fps_text = graphics
-            .create_text_container()
-            .context("Cannot create FPS text container")?;
-        fps_text.set_position((10., 10.).into());
+        let fps = FPSCounter::new(&mut graphics)?;
         Ok(Self {
-            counter: FPSCounter::new(),
             graphics,
             gl,
             slides: Slides::None,
-            fps_text,
             worker,
             config,
+            fps: Some(fps),
         })
     }
 
@@ -112,23 +72,17 @@ impl ApplicationContext for Application {
         }
 
         replace_with_or_abort(&mut self.slides, |slides| slides.update());
-        self.counter.count_frame();
 
-        self.fps_text.set_layout(LayoutJob::single_section(
-            format!(
-                "FPS: {} ({} frames)",
-                self.counter.last_fps, self.counter.frames
-            ),
-            TextFormat {
-                background: Color32::RED,
-                ..TextFormat::simple(FontId::proportional(28.), Color32::DEBUG_COLOR)
-            },
-        ));
+        if let Some(fps) = &mut self.fps {
+            fps.count_frame();
+        }
 
         self.graphics.update();
 
         self.graphics.draw(&self.slides)?;
-        self.graphics.draw(&self.fps_text)?;
+        if let Some(fps) = &self.fps {
+            self.graphics.draw(fps)?;
+        }
         Ok(())
     }
 }
