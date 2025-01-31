@@ -18,7 +18,7 @@ use crate::{
     gallery::ImageWithDetails,
     gl::{GlContext, Texture},
     graphics::{epaint_display::TextContainer, Graphics, SharedTexture2d, Sprite},
-    support::{self, ApplicationContext, State},
+    support::ApplicationContext,
     worker::Worker,
 };
 
@@ -236,18 +236,6 @@ impl Slide {
     }
 }
 
-pub fn start(config: Conf) -> Result<()> {
-    let vars = ["WAYLAND_DISPLAY", "WAYLAND_SOCKET", "DISPLAY"];
-    let has_window_system = vars.into_iter().any(|v| std::env::var_os(v).is_some());
-    let config = Arc::new(config);
-    if has_window_system {
-        State::<Application>::run_loop(config)
-    } else {
-        support::start_gbm::<Application>(config)
-    }
-    .context("While running application")
-}
-
 impl Application {
     fn get_ideal_image_size(gl: &GlContext, graphics: &Graphics) -> Extent2<u32> {
         let hw_max = gl.capabilities().max_texture_size;
@@ -333,7 +321,11 @@ impl Application {
         sprites.push(sprite);
 
         let date = image_with_details.date.map(|date| {
-            date.date_naive().format_localized(&self.config.slideshow.date.format, self.config.slideshow.date.locale)
+            date.date_naive()
+                .format_localized(
+                    &self.config.slideshow.date.format,
+                    self.config.slideshow.date.locale,
+                )
                 .to_string()
         });
         let text = [image_with_details.city, date]

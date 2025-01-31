@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 mod gbm_display;
 mod window_display;
@@ -24,4 +24,16 @@ pub trait ApplicationContext: Sized {
     ) {
     }
     const WINDOW_TITLE: &'static str;
+}
+
+pub fn start<T: ApplicationContext + 'static>(config: Conf) -> Result<()> {
+    let vars = ["WAYLAND_DISPLAY", "WAYLAND_SOCKET", "DISPLAY"];
+    let has_window_system = vars.into_iter().any(|v| std::env::var_os(v).is_some());
+    let config = Arc::new(config);
+    if has_window_system {
+        State::<T>::run_loop(config)
+    } else {
+        start_gbm::<T>(config)
+    }
+    .context("While running application")
 }

@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use application::Application;
 use config::Config;
 use log::debug;
 
@@ -22,6 +23,6 @@ fn main() -> Result<()> {
         .try_deserialize()
         .context("Cannot deserialize configuration")?;
     debug!("Configuration: {config:#?}");
-    application::start(config)?;
+    support::start::<Application>(config)?;
     Ok(())
 }
