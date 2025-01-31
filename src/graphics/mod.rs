@@ -3,6 +3,7 @@ use std::{f32::consts::PI, rc::Rc};
 use anyhow::{Context, Result};
 use bytemuck::{Pod, Zeroable};
 use epaint::Shape;
+use image::DynamicImage;
 use vek::{Extent2, FrustumPlanes, Mat4};
 
 use self::epaint_display::{ShapeContainer, TextContainer};
@@ -87,6 +88,10 @@ impl Graphics {
         };
         graphics.update_vp();
         Ok(graphics)
+    }
+
+    pub fn texture_from_image(&self, image: &DynamicImage) -> Result<Texture> {
+        Texture::new_from_image(GlContext::clone(&self.gl), image)
     }
 
     pub fn begin_frame(&mut self) {

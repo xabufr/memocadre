@@ -1,9 +1,18 @@
 use std::time::{Duration, Instant};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
+use epaint::{
+    text::{LayoutJob, TextFormat},
+    Color32, FontId,
+};
 use glissade::Keyframes;
+use vek::Rect;
 
-use crate::graphics::{epaint_display::TextContainer, Drawable, Graphics, Sprite};
+use crate::{
+    configuration::{Background, Conf},
+    gallery::ImageWithDetails,
+    graphics::{epaint_display::TextContainer, Drawable, Graphics, SharedTexture2d, Sprite},
+};
 
 pub struct Slide {
     sprites: Vec<Sprite>,
@@ -24,6 +33,126 @@ pub struct TransitioningSlide {
 impl Slide {
     pub fn new(sprites: Vec<Sprite>, text: Option<TextContainer>) -> Self {
         Self { sprites, text }
+    }
+
+    pub fn create(
+        image_with_details: ImageWithDetails,
+        graphics: &mut Graphics,
+        config: &Conf,
+    ) -> Result<Self> {
+        let image = image_with_details.image;
+        let texture = graphics
+            .texture_from_image(&image)
+            .context("Cannot load main texture")?;
+
+        let texture = SharedTexture2d::new(texture);
+        let texture_blur = SharedTexture2d::new(
+            graphics
+                .blurr()
+                .blur(config.slideshow.blur_options, &texture)
+                .context("Cannot blur image")?,
+        );
+
+        let mut sprite = Sprite::new(SharedTexture2d::clone(&texture));
+        let display_size = graphics.get_dimensions();
+        let (width, height) = display_size.as_::<i32>().into_tuple();
+        sprite.resize_respecting_ratio(display_size);
+
+        let free_space = display_size.as_() - sprite.size;
+        sprite.position = (free_space * 0.5).into();
+
+        let mut sprites = vec![];
+        if let Background::Burr { min_free_space } = config.slideshow.background {
+            if free_space.reduce_partial_max() > min_free_space as f32 {
+                let mut blur_sprites = [
+                    Sprite::new(SharedTexture2d::clone(&texture_blur)),
+                    Sprite::new(SharedTexture2d::clone(&texture_blur)),
+                ];
+
+                for blur_sprite in blur_sprites.iter_mut() {
+                    blur_sprite.size = sprite.size;
+                }
+
+                if free_space.w > free_space.h {
+                    blur_sprites[0].size.w = (free_space.w * 0.5) as f32;
+                    blur_sprites[0].set_sub_rect(Rect::new(
+                        0,
+                        0,
+                        (free_space.w * 0.5) as _,
+                        height,
+                    ));
+
+                    blur_sprites[1].position.x = display_size.w as f32 - free_space.w * 0.5;
+                    blur_sprites[1].size.w = (free_space.w * 0.5) as f32;
+                    blur_sprites[1].set_sub_rect(Rect::new(
+                        texture.size().w as i32 - (free_space.w * 0.5) as i32,
+                        0,
+                        (free_space.w * 0.5) as _,
+                        height,
+                    ));
+                } else {
+                    blur_sprites[0].size.h = (free_space.h * 0.5) as f32;
+                    blur_sprites[0].set_sub_rect(Rect::new(
+                        0,
+                        0,
+                        width,
+                        (free_space.h * 0.5) as i32,
+                    ));
+
+                    blur_sprites[1].position.y = display_size.h as f32 - free_space.h * 0.5;
+                    blur_sprites[1].size.h = (free_space.h * 0.5) as f32;
+                    blur_sprites[1].set_sub_rect(Rect::new(
+                        0,
+                        texture.size().h as i32 - (free_space.h * 0.5) as i32,
+                        width,
+                        (free_space.h * 0.5) as i32,
+                    ));
+                }
+                sprites.extend(blur_sprites.into_iter());
+            }
+        }
+        sprites.push(sprite);
+
+        let date = image_with_details.date.map(|date| {
+            date.date_naive()
+                .format_localized(&config.slideshow.date.format, config.slideshow.date.locale)
+                .to_string()
+        });
+        let text = [image_with_details.city, date]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+        let text = if text.is_empty() {
+            None
+        } else {
+            Some(text.join("\n"))
+        };
+
+        let text = text
+            .map(|text| -> Result<_> {
+                let mut container = graphics
+                    .create_text_container()
+                    .context("Cannot create text container")?;
+                container.set_layout(LayoutJob {
+                    halign: epaint::emath::Align::Center,
+                    ..LayoutJob::single_section(
+                        text,
+                        TextFormat {
+                            background: Color32::BLACK.linear_multiply(0.5),
+                            ..TextFormat::simple(FontId::proportional(28.), Color32::WHITE)
+                        },
+                    )
+                });
+                graphics.force_text_container_update(&mut container);
+                let dims = container.get_dimensions();
+                container.set_position(
+                    (display_size.w as f32 * 0.5, display_size.h as f32 - dims.h).into(),
+                );
+                Ok(container)
+            })
+            .transpose()?;
+
+        return Ok(Slide::new(sprites, text));
     }
 
     pub fn set_opacity(&mut self, alpha: f32) {
