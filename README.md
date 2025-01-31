@@ -17,12 +17,12 @@ Todo:
    - Better immich errors - OK?
    - Sleep when nothing to do ?
    - Background loading / blur with GPU (context sharing)
-   - Investigate text rendering using signed distance fields (SDF)
    - Direnv -> switch to flake
    - Better init for GBM/winit
-   - Refactor application.rs
    - Write unit tests
    - switch to https://lib.rs/crates/schematic for config?
+   - profiling
+   - Investigate text rendering using signed distance fields (SDF)
 
 - HTTP Api ?
 - publish
