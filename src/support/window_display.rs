@@ -2,7 +2,7 @@ use std::{num::NonZeroU32, sync::Arc};
 
 use anyhow::{Context, Result};
 use glutin::{
-    context::{self, PossiblyCurrentContext, Version},
+    context::{self, NotCurrentContext, PossiblyCurrentContext, Version},
     display::{GetGlDisplay, GlDisplay},
     prelude::*,
     surface::{Surface, WindowSurface},
@@ -146,6 +146,18 @@ impl<T: ApplicationContext + 'static> State<T> {
                 .expect("failed to create context")
         };
 
+        let context_attributes = context::ContextAttributesBuilder::new()
+            .with_context_api(context::ContextApi::Gles(Version::new(2, 0).into()))
+            .with_sharing(&not_current_gl_context)
+            .build(None);
+
+        let bg_context = unsafe {
+            gl_config
+                .display()
+                .create_context(&gl_config, &context_attributes)
+                .expect("Cannot create BG context")
+        };
+
         // Determine our framebuffer size based on the window size, or default to 800x600 if it's invisible
         let (width, height): (u32, u32) = if visible {
             window.inner_size().into()
@@ -171,6 +183,11 @@ impl<T: ApplicationContext + 'static> State<T> {
         let gl = unsafe {
             glow::Context::from_loader_function_cstr(|s| gl_config.display().get_proc_address(s))
         };
+
+        let gl_bg = unsafe {
+            glow::Context::from_loader_function_cstr(|s| gl_config.display().get_proc_address(s))
+        };
+
         let gl = GlContextInner::new(gl, Rect::new(0, 0, width as _, height as _));
         surface
             .set_swap_interval(
@@ -181,7 +198,15 @@ impl<T: ApplicationContext + 'static> State<T> {
             )
             .expect("Cannot configure swap for GL buffers");
 
-        Self::from_display_window(gl, window, current_context, surface, config)
+        Self::from_display_window(
+            gl,
+            window,
+            current_context,
+            surface,
+            config,
+            bg_context,
+            gl_bg,
+        )
     }
 
     pub fn from_display_window(
@@ -190,8 +215,11 @@ impl<T: ApplicationContext + 'static> State<T> {
         gl_context: PossiblyCurrentContext,
         surface: Surface<WindowSurface>,
         config: Arc<Conf>,
+        bg_context: NotCurrentContext,
+        bg_gl: glow::Context,
     ) -> Self {
-        let context = T::new(config, GlContext::clone(&gl)).expect("Cannot create application");
+        let context = T::new(config, GlContext::clone(&gl), bg_context, bg_gl)
+            .expect("Cannot create application");
         Self {
             gl,
             window,

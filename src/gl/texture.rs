@@ -11,6 +11,14 @@ pub struct Texture {
     format: TextureFormat,
     options: TextureOptions,
     gl: GlContext,
+    detached: bool,
+}
+
+pub struct DetachedTexture {
+    texture: glow::Texture,
+    size: Extent2<u32>,
+    format: TextureFormat,
+    options: TextureOptions,
 }
 
 #[derive(Copy, Clone, Default)]
@@ -89,6 +97,7 @@ impl Texture {
             format: TextureFormat::Rgb,
             options: Default::default(),
             gl,
+            detached: false,
         };
         tex.set_options(Default::default());
         Ok(tex)
@@ -116,10 +125,32 @@ impl Texture {
                 format,
                 texture,
                 options: Default::default(),
+                detached: false,
             }
         };
         tex.set_options(Default::default());
         Ok(tex)
+    }
+
+    pub fn from_detached(gl: GlContext, detached: DetachedTexture) -> Self {
+        Self {
+            size: detached.size,
+            texture: detached.texture,
+            format: detached.format,
+            options: detached.options,
+            gl,
+            detached: false,
+        }
+    }
+
+    pub fn detach(mut self) -> DetachedTexture {
+        self.detached = true;
+        DetachedTexture {
+            texture: self.texture,
+            size: self.size,
+            format: self.format,
+            options: self.options,
+        }
     }
 
     pub fn set_options(&mut self, options: TextureOptions) {
@@ -225,6 +256,8 @@ impl Texture {
 
 impl Drop for Texture {
     fn drop(&mut self) {
-        unsafe { self.gl.delete_texture(self.texture) };
+        if !self.detached {
+            unsafe { self.gl.delete_texture(self.texture) };
+        }
     }
 }

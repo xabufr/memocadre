@@ -4,6 +4,7 @@ mod slide;
 use std::sync::{mpsc::TryRecvError, Arc};
 
 use anyhow::{Context, Result};
+use glutin::context::NotCurrentContext;
 use replace_with::replace_with_or_abort;
 use slide::Slides;
 use vek::Extent2;
@@ -26,12 +27,19 @@ pub struct Application {
 impl ApplicationContext for Application {
     const WINDOW_TITLE: &'static str = "test";
 
-    fn new(config: Arc<Conf>, gl: GlContext) -> Result<Self> {
+    fn new(
+        config: Arc<Conf>,
+        gl: GlContext,
+        bg_context: NotCurrentContext,
+        bg_gl: glow::Context,
+    ) -> Result<Self> {
         let mut graphics = Graphics::new(GlContext::clone(&gl), config.slideshow.rotation)
             .context("Cannot create Graphics")?;
         let worker = Worker::new(
             Arc::clone(&config),
             Self::get_ideal_image_size(&gl, &graphics),
+            bg_gl,
+            bg_context,
         );
         let fps = if config.debug.show_fps {
             Some(FPSCounter::new(&mut graphics)?)

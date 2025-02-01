@@ -18,7 +18,7 @@ pub use self::{
 };
 use crate::{
     configuration::OrientationName,
-    gl::{GlContext, Texture},
+    gl::{texture::DetachedTexture, GlContext, Texture},
 };
 
 #[repr(C)]
@@ -93,6 +93,10 @@ impl Graphics {
 
     pub fn texture_from_image(&self, image: &DynamicImage) -> Result<Texture> {
         Texture::new_from_image(GlContext::clone(&self.gl), image)
+    }
+
+    pub fn texture_from_detached(&self, detached: DetachedTexture) -> Texture {
+        Texture::from_detached(GlContext::clone(&self.gl), detached)
     }
 
     pub fn begin_frame(&mut self) {

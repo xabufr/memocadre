@@ -166,6 +166,18 @@ where
             .context("Cannot create openGL context")?
     };
 
+    let bg_context = unsafe {
+        display
+            .create_context(
+                &config,
+                &ContextAttributesBuilder::new()
+                    .with_context_api(glutin::context::ContextApi::Gles(None))
+                    .with_sharing(&not_current_gl_context)
+                    .build(Some(window)),
+            )
+            .context("Cannot create BG openGL context")?
+    };
+
     let current_context = not_current_gl_context
         .make_current(&surface)
         .context("Cannot activate GL context on surface")?;
@@ -190,7 +202,11 @@ where
     let gl = unsafe { Context::from_loader_function_cstr(|s| display.get_proc_address(s)) };
     let gl = GlContextInner::new(gl, Rect::new(0, 0, width as _, height as _));
 
-    let mut app = T::new(app_config, GlContext::clone(&gl)).context("Cannot create application")?;
+    let gl_bg =
+        unsafe { glow::Context::from_loader_function_cstr(|s| display.get_proc_address(s)) };
+
+    let mut app = T::new(app_config, GlContext::clone(&gl), bg_context, gl_bg)
+        .context("Cannot create application")?;
     loop {
         app.draw_frame().context("Error while drawing a frame")?;
 

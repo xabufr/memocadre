@@ -4,17 +4,21 @@ use std::sync::{
 };
 
 use anyhow::{Context, Result};
+use glow::HasContext;
+use glutin::context::NotCurrentContext;
 use image::{imageops::FilterType, DynamicImage, GenericImageView};
 use log::error;
 use thread_priority::{set_current_thread_priority, ThreadPriority};
-use vek::Extent2;
+use vek::{Extent2, Rect};
 
 use crate::{
     configuration::{Conf, ImageFilter},
     gallery::{build_sources, ImageWithDetails},
+    gl::{texture::DetachedTexture, GlContext, GlContextInner, Texture},
+    graphics::{BlurOptions, ImageBlurr},
 };
 
-type Message = ImageWithDetails;
+type Message = (ImageWithDetails, DetachedTexture, DetachedTexture);
 pub struct Worker {
     worker_impl: Weak<WorkerImpl>,
     recv: Receiver<Message>,
@@ -27,7 +31,12 @@ struct WorkerImpl {
 }
 
 impl Worker {
-    pub fn new(config: Arc<Conf>, ideal_max_size: Extent2<u32>) -> Self {
+    pub fn new(
+        config: Arc<Conf>,
+        ideal_max_size: Extent2<u32>,
+        gl: glow::Context,
+        gl_context: NotCurrentContext,
+    ) -> Self {
         let (send, recv) = std::sync::mpsc::sync_channel(1);
         let worker_impl = Arc::new({
             WorkerImpl {
@@ -38,8 +47,18 @@ impl Worker {
         });
         let worker_impl_weak = Arc::downgrade(&worker_impl);
         std::thread::spawn(move || {
+            #[allow(irrefutable_let_patterns)]
+            if let NotCurrentContext::Egl(egl) = gl_context {
+                egl.make_current_surfaceless()
+                    .expect("Cannot make worker thread context current");
+            } else {
+                panic!("Cannot make worker thread context current");
+            }
+            let ctx = GlContextInner::new(gl, Rect::new(0, 0, 0, 0));
+            let blurr =
+                crate::graphics::ImageBlurr::new(ctx.clone()).expect("Cannot create ImageBlurr");
             worker_impl
-                .work()
+                .work(&ctx, &blurr)
                 .expect("Worker encountered an error, abort");
         });
         Worker {
@@ -63,7 +82,7 @@ impl Worker {
     }
 }
 impl WorkerImpl {
-    fn work(&self) -> Result<()> {
+    fn work(&self, gl: &GlContext, blurr: &ImageBlurr) -> Result<()> {
         if let Err(err) = set_current_thread_priority(ThreadPriority::Min) {
             error!("Cannot change worker thread priority to minimal: {:?}", err);
         }
@@ -71,8 +90,11 @@ impl WorkerImpl {
         loop {
             let mut img_with_details = source.get_next_image()?;
             img_with_details.image = self.resize_image_if_necessay(img_with_details.image);
+            let texture = Texture::new_from_image(gl.clone(), &img_with_details.image).unwrap();
+            let blurred_texture = blurr.blur(BlurOptions::default(), &texture).unwrap();
+            unsafe { gl.finish() };
             self.send
-                .send(img_with_details)
+                .send((img_with_details, texture.detach(), blurred_texture.detach()))
                 .context("While sending next image to display thread")?;
         }
     }
