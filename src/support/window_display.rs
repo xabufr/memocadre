@@ -138,20 +138,12 @@ impl<T: ApplicationContext + 'static> State<T> {
         let context_attributes = context::ContextAttributesBuilder::new()
             .with_context_api(context::ContextApi::Gles(Version::new(2, 0).into()))
             .build(Some(window_handle.into()));
-        let fallback_context_attributes = context::ContextAttributesBuilder::new()
-            .with_context_api(context::ContextApi::Gles(Version::new(2, 0).into()))
-            .build(Some(window_handle.into()));
 
         let not_current_gl_context = unsafe {
             gl_config
                 .display()
                 .create_context(&gl_config, &context_attributes)
-                .unwrap_or_else(|_| {
-                    gl_config
-                        .display()
-                        .create_context(&gl_config, &fallback_context_attributes)
-                        .expect("failed to create context")
-                })
+                .expect("failed to create context")
         };
 
         // Determine our framebuffer size based on the window size, or default to 800x600 if it's invisible
