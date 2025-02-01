@@ -33,6 +33,17 @@ pub struct Slideshow {
     pub background: Background,
     pub rotation: OrientationName,
     pub date: DateFormat,
+    pub downscaled_image_filter: ImageFilter,
+}
+
+#[derive(Deserialize, Debug, Default, Clone, Copy)]
+pub enum ImageFilter {
+    Nearest,
+    Triangle,
+    CatmullRom,
+    Gaussian,
+    #[default]
+    Lanczos3,
 }
 
 #[derive(Deserialize, Debug, Default)]
@@ -139,6 +150,7 @@ impl Default for Slideshow {
             transition_duration: Duration::from_secs(1),
             rotation: Default::default(),
             date: Default::default(),
+            downscaled_image_filter: Default::default(),
         }
     }
 }

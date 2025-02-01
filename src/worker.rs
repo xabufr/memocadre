@@ -10,7 +10,7 @@ use thread_priority::{set_current_thread_priority, ThreadPriority};
 use vek::Extent2;
 
 use crate::{
-    configuration::Conf,
+    configuration::{Conf, ImageFilter},
     gallery::{build_sources, ImageWithDetails},
 };
 
@@ -88,9 +88,22 @@ impl WorkerImpl {
         };
         let should_resize = image_dims.cmpgt(&ideal_size).reduce_or();
         if should_resize {
-            image.resize(ideal_size.w, ideal_size.h, FilterType::Lanczos3)
+            let filter = self.config.slideshow.downscaled_image_filter;
+            image.resize(ideal_size.w, ideal_size.h, filter.into())
         } else {
             image
+        }
+    }
+}
+
+impl From<ImageFilter> for FilterType {
+    fn from(f: ImageFilter) -> Self {
+        match f {
+            ImageFilter::Nearest => FilterType::Nearest,
+            ImageFilter::Triangle => FilterType::Triangle,
+            ImageFilter::CatmullRom => FilterType::CatmullRom,
+            ImageFilter::Gaussian => FilterType::Gaussian,
+            ImageFilter::Lanczos3 => FilterType::Lanczos3,
         }
     }
 }
