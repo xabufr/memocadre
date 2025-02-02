@@ -5,16 +5,15 @@ use std::sync::{
 
 use anyhow::{Context, Result};
 use glow::HasContext;
-use glutin::context::NotCurrentContext;
 use image::{imageops::FilterType, DynamicImage, GenericImageView};
 use log::error;
 use thread_priority::{set_current_thread_priority, ThreadPriority};
-use vek::{Extent2, Rect};
+use vek::Extent2;
 
 use crate::{
     configuration::{Conf, ImageFilter},
     gallery::{build_sources, ImageWithDetails},
-    gl::{texture::DetachedTexture, GlContext, GlContextInner, Texture},
+    gl::{texture::DetachedTexture, FutureGlThreadContext, GlContext, Texture},
     graphics::{BlurOptions, ImageBlurr},
 };
 
@@ -31,12 +30,7 @@ struct WorkerImpl {
 }
 
 impl Worker {
-    pub fn new(
-        config: Arc<Conf>,
-        ideal_max_size: Extent2<u32>,
-        gl: glow::Context,
-        gl_context: NotCurrentContext,
-    ) -> Self {
+    pub fn new(config: Arc<Conf>, ideal_max_size: Extent2<u32>, gl: FutureGlThreadContext) -> Self {
         let (send, recv) = std::sync::mpsc::sync_channel(1);
         let worker_impl = Arc::new({
             WorkerImpl {
@@ -47,18 +41,13 @@ impl Worker {
         });
         let worker_impl_weak = Arc::downgrade(&worker_impl);
         std::thread::spawn(move || {
-            #[allow(irrefutable_let_patterns)]
-            if let NotCurrentContext::Egl(egl) = gl_context {
-                egl.make_current_surfaceless()
-                    .expect("Cannot make worker thread context current");
-            } else {
-                panic!("Cannot make worker thread context current");
-            }
-            let ctx = GlContextInner::new(gl, Rect::new(0, 0, 0, 0));
+            let gl = gl
+                .make_current()
+                .expect("Cannot make worker thread context current");
             let blurr =
-                crate::graphics::ImageBlurr::new(ctx.clone()).expect("Cannot create ImageBlurr");
+                crate::graphics::ImageBlurr::new(gl.clone()).expect("Cannot create ImageBlurr");
             worker_impl
-                .work(&ctx, &blurr)
+                .work(&gl, &blurr)
                 .expect("Worker encountered an error, abort");
         });
         Worker {

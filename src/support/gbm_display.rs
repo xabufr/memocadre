@@ -185,6 +185,7 @@ where
     surface
         .swap_buffers(&current_context)
         .context("Cannot swap buffers")?;
+
     let mut bo = unsafe { gbm_surface.lock_front_buffer() }.context("Cannot lock front buffer")?;
     let bpp = bo.bpp();
     let mut fb = device

@@ -1,8 +1,15 @@
-use std::{cell::RefCell, ops::Deref, rc::Rc};
+use std::{cell::RefCell, num::NonZeroU32, ops::Deref, rc::Rc};
 
+use anyhow::{bail, Context as _, Result};
 use glow::HasContext;
+use glutin::{
+    context::{NotCurrentContext, PossiblyCurrentContext},
+    display::GetGlDisplay,
+    prelude::{GlDisplay, NotCurrentGlContext},
+    surface::{GlSurface as _, PbufferSurface, Surface, WindowSurface},
+};
 use vao::VaoBindGuard;
-use vek::Rect;
+use vek::{Extent2, Rect, Vec2};
 
 use self::shader::ProgramGuard;
 pub use self::{shader::Program, texture::Texture};
@@ -15,10 +22,96 @@ pub mod vao;
 
 pub type GlContext = Rc<GlContextInner>;
 
+enum GlSurface {
+    Window(Surface<WindowSurface>),
+    Offscreen(Surface<PbufferSurface>),
+}
+
+impl GlSurface {
+    fn load_gl(&self) -> glow::Context {
+        match self {
+            GlSurface::Window(surface) => unsafe {
+                glow::Context::from_loader_function_cstr(|s| surface.display().get_proc_address(s))
+            },
+            GlSurface::Offscreen(surface) => unsafe {
+                glow::Context::from_loader_function_cstr(|s| surface.display().get_proc_address(s))
+            },
+        }
+    }
+
+    fn dimensions(&self) -> Result<Extent2<i32>> {
+        match self {
+            GlSurface::Window(surface) => {
+                let width = surface.width().context("cannot get surface width")?;
+                let height = surface.height().context("cannot get surface height")?;
+                Ok(Extent2::new(width as i32, height as i32))
+            }
+            GlSurface::Offscreen(surface) => {
+                let width = surface.width().context("cannot get surface width")?;
+                let height = surface.height().context("cannot get surface height")?;
+                Ok(Extent2::new(width as i32, height as i32))
+            }
+        }
+    }
+}
+
 pub struct GlContextInner {
     gl: glow::Context,
     capacities: Capabilities,
     info: RefCell<GlContextInfo>,
+    surface: GlSurface,
+    context: PossiblyCurrentContext,
+}
+
+pub struct FutureGlThreadContext {
+    surface: GlSurface,
+    context: NotCurrentContext,
+}
+
+impl FutureGlThreadContext {
+    pub fn new(surface: Surface<WindowSurface>, context: NotCurrentContext) -> Self {
+        Self {
+            surface: GlSurface::Window(surface),
+            context,
+        }
+    }
+
+    pub fn new_bg(surface: Surface<PbufferSurface>, context: NotCurrentContext) -> Self {
+        Self {
+            surface: GlSurface::Offscreen(surface),
+            context,
+        }
+    }
+
+    pub fn make_current(self) -> Result<GlContext> {
+        let context = match &self.surface {
+            GlSurface::Window(surface) => {
+                let current = self
+                    .context
+                    .make_current(&surface)
+                    .context("Cannot make context current")?;
+                surface
+                    .set_swap_interval(
+                        &current,
+                        glutin::surface::SwapInterval::Wait(
+                            NonZeroU32::new(1).expect("should never happen"),
+                        ),
+                    )
+                    .context("Cannot configure swap for GL buffers")?;
+                current
+            }
+            GlSurface::Offscreen(surface) => self
+                .context
+                .make_current(&surface)
+                .context("Cannot make context current")?,
+        };
+
+        GlContextInner::new(self.surface, context)
+    }
+
+    pub fn get_context(&self) -> &NotCurrentContext {
+        &self.context
+    }
 }
 
 impl Deref for GlContextInner {
@@ -134,14 +227,18 @@ impl BlendFactor {
 }
 
 impl GlContextInner {
-    pub fn new(gl: glow::Context, viewport: Rect<i32, i32>) -> Rc<Self> {
-        Rc::new(Self {
+    fn new(surface: GlSurface, context: PossiblyCurrentContext) -> Result<Rc<Self>> {
+        let gl = surface.load_gl();
+        let viewport = Rect::from((Vec2::zero(), surface.dimensions()?));
+        Ok(Rc::new(Self {
             capacities: Capabilities {
                 max_texture_size: unsafe { gl.get_parameter_i32(glow::MAX_TEXTURE_SIZE) } as u32,
             },
             info: RefCell::new(GlContextInfo { viewport }),
             gl,
-        })
+            surface,
+            context,
+        }))
     }
 
     pub fn draw<T>(
@@ -197,5 +294,16 @@ impl GlContextInner {
 
     pub fn capabilities(&self) -> &Capabilities {
         &self.capacities
+    }
+
+    pub fn swap_buffers(&self) -> Result<()> {
+        match self.surface {
+            GlSurface::Window(ref surface) => surface
+                .swap_buffers(&self.context)
+                .context("Cannot swap buffers"),
+            GlSurface::Offscreen(_) => {
+                bail!("Cannot swap buffers on offscreen surface")
+            }
+        }
     }
 }
