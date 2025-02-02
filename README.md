@@ -16,7 +16,6 @@ Todo:
    - Error handling - OK?
    - Better immich errors - OK?
    - Sleep when nothing to do ?
-   - Background loading / blur with GPU (context sharing)
    - Direnv -> switch to flake
    - Better init for GBM/winit
    - Write unit tests
