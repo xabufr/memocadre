@@ -42,7 +42,7 @@ impl Worker {
         let worker_impl_weak = Arc::downgrade(&worker_impl);
         std::thread::spawn(move || {
             let gl = gl
-                .make_current()
+                .activate()
                 .expect("Cannot make worker thread context current");
             let blurr =
                 crate::graphics::ImageBlurr::new(gl.clone()).expect("Cannot create ImageBlurr");

@@ -186,7 +186,7 @@ impl<T: ApplicationContext + 'static> State<T> {
         config: Arc<Conf>,
         bg_gl: FutureGlThreadContext,
     ) -> Self {
-        let gl = gl.make_current().expect("Cannot make context current");
+        let gl = gl.activate().expect("Cannot make context current");
         let context =
             T::new(config, GlContext::clone(&gl), bg_gl).expect("Cannot create application");
         Self {

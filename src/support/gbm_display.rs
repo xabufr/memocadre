@@ -180,7 +180,7 @@ where
     };
 
     let gl = gl
-        .make_current()
+        .activate()
         .context("Cannot activate main GL context on surface")?;
     let bg_gl = FutureGlThreadContext::new(None, bg_context, config.display());
 

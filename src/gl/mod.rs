@@ -48,7 +48,7 @@ impl FutureGlThreadContext {
         }
     }
 
-    pub fn make_current(self) -> Result<GlContext> {
+    pub fn activate(self) -> Result<GlContext> {
         let context = match &self.surface {
             Some(surface) => {
                 let current = self
