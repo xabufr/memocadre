@@ -173,6 +173,7 @@ where
                 &ContextAttributesBuilder::new()
                     .with_context_api(glutin::context::ContextApi::Gles(None))
                     .with_sharing(&not_current_gl_context)
+                    .with_priority(glutin::context::Priority::Low)
                     .build(Some(window)),
             )
             .context("Cannot create BG openGL context")?

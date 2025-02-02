@@ -18,7 +18,7 @@ epaint = { version = "0.30.0", features = ["log", "mint"] }
 gbm = { version = "0.18.0", default-features = false, features = ["drm-support"] }
 glissade = { version = "0.2.5", default-features = false }
 glow = { version = "0.16.0", features = ["log", "debug_automatic_glGetError", "debug_trace_calls"] }
-glutin = { version = "0.32.1", default-features = false, features = ["egl", "x11"] }
+glutin = { version = "0.32.2", default-features = false, features = ["egl", "x11"] }
 glutin-winit = { version = "0.5.0", default-features = false, features = ["egl", "x11"] }
 humantime-serde = "1.1.1"
 image = { version = "0.25.5", features = ["default-formats"], default-features = false }

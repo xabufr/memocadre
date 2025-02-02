@@ -149,6 +149,7 @@ impl<T: ApplicationContext + 'static> State<T> {
         let context_attributes = context::ContextAttributesBuilder::new()
             .with_context_api(context::ContextApi::Gles(Version::new(2, 0).into()))
             .with_sharing(&not_current_gl_context)
+            .with_priority(glutin::context::Priority::Low)
             .build(None);
 
         let bg_context = unsafe {
