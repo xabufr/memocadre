@@ -10,9 +10,8 @@ use vek::Rect;
 
 use crate::{
     configuration::{Background, Conf},
-    gallery::ImageWithDetails,
-    gl::texture::DetachedTexture,
     graphics::{Drawable, Graphics, ShapeContainer, SharedTexture2d, Sprite, TextContainer},
+    worker::PreloadedSlide,
 };
 
 pub struct Slide {
@@ -35,14 +34,14 @@ pub struct TransitioningSlide {
 impl Slide {
     // TODO: Should refactor this looong method (and test it too!)
     pub fn create(
-        image_with_details: (ImageWithDetails, DetachedTexture, DetachedTexture),
+        preloaded_slide: PreloadedSlide,
         graphics: &mut Graphics,
         config: &Conf,
     ) -> Result<Self> {
-        let texture = graphics.texture_from_detached(image_with_details.1);
+        let texture = graphics.texture_from_detached(preloaded_slide.texture);
         let texture = SharedTexture2d::new(texture);
         let texture_blur =
-            SharedTexture2d::new(graphics.texture_from_detached(image_with_details.2));
+            SharedTexture2d::new(graphics.texture_from_detached(preloaded_slide.blurred_texture));
 
         let mut sprite = Sprite::new(SharedTexture2d::clone(&texture));
         let display_size = graphics.get_dimensions();
@@ -104,12 +103,12 @@ impl Slide {
         }
         sprites.push(sprite);
 
-        let date = image_with_details.0.date.map(|date| {
+        let date = preloaded_slide.details.date.map(|date| {
             date.date_naive()
                 .format_localized(&config.slideshow.date.format, config.slideshow.date.locale)
                 .to_string()
         });
-        let text = [image_with_details.0.city, date]
+        let text = [preloaded_slide.details.city, date]
             .into_iter()
             .flatten()
             .collect::<Vec<_>>();

@@ -10,7 +10,7 @@ use self::client::{AssetResponse, AssetType, ImmichClient, SearchRandomRequest};
 use super::{Gallery, GalleryProvider};
 use crate::{
     configuration::{ImmichPerson, ImmichSearchQuery, ImmichSource, ImmichSpec},
-    gallery::ImageWithDetails,
+    gallery::{ImageDetails, ImageWithDetails},
 };
 
 mod client;
@@ -77,9 +77,11 @@ impl Gallery for ImmichGalleryProvider {
         debug!("Asset downloaded and decoded in {:?}", start.elapsed());
         Ok(ImageWithDetails {
             image,
-            city: asset.exif_info.as_ref().and_then(|i| i.city.clone()),
-            date: Some(asset.file_created_at),
-            people: Vec::new(),
+            details: ImageDetails {
+                city: asset.exif_info.as_ref().and_then(|i| i.city.clone()),
+                date: Some(asset.file_created_at),
+                people: Vec::new(),
+            },
         })
     }
 }

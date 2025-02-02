@@ -14,6 +14,10 @@ trait GalleryProvider: Gallery {}
 
 pub struct ImageWithDetails {
     pub image: image::DynamicImage,
+    pub details: ImageDetails,
+}
+
+pub struct ImageDetails {
     pub city: Option<String>,
     pub date: Option<DateTime<Utc>>,
     #[allow(dead_code)]

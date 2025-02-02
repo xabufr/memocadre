@@ -12,12 +12,19 @@ use vek::Extent2;
 
 use crate::{
     configuration::{Conf, ImageFilter},
-    gallery::{build_sources, ImageWithDetails},
+    gallery::{build_sources, ImageDetails},
     gl::{texture::DetachedTexture, FutureGlThreadContext, GlContext, Texture},
     graphics::{BlurOptions, ImageBlurr},
 };
 
-type Message = (ImageWithDetails, DetachedTexture, DetachedTexture);
+type Message = PreloadedSlide;
+
+pub struct PreloadedSlide {
+    pub details: ImageDetails,
+    pub texture: DetachedTexture,
+    pub blurred_texture: DetachedTexture,
+}
+
 pub struct Worker {
     worker_impl: Weak<WorkerImpl>,
     recv: Receiver<Message>,
@@ -82,8 +89,13 @@ impl WorkerImpl {
             let texture = Texture::new_from_image(gl.clone(), &img_with_details.image).unwrap();
             let blurred_texture = blurr.blur(BlurOptions::default(), &texture).unwrap();
             unsafe { gl.finish() };
+            let msg = PreloadedSlide {
+                details: img_with_details.details,
+                texture: texture.detach(),
+                blurred_texture: blurred_texture.detach(),
+            };
             self.send
-                .send((img_with_details, texture.detach(), blurred_texture.detach()))
+                .send(msg)
                 .context("While sending next image to display thread")?;
         }
     }
