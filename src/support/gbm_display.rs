@@ -13,22 +13,20 @@ use drm::{
     Device as DrmDevice,
 };
 use gbm::{AsRaw, BufferObjectFlags};
-use glow::Context;
 use glutin::{
     config::ConfigTemplateBuilder,
     context::ContextAttributesBuilder,
-    display::GlDisplay,
+    display::{GetGlDisplay as _, GlDisplay},
     prelude::*,
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
 use log::debug;
 use raw_window_handle::{GbmDisplayHandle, GbmWindowHandle, RawDisplayHandle, RawWindowHandle};
-use vek::Rect;
 
 use super::ApplicationContext;
 use crate::{
     configuration::Conf,
-    gl::{GlContext, GlContextInner},
+    gl::{FutureGlThreadContext, GlContext},
 };
 
 #[derive(Debug)]
@@ -166,25 +164,27 @@ where
             .context("Cannot create openGL context")?
     };
 
+    let gl = FutureGlThreadContext::new(Some(surface), not_current_gl_context, config.display());
+
     let bg_context = unsafe {
         display
             .create_context(
                 &config,
                 &ContextAttributesBuilder::new()
                     .with_context_api(glutin::context::ContextApi::Gles(None))
-                    .with_sharing(&not_current_gl_context)
+                    .with_sharing(gl.get_context())
                     .with_priority(glutin::context::Priority::Low)
                     .build(Some(window)),
             )
             .context("Cannot create BG openGL context")?
     };
 
-    let current_context = not_current_gl_context
-        .make_current(&surface)
-        .context("Cannot activate GL context on surface")?;
-    surface
-        .swap_buffers(&current_context)
-        .context("Cannot swap buffers")?;
+    let gl = gl
+        .make_current()
+        .context("Cannot activate main GL context on surface")?;
+    let bg_gl = FutureGlThreadContext::new(None, bg_context, config.display());
+
+    gl.swap_buffers().context("Cannot swap buffers")?;
 
     let mut bo = unsafe { gbm_surface.lock_front_buffer() }.context("Cannot lock front buffer")?;
     let bpp = bo.bpp();
@@ -201,19 +201,12 @@ where
         )
         .context("Cannot setup DRM device CRTC")?;
 
-    let gl = unsafe { Context::from_loader_function_cstr(|s| display.get_proc_address(s)) };
-    let gl = GlContextInner::new(gl, Rect::new(0, 0, width as _, height as _));
-
-    let gl_bg =
-        unsafe { glow::Context::from_loader_function_cstr(|s| display.get_proc_address(s)) };
-
-    let mut app = T::new(app_config, GlContext::clone(&gl), bg_context, gl_bg)
-        .context("Cannot create application")?;
+    let mut app =
+        T::new(app_config, GlContext::clone(&gl), bg_gl).context("Cannot create application")?;
     loop {
         app.draw_frame().context("Error while drawing a frame")?;
 
-        surface
-            .swap_buffers(&current_context)
+        gl.swap_buffers()
             .context("Cannot swap buffers on surface")?;
 
         let next_bo =

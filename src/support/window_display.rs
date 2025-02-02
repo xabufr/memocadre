@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use glutin::{
     context::{self, Version},
     display::{GetGlDisplay, GlDisplay},
-    surface::{PbufferSurface, SurfaceAttributesBuilder, WindowSurface},
+    surface::WindowSurface,
 };
 use raw_window_handle::HasWindowHandle;
 use vek::Rect;
@@ -159,7 +159,8 @@ impl<T: ApplicationContext + 'static> State<T> {
                 .expect("Cannot create window surface")
         };
 
-        let gl = FutureGlThreadContext::new(surface, not_current_gl_context);
+        let gl =
+            FutureGlThreadContext::new(Some(surface), not_current_gl_context, gl_config.display());
 
         let bg_context_attributes = context::ContextAttributesBuilder::new()
             .with_context_api(context::ContextApi::Gles(Version::new(2, 0).into()))
@@ -174,18 +175,7 @@ impl<T: ApplicationContext + 'static> State<T> {
                 .expect("Cannot create BG context")
         };
 
-        let bg_surface = unsafe {
-            gl_config
-                .display()
-                .create_pbuffer_surface(
-                    &gl_config,
-                    &SurfaceAttributesBuilder::<PbufferSurface>::new()
-                        .build(NonZeroU32::new_unchecked(1), NonZeroU32::new_unchecked(1)),
-                )
-                .expect("Cannot create BG surface")
-        };
-
-        let bg_gl = FutureGlThreadContext::new_bg(bg_surface, bg_context);
+        let bg_gl = FutureGlThreadContext::new(None, bg_context, gl_config.display());
 
         Self::from_display_window(gl, window, config, bg_gl)
     }
