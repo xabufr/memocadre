@@ -42,7 +42,7 @@ impl FutureGlThreadContext {
         display: glutin::display::Display,
     ) -> Self {
         Self {
-            display: display,
+            display,
             surface,
             context,
         }
