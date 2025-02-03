@@ -16,7 +16,8 @@ use crate::{
 };
 
 pub struct Slide {
-    sprites: Vec<Sprite>,
+    main_sprite: Sprite,
+    background: Option<[Sprite; 2]>,
     text: Option<TextWithBackground>,
 }
 
@@ -68,15 +69,15 @@ impl Slide {
         let texture_blur =
             SharedTexture2d::new(graphics.texture_from_detached(preloaded_slide.blurred_texture));
 
-        let mut sprite = Sprite::new(SharedTexture2d::clone(&texture));
+        let mut main_sprite = Sprite::new(SharedTexture2d::clone(&texture));
         let display_size = graphics.get_dimensions();
         let (width, height) = display_size.as_::<i32>().into_tuple();
-        sprite.resize_respecting_ratio(display_size);
+        main_sprite.resize_respecting_ratio(display_size);
 
-        let free_space = display_size.as_() - sprite.size;
-        sprite.position = (free_space * 0.5).into();
+        let free_space = display_size.as_() - main_sprite.size;
+        main_sprite.position = (free_space * 0.5).into();
 
-        let mut sprites = vec![];
+        let mut background = None;
         if let Background::Burr { min_free_space } = config.slideshow.background {
             if free_space.reduce_partial_max() > min_free_space as f32 {
                 let mut blur_sprites = [
@@ -85,7 +86,7 @@ impl Slide {
                 ];
 
                 for blur_sprite in blur_sprites.iter_mut() {
-                    blur_sprite.size = sprite.size;
+                    blur_sprite.size = main_sprite.size;
                 }
 
                 if free_space.w > free_space.h {
@@ -123,10 +124,9 @@ impl Slide {
                         (free_space.h * 0.5) as i32,
                     ));
                 }
-                sprites.extend(blur_sprites);
+                background = Some(blur_sprites);
             }
         }
-        sprites.push(sprite);
 
         let date = preloaded_slide.details.date.map(|date| {
             date.date_naive()
@@ -147,13 +147,18 @@ impl Slide {
             .map(|text| TextWithBackground::create(graphics, text))
             .transpose()?;
 
-        Ok(Slide { sprites, text })
+        Ok(Slide {
+            main_sprite,
+            background,
+            text,
+        })
     }
 
     fn set_opacity(&mut self, alpha: f32) {
-        for sprite in self.sprites.iter_mut() {
+        for sprite in self.background.iter_mut().flatten() {
             sprite.opacity = alpha;
         }
+        self.main_sprite.opacity = alpha;
         if let Some(text) = &mut self.text {
             text.set_opacity(alpha);
         };
@@ -161,10 +166,8 @@ impl Slide {
 
     fn apply(&mut self, properties: SlideProperties) {
         self.set_opacity(properties.global_opacity);
-
-        let main_idx = self.sprites.len() - 1;
-        let main = &mut self.sprites[main_idx];
-        main.set_sub_center_size(0.5.into(), (properties.zoom * 0.5).into());
+        self.main_sprite
+            .set_sub_center_size(0.5.into(), (properties.zoom * 0.5).into());
     }
 }
 
@@ -353,9 +356,10 @@ impl Drawable for TransitioningSlide {
 
 impl Drawable for Slide {
     fn draw(&self, graphics: &Graphics) -> Result<()> {
-        for sprite in self.sprites.iter() {
+        for sprite in self.background.iter().flatten() {
             graphics.draw(sprite)?;
         }
+        graphics.draw(&self.main_sprite)?;
         if let Some(text) = &self.text {
             graphics.draw(text)?;
         }
