@@ -12,6 +12,7 @@ Todo:
    - Zoom effect -> check for background worker first! (otherwise it will be freezed...)
    - Other effects / transitions -> fadeout-fadein
    - Other layouts when possible (two photos at the same time)
+   - Splash screen
 
 - Technical:
    - Error handling - OK?
@@ -23,6 +24,8 @@ Todo:
    - profiling
    - Investigate text rendering using signed distance fields (SDF)
    - switch to https://lib.rs/crates/schematic for config?
+   - explicit/portable cross config
+   - unit testing where possible
 
 - HTTP Api ?
 - publish
