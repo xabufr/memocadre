@@ -58,10 +58,7 @@ impl ApplicationContext for Application {
         self.worker
             .set_ideal_max_size(Self::get_ideal_image_size(&self.gl, &self.graphics));
 
-        if self
-            .slides
-            .should_load_next(self.config.slideshow.display_duration)
-        {
+        if self.slides.should_load_next() {
             match self.worker.recv().try_recv() {
                 Err(TryRecvError::Empty) => {}
                 Err(error) => Err(error).context("Cannot get next image")?,
@@ -69,13 +66,13 @@ impl ApplicationContext for Application {
                     let slide = Slide::create(image, &mut self.graphics, &self.config)
                         .context("Cannot laod next frame")?;
                     replace_with_or_abort(&mut self.slides, |slides| {
-                        slides.load_next(slide, self.config.slideshow.transition_duration)
+                        slides.load_next(slide, &self.config)
                     });
                 }
             }
         }
 
-        replace_with_or_abort(&mut self.slides, |slides| slides.update());
+        replace_with_or_abort(&mut self.slides, |slides| slides.update(&self.config));
 
         if let Some(fps) = &mut self.fps {
             fps.count_frame();

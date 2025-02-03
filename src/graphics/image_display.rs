@@ -70,6 +70,10 @@ impl Sprite {
         let uv_offset_size = sub_rect.extent().as_::<f32>() * tr * 0.5;
         self.sub_rect = (uv_offset_center, uv_offset_size.into());
     }
+
+    pub fn set_sub_center_size(&mut self, uv_offset_center: Vec2<f32>, uv_offset_size: Vec2<f32>) {
+        self.sub_rect = (uv_offset_center, uv_offset_size);
+    }
 }
 
 #[rustfmt::skip]

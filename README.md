@@ -3,6 +3,7 @@ Todo:
 - Configuration
    - Blur (radius, algo...) - OK for now
    - Transitions
+   - Text properties (font, size, color, position, padding, etc...)
 
 - Graphics:
    - Pixel perfect
@@ -19,9 +20,9 @@ Todo:
    - Direnv -> switch to flake
    - Better init for GBM/winit
    - Write unit tests
-   - switch to https://lib.rs/crates/schematic for config?
    - profiling
    - Investigate text rendering using signed distance fields (SDF)
+   - switch to https://lib.rs/crates/schematic for config?
 
 - HTTP Api ?
 - publish
