@@ -28,8 +28,8 @@ pub enum Slides {
 }
 
 pub struct TransitioningSlide {
-    old: AnimatedSlide,
-    new: AnimatedSlide,
+    prev: AnimatedSlide,
+    next: AnimatedSlide,
 }
 
 pub struct AnimatedSlide {
@@ -246,7 +246,7 @@ impl Slides {
                 Instant::now(),
             ),
             Slides::Single(old)
-            | Slides::Transitioning(TransitioningSlide { old: _, new: old }) => {
+            | Slides::Transitioning(TransitioningSlide { prev: _, next: old }) => {
                 let transition_duration = config.slideshow.transition_duration;
                 let easing = glissade::Easing::QuarticInOut;
                 let now = Instant::now();
@@ -287,7 +287,10 @@ impl Slides {
                     ),
                 };
 
-                Slides::Transitioning(TransitioningSlide { old, new })
+                Slides::Transitioning(TransitioningSlide {
+                    prev: old,
+                    next: new,
+                })
             }
         }
     }
@@ -302,7 +305,7 @@ impl Slides {
             }
             Slides::Transitioning(mut t) => {
                 if t.is_finished(instant) {
-                    Self::to_single(t.new.slide, t.new.animation.get(instant), config, instant)
+                    Self::to_single(t.next.slide, t.next.animation.get(instant), config, instant)
                 } else {
                     t.update(instant);
                     Slides::Transitioning(t)
@@ -337,19 +340,19 @@ impl Slides {
 
 impl TransitioningSlide {
     fn is_finished(&self, instant: Instant) -> bool {
-        self.old.animation.is_finished(instant) && self.new.animation.is_finished(instant)
+        self.prev.animation.is_finished(instant) && self.next.animation.is_finished(instant)
     }
 
     fn update(&mut self, instant: Instant) {
-        self.old.update(instant);
-        self.new.update(instant);
+        self.prev.update(instant);
+        self.next.update(instant);
     }
 }
 
 impl Drawable for TransitioningSlide {
     fn draw(&self, graphics: &Graphics) -> Result<()> {
-        graphics.draw(&self.old)?;
-        graphics.draw(&self.new)?;
+        graphics.draw(&self.prev)?;
+        graphics.draw(&self.next)?;
         Ok(())
     }
 }
