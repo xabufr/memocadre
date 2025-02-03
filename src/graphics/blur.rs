@@ -1,4 +1,7 @@
+use std::{thread, time::Duration};
+
 use anyhow::{Context, Result};
+use glow::HasContext;
 use serde::Deserialize;
 
 use super::Vertex2dUv;
@@ -124,10 +127,8 @@ impl ImageBlurr {
 
         program_bind.set_uniform("tex_size", texture.size().as_::<f32>())?;
         program_bind.set_uniform("tex", 0)?;
-
         for i in 0..=passes {
             let radius = radius * (passes - i) as f32 / (passes as f32);
-
             {
                 program_bind.set_uniform("dir", (radius, 0.))?;
                 let _guard = fbos[0].bind_guard();
@@ -140,7 +141,11 @@ impl ImageBlurr {
                     &Default::default(),
                 );
             }
-
+            // Don't overload the GPU
+            if self.gl.is_background() {
+                self.gl.wait();
+                thread::sleep(Duration::from_millis(500));
+            }
             source_texture = fbos[0].get_texture();
 
             {
@@ -154,6 +159,11 @@ impl ImageBlurr {
                     0,
                     &Default::default(),
                 );
+            }
+            // Don't overload the GPU
+            if self.gl.is_background() {
+                self.gl.wait();
+                thread::sleep(Duration::from_millis(500));
             }
 
             source_texture = fbos[1].get_texture();

@@ -287,4 +287,14 @@ impl GlContextInner {
             bail!("Cannot swap buffers on offscreen surface")
         }
     }
+
+    pub fn is_background(&self) -> bool {
+        self.surface.is_none()
+    }
+
+    pub fn wait(&self) {
+        unsafe {
+            self.gl.finish();
+        }
+    }
 }
