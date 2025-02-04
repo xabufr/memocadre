@@ -6,26 +6,25 @@ Todo:
    - Text properties (font, size, color, position, padding, etc...)
 
 - Graphics:
-   - Pixel perfect
+   - Pixel perfect rework
+   - Splash screen
    - Handle descriptions from immich (memory lane, etc...)
    - Info placement - OK for now
-   - Zoom effect -> check for background worker first! (otherwise it will be freezed...) - OK
    - Other effects / transitions -> fadeout-fadein
    - Other layouts when possible (two photos at the same time)
-   - Splash screen
 
 - Technical:
-   - Error handling - OK?
+   - unit testing where possible
    - Better immich errors - OK?
-   - Sleep when nothing to do ?
    - Direnv -> switch to flake
    - Better init for GBM/winit
-   - Write unit tests
-   - profiling
-   - Investigate text rendering using signed distance fields (SDF)
    - switch to https://lib.rs/crates/schematic for config?
-   - explicit/portable cross config - OK
-   - unit testing where possible
+   - Error handling - OK? (miette)
+
+   - Sleep when nothing to do ? -> no with zoom effect
+   - Investigate text rendering using signed distance fields (SDF)
+   - profiling - hard on ARMv6
+
 
 - HTTP Api ?
 - publish
