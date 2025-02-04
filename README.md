@@ -9,7 +9,7 @@ Todo:
    - Pixel perfect
    - Handle descriptions from immich (memory lane, etc...)
    - Info placement - OK for now
-   - Zoom effect -> check for background worker first! (otherwise it will be freezed...)
+   - Zoom effect -> check for background worker first! (otherwise it will be freezed...) - OK
    - Other effects / transitions -> fadeout-fadein
    - Other layouts when possible (two photos at the same time)
    - Splash screen
@@ -24,7 +24,7 @@ Todo:
    - profiling
    - Investigate text rendering using signed distance fields (SDF)
    - switch to https://lib.rs/crates/schematic for config?
-   - explicit/portable cross config
+   - explicit/portable cross config - OK
    - unit testing where possible
 
 - HTTP Api ?

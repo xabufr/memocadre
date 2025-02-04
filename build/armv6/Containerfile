@@ -1,0 +1,34 @@
+FROM --platform=linux/arm/v6 tianon/raspbian:bookworm-slim as raspbian
+RUN apt update && apt install --assume-yes --no-install-recommends libgbm-dev && rm -rf /var/lib/apt/lists/*
+
+FROM --platform=linux/amd64 debian:bookworm
+
+ARG CROSS_URL="https://sourceforge.net/projects/raspberry-pi-cross-compilers/files/Raspberry Pi GCC Cross-Compiler Toolchains/Bookworm/GCC 13.3.0/Raspberry Pi 1, Zero/cross-gcc-13.3.0-pi_0-1.tar.gz/download"
+# Install cross compiler from https://github.com/abhiTronix/raspberry-pi-cross-compilers
+RUN apt update && apt install -y curl ca-certificates --no-install-recommends && \
+    curl -L $(echo "${CROSS_URL}" | sed 's/ /%20/g') -o cross-gcc-13.3.0-pi_0-1.tar.gz && \
+    tar -xvf cross-gcc-13.3.0-pi_0-1.tar.gz -C /opt/ && \
+    rm cross-gcc-13.3.0-pi_0-1.tar.gz && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN apt update && apt install --assume-yes build-essential && rm -rf /var/lib/apt/lists/*
+
+# RUN apt update && apt install --assume-yes crossbuild-essential-armhf && rm -rf /var/lib/apt/lists/*
+RUN bash -c "sh <(curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs) -y"
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN rustup target add arm-unknown-linux-gnueabihf
+# ADD cross-gcc-13.3.0-pi_0-1.tar.gz /opt/
+
+COPY --from=raspbian /usr/lib/arm-linux-gnueabihf/ /usr/lib/arm-linux-gnueabihf/
+COPY --from=raspbian /lib/arm-linux-gnueabihf/ /lib/arm-linux-gnueabihf/
+RUN ln -s /lib/arm-linux-gnueabihf/ld-linux-armhf.so.3 /lib/ld-linux-armhf.so.3
+
+ENV PATH="/opt/cross-pi-gcc-13.3.0-0/bin:${PATH}"
+
+ENV CROSS_TOOLCHAIN_PREFIX=arm-linux-gnueabihf-
+ENV CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_LINKER="$CROSS_TOOLCHAIN_PREFIX"gcc \
+    AR_arm_unknown_linux_gnueabihf="$CROSS_TOOLCHAIN_PREFIX"ar \
+    CC_arm_unknown_linux_gnueabihf="$CROSS_TOOLCHAIN_PREFIX"gcc \
+    CXX_arm_unknown_linux_gnueabihf="$CROSS_TOOLCHAIN_PREFIX"g++
+ENV RUSTFLAGS="-L /usr/lib/arm-linux-gnueabihf -L /lib/arm-linux-gnueabihf -L /usr/lib/arm-linux-gnueabihf/pulseaudio/ -C link-args=-Wl,-rpath-link,/usr/lib/arm-linux-gnueabihf,-rpath-link,/lib/arm-linux-gnueabihf,-rpath-link,/usr/lib/arm-linux-gnueabihf/pulseaudio/ $CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS"
