@@ -1,7 +1,6 @@
 use std::{thread, time::Duration};
 
 use anyhow::{Context, Result};
-use glow::HasContext;
 use serde::Deserialize;
 
 use super::Vertex2dUv;
