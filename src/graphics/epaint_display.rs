@@ -30,6 +30,7 @@ pub struct EpaintDisplay {
     program: Program,
     gl: GlContext,
     containers: Vec<Weak<RefCell<TextContainerInner>>>,
+    atlas_updated: bool,
 }
 
 #[repr(C)]
@@ -51,7 +52,9 @@ pub struct ShapeContainer {
 
 impl TextContainer {
     pub fn set_layout(&self, job: LayoutJob) {
-        self.0.borrow_mut().next_layout = Some(job);
+        let mut c = self.0.borrow_mut();
+        c.next_layout = Some(job);
+        c.is_dirty = true;
     }
 
     #[allow(dead_code)]
@@ -101,6 +104,7 @@ struct TextContainerInner {
     text_vao: VertexArrayObject<Vertex>,
     next_layout: Option<LayoutJob>,
     shape: Option<TextShape>,
+    is_dirty: bool,
 }
 
 impl From<epaint::Vertex> for Vertex {
@@ -142,10 +146,12 @@ impl EpaintDisplay {
             program,
             gl,
             containers: vec![],
+            atlas_updated: false,
         })
     }
 
     pub fn begin_frame(&mut self) {
+        self.atlas_updated = false;
         self.fonts
             .begin_pass(self.pixels_per_point, self.max_texture_size);
     }
@@ -185,6 +191,7 @@ impl EpaintDisplay {
             text_vao: vao,
             next_layout: None,
             shape: None,
+            is_dirty: false,
         };
         let container = Rc::new(RefCell::new(container));
         self.containers.push(Rc::downgrade(&container));
@@ -196,12 +203,15 @@ impl EpaintDisplay {
             let galley = self.fonts.layout_job(job);
             container.shape = Some(TextShape::new([0., 0.].into(), galley, Color32::WHITE));
         }
-        container.text_mesh.clear();
-        if let Some(shape) = &container.shape {
-            self.tesselator
-                .tessellate_text(shape, &mut container.text_mesh);
+        if container.is_dirty || self.atlas_updated {
+            container.is_dirty = false;
+            container.text_mesh.clear();
+            if let Some(shape) = &container.shape {
+                self.tesselator
+                    .tessellate_text(shape, &mut container.text_mesh);
 
-            write_mesh_to_vao(&container.text_mesh, &mut container.text_vao);
+                write_mesh_to_vao(&container.text_mesh, &mut container.text_vao);
+            }
         }
     }
 
@@ -310,6 +320,7 @@ impl EpaintDisplay {
                 Vec::new(),
             );
             self.texture.write(TextureFormat::Rgba, dimensions, &data);
+            self.atlas_updated = true;
         }
     }
 
