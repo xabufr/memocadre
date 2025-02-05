@@ -28,8 +28,6 @@ pub struct Sprite {
     pub size: Extent2<f32>,
     //
     pub opacity: f32,
-    //
-    pub scissor: Option<Rect<i32, i32>>,
 
     sub_rect: (Vec2<f32>, Vec2<f32>),
 }
@@ -43,7 +41,6 @@ impl Sprite {
             size: texture.size().as_(),
             opacity: 1.,
             texture,
-            scissor: None,
             sub_rect: DEFAULT_SUB_RECT,
         }
     }
@@ -148,7 +145,6 @@ impl ImageDrawert {
             0,
             &DrawParameters {
                 blend: Some(BlendMode::alpha()),
-                scissor: sprite.scissor,
             },
         );
         Ok(())

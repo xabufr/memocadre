@@ -105,7 +105,6 @@ pub struct Capabilities {
 #[derive(Default)]
 pub struct DrawParameters {
     pub blend: Option<BlendMode>,
-    pub scissor: Option<Rect<i32, i32>>,
 }
 
 #[derive(Copy, Clone)]
@@ -245,11 +244,6 @@ impl GlContextInner {
             } else {
                 self.gl.disable(glow::BLEND);
             }
-            if let Some(s) = &draw_parameters.scissor {
-                self.gl.scissor(s.x, s.y, s.w, s.h);
-                self.gl.enable(glow::SCISSOR_TEST);
-            } else {
-                self.gl.disable(glow::SCISSOR_TEST);
             }
             self.gl
                 .draw_elements(glow::TRIANGLES, count, glow::UNSIGNED_INT, offset);
