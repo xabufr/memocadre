@@ -19,6 +19,7 @@ Todo:
    - Direnv -> switch to flake
    - Better init for GBM/winit
    - switch to https://lib.rs/crates/schematic for config?
+   - from Schematic -> better serde errors OR switch to schematic
    - Error handling - OK? (miette)
 
    - Sleep when nothing to do ? -> no with zoom effect
