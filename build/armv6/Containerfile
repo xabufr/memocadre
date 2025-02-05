@@ -31,4 +31,4 @@ ENV CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_LINKER="$CROSS_TOOLCHAIN_PREFIX"gcc
     AR_arm_unknown_linux_gnueabihf="$CROSS_TOOLCHAIN_PREFIX"ar \
     CC_arm_unknown_linux_gnueabihf="$CROSS_TOOLCHAIN_PREFIX"gcc \
     CXX_arm_unknown_linux_gnueabihf="$CROSS_TOOLCHAIN_PREFIX"g++
-ENV RUSTFLAGS="-L /usr/lib/arm-linux-gnueabihf -L /lib/arm-linux-gnueabihf -L /usr/lib/arm-linux-gnueabihf/pulseaudio/ -C link-args=-Wl,-rpath-link,/usr/lib/arm-linux-gnueabihf,-rpath-link,/lib/arm-linux-gnueabihf,-rpath-link,/usr/lib/arm-linux-gnueabihf/pulseaudio/ $CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS"
+ENV RUSTFLAGS="-L /usr/lib/arm-linux-gnueabihf -L /lib/arm-linux-gnueabihf -L /usr/lib/arm-linux-gnueabihf/pulseaudio/ -C target-cpu=arm1176jzf-s -C link-args=-Wl,-rpath-link,/usr/lib/arm-linux-gnueabihf,-rpath-link,/lib/arm-linux-gnueabihf,-rpath-link,/usr/lib/arm-linux-gnueabihf/pulseaudio/ $CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS"
