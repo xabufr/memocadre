@@ -234,17 +234,21 @@ impl Slides {
         }
     }
 
-    pub fn load_next(self, slide: Slide, config: &Conf) -> Self {
-        match self {
-            Slides::None => Self::to_single(
-                slide,
-                SlideProperties {
-                    zoom: 0.9,
-                    ..SlideProperties::default()
-                },
-                config,
-                Instant::now(),
-            ),
+    pub fn load_next(&mut self, slide: Slide, config: &Conf) {
+        let mut old_self = Self::None;
+        std::mem::swap(self, &mut old_self);
+        match old_self {
+            Slides::None => {
+                *self = Self::to_single(
+                    slide,
+                    SlideProperties {
+                        zoom: 0.9,
+                        ..SlideProperties::default()
+                    },
+                    config,
+                    Instant::now(),
+                )
+            }
             Slides::Single(old)
             | Slides::Transitioning(TransitioningSlide { prev: _, next: old }) => {
                 let transition_duration = config.slideshow.transition_duration;
@@ -272,13 +276,11 @@ impl Slides {
                         glissade::keyframes::from(SlideProperties {
                             global_opacity: 0.,
                             zoom: 0.9,
-                            ..Default::default()
                         })
                         .ease_to(
                             SlideProperties {
                                 global_opacity: 1.,
                                 zoom: 0.9,
-                                ..Default::default()
                             },
                             transition_duration,
                             easing,
@@ -287,7 +289,7 @@ impl Slides {
                     ),
                 };
 
-                Slides::Transitioning(TransitioningSlide {
+                *self = Slides::Transitioning(TransitioningSlide {
                     prev: old,
                     next: new,
                 })
@@ -295,20 +297,27 @@ impl Slides {
         }
     }
 
-    pub fn update(mut self, config: &Conf) -> Self {
+    pub fn update(&mut self, config: &Conf) {
+        let mut old_self = Self::None;
+        std::mem::swap(self, &mut old_self);
         let instant = Instant::now();
-        match self {
-            Slides::None => self,
+        match old_self {
+            Slides::None => (),
             Slides::Single(ref mut slide) => {
                 slide.update(instant);
-                self
+                *self = old_self
             }
             Slides::Transitioning(mut t) => {
                 if t.is_finished(instant) {
-                    Self::to_single(t.next.slide, t.next.animation.get(instant), config, instant)
+                    *self = Self::to_single(
+                        t.next.slide,
+                        t.next.animation.get(instant),
+                        config,
+                        instant,
+                    );
                 } else {
                     t.update(instant);
-                    Slides::Transitioning(t)
+                    *self = Slides::Transitioning(t);
                 }
             }
         }

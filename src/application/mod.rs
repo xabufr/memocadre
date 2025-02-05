@@ -4,7 +4,6 @@ mod slide;
 use std::sync::{mpsc::TryRecvError, Arc};
 
 use anyhow::{Context, Result};
-use replace_with::replace_with_or_abort;
 use slide::Slides;
 use vek::Extent2;
 
@@ -65,14 +64,13 @@ impl ApplicationContext for Application {
                 Ok(image) => {
                     let slide = Slide::create(image, &mut self.graphics, &self.config)
                         .context("Cannot laod next frame")?;
-                    replace_with_or_abort(&mut self.slides, |slides| {
-                        slides.load_next(slide, &self.config)
-                    });
+
+                    self.slides.load_next(slide, &self.config);
                 }
             }
         }
 
-        replace_with_or_abort(&mut self.slides, |slides| slides.update(&self.config));
+        self.slides.update(&self.config);
 
         if let Some(fps) = &mut self.fps {
             fps.count_frame();
