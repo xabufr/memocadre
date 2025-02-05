@@ -53,7 +53,7 @@ impl FutureGlThreadContext {
             Some(surface) => {
                 let current = self
                     .context
-                    .make_current(&surface)
+                    .make_current(surface)
                     .context("Cannot make context current")?;
                 surface
                     .set_swap_interval(
@@ -96,6 +96,8 @@ impl Deref for GlContextInner {
 
 pub struct GlContextInfo {
     viewport: Rect<i32, i32>,
+    bound_shader: Option<NonZeroU32>,
+    blend_mode: Option<BlendMode>,
 }
 
 pub struct Capabilities {
@@ -107,25 +109,25 @@ pub struct DrawParameters {
     pub blend: Option<BlendMode>,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct BlendMode {
     pub alpha: BlendEquation,
     pub color: BlendEquation,
 }
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum BlendEquation {
     Add(BlendFunction),
     Subtract(BlendFunction),
     ReverseSubtract(BlendFunction),
 }
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub struct BlendFunction {
     pub src: BlendFactor,
     pub dst: BlendFactor,
 }
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum BlendFactor {
     Zero,
@@ -215,7 +217,11 @@ impl GlContextInner {
             capacities: Capabilities {
                 max_texture_size: unsafe { gl.get_parameter_i32(glow::MAX_TEXTURE_SIZE) } as u32,
             },
-            info: RefCell::new(GlContextInfo { viewport }),
+            info: RefCell::new(GlContextInfo {
+                viewport,
+                bound_shader: None,
+                blend_mode: None,
+            }),
             gl,
             surface,
             context,
@@ -231,19 +237,20 @@ impl GlContextInner {
         draw_parameters: &DrawParameters,
     ) {
         unsafe {
-            if let Some(blend) = &draw_parameters.blend {
-                self.gl.enable(glow::BLEND);
-                self.gl
-                    .blend_equation_separate(blend.color.to_gl(), blend.alpha.to_gl());
-                self.gl.blend_func_separate(
-                    blend.color.get_function().src.to_gl(),
-                    blend.color.get_function().dst.to_gl(),
-                    blend.alpha.get_function().src.to_gl(),
-                    blend.alpha.get_function().dst.to_gl(),
-                );
-            } else {
-                self.gl.disable(glow::BLEND);
-            }
+            if self.info.borrow().blend_mode != draw_parameters.blend {
+                if let Some(blend) = &draw_parameters.blend {
+                    self.gl.enable(glow::BLEND);
+                    self.gl
+                        .blend_equation_separate(blend.color.to_gl(), blend.alpha.to_gl());
+                    self.gl.blend_func_separate(
+                        blend.color.get_function().src.to_gl(),
+                        blend.color.get_function().dst.to_gl(),
+                        blend.alpha.get_function().src.to_gl(),
+                        blend.alpha.get_function().dst.to_gl(),
+                    );
+                } else {
+                    self.gl.disable(glow::BLEND);
+                }
             }
             self.gl
                 .draw_elements(glow::TRIANGLES, count, glow::UNSIGNED_INT, offset);
@@ -290,5 +297,10 @@ impl GlContextInner {
         unsafe {
             self.gl.finish();
         }
+    }
+
+    /// Update the bound shader and return the previous bound shader.
+    fn set_bound_shader(&self, shader: NonZeroU32) -> Option<NonZeroU32> {
+        self.info.borrow_mut().bound_shader.replace(shader)
     }
 }

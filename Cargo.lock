@@ -1163,6 +1163,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "micromap"
+version = "0.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c5b72ada413a5bd6bc65d6eef149fdc5138298f3bb89653d1a521f0fea7f9c73"
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1618,10 +1624,10 @@ dependencies = [
  "itertools 0.14.0",
  "log",
  "memoffset",
+ "micromap",
  "minreq",
  "mint",
  "raw-window-handle",
- "replace_with",
  "serde",
  "serde_json",
  "serde_repr",
@@ -1914,12 +1920,6 @@ name = "regex-syntax"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
-
-[[package]]
-name = "replace_with"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3a8614ee435691de62bcffcf4a66d91b3594bf1428a5722e79103249a095690"
 
 [[package]]
 name = "rgb"

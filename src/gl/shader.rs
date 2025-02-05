@@ -1,7 +1,6 @@
-use std::collections::HashMap;
-
 use anyhow::{Context, Error, Result};
 use glow::{HasContext, NativeProgram};
+use micromap::Map;
 use vek::{Extent2, Mat4, Vec2};
 
 use super::GlContext;
@@ -15,15 +14,7 @@ pub struct ProgramGuard<'a> {
 pub struct Program {
     program: NativeProgram,
     gl: GlContext,
-    uniforms: HashMap<String, UniformLocation>,
-}
-
-impl Drop for ProgramGuard<'_> {
-    fn drop(&mut self) {
-        unsafe {
-            self.program.gl.use_program(None);
-        }
-    }
+    uniforms: Map<String, UniformLocation, 10>,
 }
 
 pub enum UniformValue {
@@ -128,7 +119,7 @@ impl Program {
                         .with_context(|| format!("Cannot get uniform #{l}"))?;
                     Ok((info.name.to_owned(), glow::NativeUniformLocation(l as _)))
                 })
-                .collect::<Result<HashMap<String, UniformLocation>>>()
+                .collect::<Result<Map<String, UniformLocation, 10>>>()
                 .context("While creating uniforms cache")?;
             (program, uniforms)
         };
@@ -140,8 +131,11 @@ impl Program {
     }
 
     pub fn bind(&self) -> ProgramGuard {
-        unsafe {
-            self.gl.use_program(Some(self.program));
+        let previous = self.gl.set_bound_shader(self.program.0);
+        if previous != Some(self.program.0) {
+            unsafe {
+                self.gl.use_program(Some(self.program));
+            }
         }
         ProgramGuard { program: self }
     }

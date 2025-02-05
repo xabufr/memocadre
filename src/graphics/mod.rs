@@ -91,6 +91,7 @@ impl Graphics {
         Ok(graphics)
     }
 
+    #[allow(dead_code)]
     pub fn texture_from_image(&self, image: &DynamicImage) -> Result<Texture> {
         Texture::new_from_image(GlContext::clone(&self.gl), image)
     }
@@ -113,6 +114,7 @@ impl Graphics {
         self.dimensions
     }
 
+    #[inline]
     pub fn draw<D: Drawable>(&self, drawable: &D) -> Result<()> {
         drawable.draw(self)
     }
@@ -134,6 +136,7 @@ impl Graphics {
         self.epaint_display.create_shape(shape, texture)
     }
 
+    #[allow(dead_code)]
     pub fn blurr(&self) -> &ImageBlurr {
         &self.blurr
     }
@@ -165,6 +168,7 @@ impl Graphics {
 }
 
 impl Drawable for Sprite {
+    #[inline]
     fn draw(&self, graphics: &Graphics) -> Result<()> {
         graphics
             .image_drawer
@@ -174,6 +178,7 @@ impl Drawable for Sprite {
 }
 
 impl Drawable for TextContainer {
+    #[inline]
     fn draw(&self, graphics: &Graphics) -> Result<()> {
         graphics
             .epaint_display
@@ -183,6 +188,7 @@ impl Drawable for TextContainer {
 }
 
 impl Drawable for ShapeContainer {
+    #[inline]
     fn draw(&self, graphics: &Graphics) -> Result<()> {
         graphics
             .epaint_display

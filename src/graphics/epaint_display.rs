@@ -1,7 +1,5 @@
 use std::{
-    borrow::Borrow,
     cell::RefCell,
-    ops::DerefMut,
     rc::{Rc, Weak},
 };
 
@@ -91,9 +89,7 @@ impl TextContainer {
     }
 
     pub fn set_opacity(&self, opacity: f32) {
-        if let Some(shape) = self.0.borrow_mut().shape.as_mut() {
-            shape.opacity_factor = opacity;
-        }
+        self.0.borrow_mut().opacity_factor = opacity;
     }
 }
 
@@ -104,6 +100,7 @@ struct TextContainerInner {
     text_vao: VertexArrayObject<Vertex>,
     next_layout: Option<LayoutJob>,
     shape: Option<TextShape>,
+    opacity_factor: f32,
     is_dirty: bool,
 }
 
@@ -191,6 +188,7 @@ impl EpaintDisplay {
             text_vao: vao,
             next_layout: None,
             shape: None,
+            opacity_factor: 1f32,
             is_dirty: false,
         };
         let container = Rc::new(RefCell::new(container));
@@ -235,7 +233,6 @@ impl EpaintDisplay {
             0,
             &DrawParameters {
                 blend: Some(BlendMode::alpha()),
-                ..Default::default()
             },
         );
         Ok(())
@@ -243,7 +240,7 @@ impl EpaintDisplay {
 
     pub fn draw_container(&self, view: Mat4<f32>, container: &TextContainer) -> Result<()> {
         let container = RefCell::borrow(&container.0);
-        if container.borrow().shape.is_none() {
+        if container.shape.is_none() {
             return Ok(());
         }
         let prog = self.program.bind();
@@ -252,7 +249,7 @@ impl EpaintDisplay {
         prog.set_uniform("view", view)?;
         let model = Mat4::translation_2d(container.position);
         prog.set_uniform("model", model)?;
-        prog.set_uniform("opacity", 1f32)?;
+        prog.set_uniform("opacity", container.opacity_factor)?;
         let vao_bind = container.text_vao.bind_guard();
         self.gl.draw(
             &vao_bind,
@@ -261,7 +258,6 @@ impl EpaintDisplay {
             0,
             &DrawParameters {
                 blend: Some(BlendMode::alpha()),
-                ..Default::default()
             },
         );
         Ok(())
@@ -271,19 +267,15 @@ impl EpaintDisplay {
         if let Some(delta) = self.fonts.font_image_delta() {
             self.update_texture(delta);
         }
-        let containers = self
-            .containers
-            .iter()
-            .filter_map(|p| p.upgrade())
-            .collect::<Vec<_>>();
-        self.containers = containers
-            .into_iter()
-            .map(|p| {
-                let mut container = RefCell::borrow_mut(&p);
-                self.update_container(container.deref_mut());
-                Rc::downgrade(&p)
-            })
-            .collect::<Vec<_>>();
+        let mut i = 0;
+        while i < self.containers.len() {
+            if let Some(container) = self.containers[i].upgrade() {
+                self.update_container(&mut container.borrow_mut());
+                i += 1;
+            } else {
+                self.containers.swap_remove(i);
+            }
+        }
     }
 
     pub fn force_container_update(&mut self, container: &TextContainer) {
