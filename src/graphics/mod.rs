@@ -141,13 +141,17 @@ impl Graphics {
     fn update_vp(&mut self) {
         // TODO: better way to get dims?
         let vp = self.gl.current_viewport();
-        self.dimensions = vp.extent().as_();
+        let mut dimensions = vp.extent().as_::<u32>();
         match self.orientation.name {
             OrientationName::Angle0 | OrientationName::Angle180 => {}
             OrientationName::Angle90 | OrientationName::Angle270 => {
-                self.dimensions.swap(0, 1);
+                dimensions.swap(0, 1);
             }
         }
+        if dimensions == self.dimensions {
+            return;
+        }
+        self.dimensions = dimensions;
         self.view = self.orientation.value
             * Mat4::orthographic_without_depth_planes(FrustumPlanes {
                 left: 0.,
