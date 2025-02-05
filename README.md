@@ -14,6 +14,8 @@ Todo:
    - Other layouts when possible (two photos at the same time)
 
 - Technical:
+   - no println (use log)
+   - Reduce Gl calls (shader bindings)
    - unit testing where possible
    - Better immich errors - OK?
    - Direnv -> switch to flake
