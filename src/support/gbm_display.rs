@@ -14,10 +14,9 @@ use drm::{
 };
 use gbm::{AsRaw, BufferObjectFlags};
 use glutin::{
-    config::ConfigTemplateBuilder,
+    config::{Api, ConfigTemplateBuilder},
     context::ContextAttributesBuilder,
     display::{GetGlDisplay as _, GlDisplay},
-    prelude::*,
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
 use log::debug;
@@ -66,11 +65,6 @@ pub fn start_gbm<T>(app_config: Arc<Conf>) -> Result<()>
 where
     T: ApplicationContext + 'static,
 {
-    let devices = glutin::api::egl::device::Device::query_devices()
-        .context("Failed to query devices")?
-        .collect::<Vec<_>>();
-    debug!("found devices: {devices:#?}");
-
     let drm_device = Card::open().context("While opening DRM device")?;
     let res = drm_device
         .resource_handles()
@@ -96,6 +90,11 @@ where
         .context("Cannot get CRTC")?;
 
     let (width, height) = mode.size();
+    debug!(
+        "Will start DRM rendering with {width}x{height}@{} resolution",
+        mode.vrefresh()
+    );
+
     let device = gbm::Device::new(drm_device).context("Cannot open GBM device")?;
     let display = unsafe {
         let ptr: NonNull<c_void> =
@@ -104,31 +103,20 @@ where
         glutin::display::Display::new(display, glutin::display::DisplayApiPreference::Egl)
             .context("Cannot initialize glutin display")?
     };
-    let config = unsafe {
-        let configs = display
+    let gl_config = unsafe {
+        display
             .find_configs(
                 ConfigTemplateBuilder::new()
                     .prefer_hardware_accelerated(Some(true))
+                    .with_api(Api::GLES2 | Api::GLES3)
                     .build(),
             )
-            .context("Cannot find config")?;
-        let configs = configs.collect::<Vec<_>>();
-        for config in &configs {
-            println!("config: {:?}", config);
-            println!(
-                "config APIs: {:?}",
-                config.api().iter_names().collect::<Vec<_>>()
-            );
-            println!("config hardware: {:?}", config.hardware_accelerated());
-            println!("color: {:?}", config.color_buffer_type());
-            println!("float pixels: {:?}", config.float_pixels());
-            println!("samples: {:?}", config.num_samples());
-        }
-        configs
-            .into_iter()
+            .context("Cannot find config")?
             .next()
             .context("No available config found")?
     };
+
+    debug!("Using gl config: {gl_config:?}");
     let (surface, window, gbm_surface) = unsafe {
         let gbm_surface = device
             .create_surface::<()>(
@@ -143,7 +131,7 @@ where
         ));
         let surface = display
             .create_window_surface(
-                &config,
+                &gl_config,
                 &SurfaceAttributesBuilder::<WindowSurface>::new().build(
                     window_handle,
                     NonZeroU32::new(width as _).unwrap(),
@@ -156,7 +144,7 @@ where
     let not_current_gl_context = unsafe {
         display
             .create_context(
-                &config,
+                &gl_config,
                 &ContextAttributesBuilder::new()
                     .with_context_api(glutin::context::ContextApi::Gles(None))
                     .build(Some(window)),
@@ -164,12 +152,12 @@ where
             .context("Cannot create openGL context")?
     };
 
-    let gl = FutureGlThreadContext::new(Some(surface), not_current_gl_context, config.display());
+    let gl = FutureGlThreadContext::new(Some(surface), not_current_gl_context, gl_config.display());
 
     let bg_context = unsafe {
         display
             .create_context(
-                &config,
+                &gl_config,
                 &ContextAttributesBuilder::new()
                     .with_context_api(glutin::context::ContextApi::Gles(None))
                     .with_sharing(gl.get_context())
@@ -182,7 +170,7 @@ where
     let gl = gl
         .activate()
         .context("Cannot activate main GL context on surface")?;
-    let bg_gl = FutureGlThreadContext::new(None, bg_context, config.display());
+    let bg_gl = FutureGlThreadContext::new(None, bg_context, gl_config.display());
 
     gl.swap_buffers().context("Cannot swap buffers")?;
 
