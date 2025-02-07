@@ -56,9 +56,6 @@ impl Deref for SharedTexture2d {
     }
 }
 
-#[cfg(test)]
-unsafe impl Send for SharedTexture2d {}
-
 struct Orientation {
     name: OrientationName,
     value: Mat4<f32>,
