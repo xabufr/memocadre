@@ -413,6 +413,7 @@ impl Drawable for AnimatedSlide {
 mod test {
     use std::rc::Rc;
 
+    use chrono::{DateTime, Locale, NaiveDate, Utc};
     use googletest::{
         assert_pred, expect_pred, expect_that, gtest,
         matchers::matches_pattern,
@@ -643,5 +644,30 @@ mod test {
         let text = slide.text.as_ref().unwrap();
         let galley = text.container.galley().unwrap();
         expect_that!(galley.text(), eq("A wonderfull city"));
+    }
+
+    #[gtest]
+    fn test_slide_text_date() {
+        let gl = mocked_gl();
+        let gl = Rc::new(GlContext::mocked(gl));
+        let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
+
+        let mut config = Conf::mock();
+        config.slideshow.date.locale = Locale::fr_FR;
+        config.slideshow.date.format = "%A %e %B %Y".into();
+        let mut preloaded_slide = preloaded_slide((800, 600).into());
+        let date = NaiveDate::from_ymd_opt(2025, 01, 25)
+            .unwrap()
+            .and_hms_opt(12, 30, 50)
+            .unwrap()
+            .and_local_timezone(Utc)
+            .unwrap();
+        preloaded_slide.details.date = Some(date);
+
+        let slide = Slide::create(preloaded_slide, &mut graphics, &config).unwrap();
+        assert_pred!(slide.text.is_some());
+        let text = slide.text.as_ref().unwrap();
+        let galley = text.container.galley().unwrap();
+        expect_that!(galley.text(), eq("samedi 25 janvier 2025"));
     }
 }
