@@ -15,6 +15,17 @@ pub struct Conf {
     pub debug: DebugSettings,
 }
 
+#[cfg(test)]
+impl Conf {
+    pub fn mock() -> Self {
+        Self {
+            sources: Default::default(),
+            slideshow: Default::default(),
+            debug: Default::default(),
+        }
+    }
+}
+
 #[derive(Deserialize, Debug)]
 #[serde(default, deny_unknown_fields)]
 pub struct Slideshow {

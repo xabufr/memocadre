@@ -1,10 +1,9 @@
-use std::sync::{
+use std::{rc::Rc, sync::{
     mpsc::{Receiver, SyncSender},
     Arc, RwLock, Weak,
-};
+}};
 
 use anyhow::{Context, Result};
-use glow::HasContext;
 use image::{imageops::FilterType, DynamicImage, GenericImageView};
 use log::error;
 use thread_priority::{set_current_thread_priority, ThreadPriority};
@@ -13,7 +12,10 @@ use vek::Extent2;
 use crate::{
     configuration::{Conf, ImageFilter},
     gallery::{build_sources, ImageDetails},
-    gl::{texture::DetachedTexture, FutureGlThreadContext, GlContext, Texture},
+    gl::{
+        texture::{DetachedTexture, Texture},
+        FutureGlThreadContext, GlContext,
+    },
     graphics::{BlurOptions, ImageBlurr},
 };
 
@@ -78,7 +80,7 @@ impl Worker {
     }
 }
 impl WorkerImpl {
-    fn work(&self, gl: &GlContext, blurr: &ImageBlurr) -> Result<()> {
+    fn work(&self, gl: &Rc<GlContext>, blurr: &ImageBlurr) -> Result<()> {
         if let Err(err) = set_current_thread_priority(ThreadPriority::Min) {
             error!("Cannot change worker thread priority to minimal: {:?}", err);
         }

@@ -1,9 +1,11 @@
+use std::rc::Rc;
+
 use anyhow::{Error, Result};
 use bytemuck::NoUninit;
-use glow::HasContext;
 
 use super::{
     buffer_object::{BufferObject, ElementBufferObject},
+    wrapper::GlowContext,
     GlContext,
 };
 
@@ -42,12 +44,12 @@ pub struct VertexArrayObject<V> {
     // If `None`, we emulate VAO:s.
     vao: Option<glow::VertexArray>,
     buffer_infos: Vec<BufferInfo>,
-    gl: GlContext,
+    gl: Rc<GlContext>,
 }
 
 impl<V: NoUninit> VertexArrayObject<V> {
     pub fn new(
-        gl: GlContext,
+        gl: Rc<GlContext>,
         vbo: BufferObject<V>,
         ebo: ElementBufferObject,
         buffer_infos: Vec<BufferInfo>,
@@ -129,7 +131,7 @@ impl<V> Drop for VertexArrayObject<V> {
 }
 // ----------------------------------------------------------------------------
 
-fn supports_vao(gl: &glow::Context) -> bool {
+fn supports_vao(gl: &GlowContext) -> bool {
     const WEBGL_PREFIX: &str = "WebGL ";
     const OPENGL_ES_PREFIX: &str = "OpenGL ES ";
 

@@ -1,7 +1,7 @@
 mod gbm_display;
 mod window_display;
 
-use std::sync::Arc;
+use std::{rc::Rc, sync::Arc};
 
 use anyhow::{Context, Result};
 
@@ -15,7 +15,7 @@ pub trait ApplicationContext: Sized {
     fn draw_frame(&mut self) -> Result<()> {
         Ok(())
     }
-    fn new(config: Arc<Conf>, gl: GlContext, bg_gl: FutureGlThreadContext) -> Result<Self>;
+    fn new(config: Arc<Conf>, gl: Rc<GlContext>, bg_gl: FutureGlThreadContext) -> Result<Self>;
     fn update(&mut self) {}
     fn resized(&mut self, _width: u32, _height: u32) {}
     fn handle_window_event(

@@ -53,6 +53,6 @@ impl FPSCounter {
 
 impl Drawable for FPSCounter {
     fn draw(&self, graphics: &Graphics) -> anyhow::Result<()> {
-        graphics.draw(&self.fps_text)
+        self.fps_text.draw(graphics)
     }
 }

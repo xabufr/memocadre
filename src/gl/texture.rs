@@ -1,16 +1,18 @@
+use std::rc::Rc;
+
 use anyhow::{Error, Result};
-use glow::HasContext;
 use image::{DynamicImage, GenericImageView};
 use vek::{Extent2, Rect};
 
-use super::GlContext;
+use super::{wrapper::GlowContext, GlContext};
 
+#[derive(Debug)]
 pub struct Texture {
     texture: glow::Texture,
     size: Extent2<u32>,
     format: TextureFormat,
     options: TextureOptions,
-    gl: GlContext,
+    gl: Rc<GlContext>,
     detached: bool,
 }
 
@@ -21,24 +23,41 @@ pub struct DetachedTexture {
     options: TextureOptions,
 }
 
-#[derive(Copy, Clone, Default)]
+#[cfg(test)]
+impl DetachedTexture {
+    pub fn mock(size: Extent2<u32>) -> Self {
+        use std::num::NonZeroU32;
+        Self {
+            texture: glow::NativeTexture(NonZeroU32::new(1).unwrap()),
+            size,
+            format: TextureFormat::Rgb,
+            options: Default::default(),
+        }
+    }
+
+    pub fn to_texture(&self, gl: Rc<GlContext>) -> Texture {
+        Texture::mocked(gl, self.size)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default)]
 pub struct TextureOptions {
     pub mag: TextureFiltering,
     pub min: TextureFiltering,
     pub wrap: TextureWrapMode,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum TextureFormat {
     Rgba,
     Rgb,
 }
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum TextureFiltering {
     Nearest,
     Linear,
 }
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum TextureWrapMode {
     ClampToEdge,
     MirroredRepeat,
@@ -90,7 +109,23 @@ impl TextureWrapMode {
 const TARGET: u32 = glow::TEXTURE_2D;
 
 impl Texture {
-    pub fn new_from_image(gl: GlContext, image: &DynamicImage) -> Result<Self> {
+    #[cfg(test)]
+    pub fn mocked(gl: Rc<GlContext>, size: Extent2<u32>) -> Self {
+        use std::num::NonZeroU32;
+
+        use glow::NativeTexture;
+
+        Self {
+            size,
+            gl,
+            format: TextureFormat::Rgb,
+            options: Default::default(),
+            texture: NativeTexture(NonZeroU32::new(1).unwrap()),
+            detached: false,
+        }
+    }
+
+    pub fn new_from_image(gl: Rc<GlContext>, image: &DynamicImage) -> Result<Self> {
         let mut tex = Self {
             size: image.dimensions().into(),
             texture: unsafe { Self::load_texture(&gl, image)? },
@@ -103,7 +138,11 @@ impl Texture {
         Ok(tex)
     }
 
-    pub fn empty(gl: GlContext, format: TextureFormat, dimensions: Extent2<u32>) -> Result<Self> {
+    pub fn empty(
+        gl: Rc<GlContext>,
+        format: TextureFormat,
+        dimensions: Extent2<u32>,
+    ) -> Result<Self> {
         let mut tex = unsafe {
             let texture = gl.create_texture().map_err(Error::msg)?;
             gl.bind_texture(TARGET, Some(texture));
@@ -132,7 +171,7 @@ impl Texture {
         Ok(tex)
     }
 
-    pub fn from_detached(gl: GlContext, detached: DetachedTexture) -> Self {
+    pub fn from_detached(gl: Rc<GlContext>, detached: DetachedTexture) -> Self {
         Self {
             size: detached.size,
             texture: detached.texture,
@@ -223,7 +262,7 @@ impl Texture {
         self.size
     }
 
-    unsafe fn load_texture(gl: &glow::Context, image: &DynamicImage) -> Result<glow::Texture> {
+    unsafe fn load_texture(gl: &GlowContext, image: &DynamicImage) -> Result<glow::Texture> {
         let texture = gl.create_texture().map_err(Error::msg)?;
         gl.bind_texture(TARGET, Some(texture));
         // FIXME set in graphics init

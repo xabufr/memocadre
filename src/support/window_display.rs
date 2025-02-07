@@ -1,4 +1,4 @@
-use std::{num::NonZeroU32, sync::Arc};
+use std::{num::NonZeroU32, rc::Rc, sync::Arc};
 
 use anyhow::{Context, Result};
 use glutin::{
@@ -20,7 +20,7 @@ use crate::{
 };
 
 pub struct State<T> {
-    pub gl: GlContext,
+    pub gl: Rc<GlContext>,
     pub window: winit::window::Window,
     pub context: T,
 }
@@ -187,8 +187,7 @@ impl<T: ApplicationContext + 'static> State<T> {
         bg_gl: FutureGlThreadContext,
     ) -> Self {
         let gl = gl.activate().expect("Cannot make context current");
-        let context =
-            T::new(config, GlContext::clone(&gl), bg_gl).expect("Cannot create application");
+        let context = T::new(config, Rc::clone(&gl), bg_gl).expect("Cannot create application");
         Self {
             gl,
             window,

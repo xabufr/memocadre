@@ -1,8 +1,7 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, rc::Rc};
 
 use anyhow::{bail, Error, Result};
 use bytemuck::NoUninit;
-use glow::HasContext;
 
 use super::GlContext;
 
@@ -42,7 +41,7 @@ pub struct BufferObject<Type> {
     object: glow::NativeBuffer,
     target: BufferTarget,
     usage: BufferUsage,
-    gl: GlContext,
+    gl: Rc<GlContext>,
     /// Size of the buffer in elements
     size: usize,
     _data_type: PhantomData<Type>,
@@ -79,7 +78,7 @@ impl<Type: NoUninit> BufferObject<Type> {
 }
 
 impl<Type> BufferObject<Type> {
-    fn new(gl: GlContext, target: BufferTarget, usage: BufferUsage) -> Result<Self> {
+    fn new(gl: Rc<GlContext>, target: BufferTarget, usage: BufferUsage) -> Result<Self> {
         let object = unsafe { gl.create_buffer().map_err(Error::msg)? };
         Ok(BufferObject {
             object,
@@ -91,7 +90,7 @@ impl<Type> BufferObject<Type> {
         })
     }
 
-    pub fn new_vertex_buffer(gl: GlContext, usage: BufferUsage) -> Result<Self> {
+    pub fn new_vertex_buffer(gl: Rc<GlContext>, usage: BufferUsage) -> Result<Self> {
         BufferObject::new(gl, BufferTarget::ArrayBuffer, usage)
     }
 
@@ -114,7 +113,7 @@ impl<Type> BufferObject<Type> {
 }
 
 impl BufferObject<u32> {
-    pub fn new_index_buffer(gl: GlContext, usage: BufferUsage) -> Result<Self> {
+    pub fn new_index_buffer(gl: Rc<GlContext>, usage: BufferUsage) -> Result<Self> {
         BufferObject::new(gl, BufferTarget::ElementArrayBuffer, usage)
     }
 }

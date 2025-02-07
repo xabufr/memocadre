@@ -21,7 +21,7 @@ pub struct Slide {
     text: Option<TextWithBackground>,
 }
 
-pub enum Slides {
+pub enum Slideshow {
     None,
     Single(AnimatedSlide),
     Transitioning(TransitioningSlide),
@@ -172,6 +172,7 @@ impl Slide {
 }
 
 impl TextWithBackground {
+    // TODO Test me !
     fn create(graphics: &mut Graphics, text: String) -> Result<Self> {
         let display_size = graphics.get_dimensions();
         let bottom_padding = 10f32;
@@ -210,7 +211,7 @@ impl TextWithBackground {
                 )
             };
             let mut shape = graphics.create_shape(rect.into(), None)?;
-            shape.position = container.get_bounding_rect().position() - bg_padding;
+            shape.set_position(container.get_bounding_rect().position() - bg_padding);
             shape
         };
         Ok(Self {
@@ -221,24 +222,26 @@ impl TextWithBackground {
 
     fn set_opacity(&mut self, alpha: f32) {
         self.container.set_opacity(alpha);
-        self.background.opacity_factor = alpha;
+        self.background.set_opacity(alpha);
     }
 }
 
-impl Slides {
+impl Slideshow {
+    // TODO: Take instant as argument
     pub fn should_load_next(&self) -> bool {
         match self {
-            Slides::None => true,
-            Slides::Single(slide) => slide.animation.is_finished(Instant::now()),
-            Slides::Transitioning(_) => false,
+            Slideshow::None => true,
+            Slideshow::Single(slide) => slide.animation.is_finished(Instant::now()),
+            Slideshow::Transitioning(_) => false,
         }
     }
 
+    // TODO: Take instant as argument
     pub fn load_next(&mut self, slide: Slide, config: &Conf) {
         let mut old_self = Self::None;
         std::mem::swap(self, &mut old_self);
         match old_self {
-            Slides::None => {
+            Slideshow::None => {
                 *self = Self::to_single(
                     slide,
                     SlideProperties {
@@ -249,8 +252,8 @@ impl Slides {
                     Instant::now(),
                 )
             }
-            Slides::Single(old)
-            | Slides::Transitioning(TransitioningSlide { prev: _, next: old }) => {
+            Slideshow::Single(old)
+            | Slideshow::Transitioning(TransitioningSlide { prev: _, next: old }) => {
                 let transition_duration = config.slideshow.transition_duration;
                 let easing = glissade::Easing::QuarticInOut;
                 let now = Instant::now();
@@ -289,7 +292,7 @@ impl Slides {
                     ),
                 };
 
-                *self = Slides::Transitioning(TransitioningSlide {
+                *self = Slideshow::Transitioning(TransitioningSlide {
                     prev: old,
                     next: new,
                 })
@@ -297,17 +300,19 @@ impl Slides {
         }
     }
 
+    // TODO: Take instant as argument
+    // TODO: Test me !
     pub fn update(&mut self, config: &Conf) {
         let mut old_self = Self::None;
         std::mem::swap(self, &mut old_self);
         let instant = Instant::now();
         match old_self {
-            Slides::None => (),
-            Slides::Single(ref mut slide) => {
+            Slideshow::None => (),
+            Slideshow::Single(ref mut slide) => {
                 slide.update(instant);
                 *self = old_self
             }
-            Slides::Transitioning(mut t) => {
+            Slideshow::Transitioning(mut t) => {
                 if t.is_finished(instant) {
                     *self = Self::to_single(
                         t.next.slide,
@@ -317,7 +322,7 @@ impl Slides {
                     );
                 } else {
                     t.update(instant);
-                    *self = Slides::Transitioning(t);
+                    *self = Slideshow::Transitioning(t);
                 }
             }
         }
@@ -360,8 +365,8 @@ impl TransitioningSlide {
 
 impl Drawable for TransitioningSlide {
     fn draw(&self, graphics: &Graphics) -> Result<()> {
-        graphics.draw(&self.prev)?;
-        graphics.draw(&self.next)?;
+        self.prev.draw(graphics)?;
+        self.next.draw(graphics)?;
         Ok(())
     }
 }
@@ -369,36 +374,274 @@ impl Drawable for TransitioningSlide {
 impl Drawable for Slide {
     fn draw(&self, graphics: &Graphics) -> Result<()> {
         for sprite in self.background.iter().flatten() {
-            graphics.draw(sprite)?;
+            sprite.draw(graphics)?;
         }
-        graphics.draw(&self.main_sprite)?;
+        self.main_sprite.draw(graphics)?;
         if let Some(text) = &self.text {
-            graphics.draw(text)?;
+            text.draw(graphics)?;
         }
         Ok(())
     }
 }
 
-impl Drawable for Slides {
+impl Drawable for Slideshow {
     fn draw(&self, graphics: &Graphics) -> Result<()> {
         match self {
-            Slides::None => Ok(()),
-            Slides::Single(slide) => graphics.draw(slide),
-            Slides::Transitioning(transitioning_slide) => graphics.draw(transitioning_slide),
+            Slideshow::None => Ok(()),
+            Slideshow::Single(slide) => slide.draw(graphics),
+            Slideshow::Transitioning(transitioning_slide) => transitioning_slide.draw(graphics),
         }
     }
 }
 
 impl Drawable for TextWithBackground {
     fn draw(&self, graphics: &Graphics) -> Result<()> {
-        graphics.draw(&self.background)?;
-        graphics.draw(&self.container)?;
+        self.background.draw(graphics)?;
+        self.container.draw(graphics)?;
         Ok(())
     }
 }
 
 impl Drawable for AnimatedSlide {
     fn draw(&self, graphics: &Graphics) -> Result<()> {
-        graphics.draw(&self.slide)
+        self.slide.draw(graphics)
+    }
+}
+
+// Test module
+#[cfg(test)]
+mod test {
+    use std::rc::Rc;
+
+    use googletest::{
+        assert_pred, expect_pred, expect_that, gtest,
+        matchers::matches_pattern,
+        prelude::{approx_eq, eq},
+    };
+    use vek::{Extent2, Vec2};
+
+    use super::{Background, Conf, PreloadedSlide, Slide};
+    use crate::{
+        configuration::OrientationName,
+        gallery::ImageDetails,
+        gl::{texture::DetachedTexture, wrapper::mocked_gl, GlContext},
+        graphics::{Graphics, TextureRegion},
+    };
+
+    fn preloaded_slide(size: Extent2<u32>) -> PreloadedSlide {
+        PreloadedSlide {
+            details: ImageDetails {
+                city: None,
+                date: None,
+                people: Default::default(),
+            },
+            texture: DetachedTexture::mock(size),
+            blurred_texture: DetachedTexture::mock(size),
+        }
+    }
+
+    #[gtest]
+    fn test_simple_slide_creation() {
+        let gl = mocked_gl();
+        let gl = Rc::new(GlContext::mocked(gl));
+        let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
+
+        let mut config = Conf::mock();
+        config.slideshow.background = Background::Black;
+        let preloaded_slide = preloaded_slide((100, 100).into());
+
+        let slide = Slide::create(preloaded_slide, &mut graphics, &config).unwrap();
+        expect_pred!(slide.background.is_none());
+        expect_that!(
+            slide.main_sprite.size,
+            matches_pattern!(Extent2 {
+                w: approx_eq(600.),
+                h: approx_eq(600.),
+            })
+        );
+        expect_that!(
+            slide.main_sprite.position,
+            matches_pattern!(Vec2 {
+                x: approx_eq(100.),
+                y: approx_eq(0.),
+            })
+        );
+        expect_pred!(slide.text.is_none());
+    }
+
+    #[gtest]
+    fn test_slide_with_background_sides() {
+        let gl = mocked_gl();
+        let gl = Rc::new(GlContext::mocked(gl));
+        let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
+
+        let mut config = Conf::mock();
+        config.slideshow.background = Background::Burr { min_free_space: 50 };
+        let preloaded_slide = preloaded_slide((400, 600).into());
+
+        let slide = Slide::create(preloaded_slide, &mut graphics, &config).unwrap();
+        expect_that!(
+            slide.main_sprite.size,
+            matches_pattern!(Extent2 {
+                w: approx_eq(400.),
+                h: approx_eq(600.),
+            })
+        );
+        expect_that!(
+            slide.main_sprite.position,
+            matches_pattern!(Vec2 {
+                x: approx_eq(200.),
+                y: approx_eq(0.),
+            })
+        );
+        assert_pred!(slide.background.is_some());
+        let background = slide.background.as_ref().unwrap();
+        for i in 0..2 {
+            expect_that!(
+                background[i].size,
+                matches_pattern!(Extent2 {
+                    w: approx_eq(200.),
+                    h: approx_eq(600.),
+                })
+            );
+        }
+        // verify background position
+        expect_that!(
+            background[0].position,
+            matches_pattern!(Vec2 {
+                x: approx_eq(0.),
+                y: approx_eq(0.),
+            })
+        );
+        expect_that!(
+            background[1].position,
+            matches_pattern!(Vec2 {
+                x: approx_eq(600.),
+                y: approx_eq(0.),
+            })
+        );
+        // verify background sub_rect
+        expect_that!(
+            background[0].get_sub_center_size(),
+            matches_pattern!(TextureRegion {
+                uv_center: matches_pattern!(Vec2 {
+                    x: approx_eq(0.25),
+                    y: approx_eq(0.5)
+                }),
+                uv_size: matches_pattern!(Extent2 {
+                    w: approx_eq(0.25),
+                    h: approx_eq(0.5)
+                }),
+            })
+        );
+        expect_that!(
+            background[1].get_sub_center_size(),
+            matches_pattern!(TextureRegion {
+                uv_center: matches_pattern!(Vec2 {
+                    x: approx_eq(0.75),
+                    y: approx_eq(0.5)
+                }),
+                uv_size: matches_pattern!(Extent2 {
+                    w: approx_eq(0.25),
+                    h: approx_eq(0.5)
+                }),
+            })
+        );
+    }
+
+    #[gtest]
+    fn test_slide_with_background_top_bottom() {
+        let gl = mocked_gl();
+        let gl = Rc::new(GlContext::mocked(gl));
+        let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
+        let mut config = Conf::mock();
+        config.slideshow.background = Background::Burr { min_free_space: 50 };
+        let preloaded_slide = preloaded_slide((800, 400).into());
+
+        let slide = Slide::create(preloaded_slide, &mut graphics, &config).unwrap();
+        expect_that!(
+            slide.main_sprite.size,
+            matches_pattern!(Extent2 {
+                w: approx_eq(800.),
+                h: approx_eq(400.),
+            })
+        );
+        expect_that!(
+            slide.main_sprite.position,
+            matches_pattern!(Vec2 {
+                x: approx_eq(0.),
+                y: approx_eq(100.),
+            })
+        );
+        assert_pred!(slide.background.is_some());
+        let background = slide.background.as_ref().unwrap();
+        for i in 0..2 {
+            expect_that!(
+                background[i].size,
+                matches_pattern!(Extent2 {
+                    w: approx_eq(800.),
+                    h: approx_eq(100.),
+                })
+            );
+        }
+        // verify background position
+        expect_that!(
+            background[0].position,
+            matches_pattern!(Vec2 {
+                x: approx_eq(0.),
+                y: approx_eq(0.),
+            })
+        );
+        expect_that!(
+            background[1].position,
+            matches_pattern!(Vec2 {
+                x: approx_eq(0.),
+                y: approx_eq(500.),
+            })
+        );
+        // verify background sub_rect
+        expect_that!(
+            background[0].get_sub_center_size(),
+            matches_pattern!(TextureRegion {
+                uv_center: matches_pattern!(Vec2 {
+                    x: approx_eq(0.5),
+                    y: approx_eq(0.125)
+                }),
+                uv_size: matches_pattern!(Extent2 {
+                    w: approx_eq(0.5),
+                    h: approx_eq(0.125)
+                }),
+            })
+        );
+        expect_that!(
+            background[1].get_sub_center_size(),
+            matches_pattern!(TextureRegion {
+                uv_center: matches_pattern!(Vec2 {
+                    x: approx_eq(0.5),
+                    y: approx_eq(0.875)
+                }),
+                uv_size: matches_pattern!(Extent2 {
+                    w: approx_eq(0.5),
+                    h: approx_eq(0.125)
+                }),
+            })
+        );
+    }
+
+    #[gtest]
+    fn test_slide_text() {
+        let gl = mocked_gl();
+        let gl = Rc::new(GlContext::mocked(gl));
+        let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
+
+        let config = Conf::mock();
+        let mut preloaded_slide = preloaded_slide((800, 600).into());
+        preloaded_slide.details.city = Some("A wonderfull city".into());
+
+        let slide = Slide::create(preloaded_slide, &mut graphics, &config).unwrap();
+        assert_pred!(slide.text.is_some());
+        let text = slide.text.as_ref().unwrap();
+        let galley = text.container.galley().unwrap();
+        expect_that!(galley.text(), eq("A wonderfull city"));
     }
 }

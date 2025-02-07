@@ -2,7 +2,7 @@ mod blur;
 mod epaint_display;
 mod image_display;
 
-use std::{f32::consts::PI, rc::Rc};
+use std::{f32::consts::PI, ops::Deref, rc::Rc};
 
 use anyhow::{Context, Result};
 use bytemuck::{Pod, Zeroable};
@@ -11,14 +11,19 @@ use image::DynamicImage;
 use vek::{Extent2, FrustumPlanes, Mat4};
 
 use self::epaint_display::EpaintDisplay;
+#[cfg(test)]
+pub use self::image_display::TextureRegion;
 pub use self::{
     blur::{BlurOptions, ImageBlurr},
     epaint_display::{ShapeContainer, TextContainer},
-    image_display::{ImageDrawert, Sprite},
+    image_display::{ImageDrawer, Sprite},
 };
 use crate::{
     configuration::OrientationName,
-    gl::{texture::DetachedTexture, GlContext, Texture},
+    gl::{
+        texture::{DetachedTexture, Texture},
+        GlContext,
+    },
 };
 
 #[repr(C)]
@@ -28,7 +33,31 @@ struct Vertex2dUv {
     uv: [f32; 2],
 }
 
-pub type SharedTexture2d = Rc<Texture>;
+#[derive(Clone, Debug)]
+pub struct SharedTexture2d(Rc<Texture>);
+
+impl PartialEq for SharedTexture2d {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl SharedTexture2d {
+    pub fn new(texture: Texture) -> Self {
+        Self(Rc::new(texture))
+    }
+}
+
+impl Deref for SharedTexture2d {
+    type Target = Texture;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[cfg(test)]
+unsafe impl Send for SharedTexture2d {}
 
 struct Orientation {
     name: OrientationName,
@@ -57,13 +86,13 @@ impl OrientationName {
 }
 
 pub struct Graphics {
-    image_drawer: ImageDrawert,
+    image_drawer: ImageDrawer,
     blurr: ImageBlurr,
     epaint_display: EpaintDisplay,
     view: Mat4<f32>,
     orientation: Orientation,
     dimensions: Extent2<u32>,
-    gl: GlContext,
+    gl: Rc<GlContext>,
 }
 
 pub trait Drawable {
@@ -71,12 +100,11 @@ pub trait Drawable {
 }
 
 impl Graphics {
-    pub fn new(gl: GlContext, orientation: OrientationName) -> Result<Self> {
-        let image_drawer =
-            ImageDrawert::new(GlContext::clone(&gl)).context("Cannot create ImageDrawer")?;
-        let blurr = ImageBlurr::new(GlContext::clone(&gl)).context("Cannot create ImageBlurr")?;
+    pub fn new(gl: Rc<GlContext>, orientation: OrientationName) -> Result<Self> {
+        let image_drawer = ImageDrawer::new(Rc::clone(&gl)).context("Cannot create ImageDrawer")?;
+        let blurr = ImageBlurr::new(Rc::clone(&gl)).context("Cannot create ImageBlurr")?;
         let epaint_display =
-            EpaintDisplay::new(GlContext::clone(&gl)).context("Cannot create EpaintDisplay")?;
+            EpaintDisplay::new(Rc::clone(&gl)).context("Cannot create EpaintDisplay")?;
 
         let mut graphics = Self {
             image_drawer,
@@ -93,11 +121,16 @@ impl Graphics {
 
     #[allow(dead_code)]
     pub fn texture_from_image(&self, image: &DynamicImage) -> Result<Texture> {
-        Texture::new_from_image(GlContext::clone(&self.gl), image)
+        Texture::new_from_image(Rc::clone(&self.gl), image)
+    }
+
+    #[allow(dead_code)]
+    pub fn blurr(&self) -> &ImageBlurr {
+        &self.blurr
     }
 
     pub fn texture_from_detached(&self, detached: DetachedTexture) -> Texture {
-        Texture::from_detached(GlContext::clone(&self.gl), detached)
+        Texture::from_detached(Rc::clone(&self.gl), detached)
     }
 
     pub fn begin_frame(&mut self) {
@@ -114,17 +147,12 @@ impl Graphics {
         self.dimensions
     }
 
-    #[inline]
-    pub fn draw<D: Drawable>(&self, drawable: &D) -> Result<()> {
-        drawable.draw(self)
-    }
-
     pub fn create_text_container(&mut self) -> Result<TextContainer> {
         self.epaint_display.create_text_container()
     }
 
     pub fn force_text_container_update(&mut self, container: &TextContainer) {
-        self.epaint_display.force_container_update(container);
+        container.force_update(&mut self.epaint_display);
     }
 
     #[allow(dead_code)]
@@ -134,11 +162,6 @@ impl Graphics {
         texture: Option<SharedTexture2d>,
     ) -> Result<ShapeContainer> {
         self.epaint_display.create_shape(shape, texture)
-    }
-
-    #[allow(dead_code)]
-    pub fn blurr(&self) -> &ImageBlurr {
-        &self.blurr
     }
 
     fn update_vp(&mut self) {
@@ -165,34 +188,16 @@ impl Graphics {
                 near: 1.,
             });
     }
-}
 
-impl Drawable for Sprite {
-    #[inline]
-    fn draw(&self, graphics: &Graphics) -> Result<()> {
-        graphics
-            .image_drawer
-            .draw_sprite(graphics.view, self)
-            .context("Cannot draw sprite using ImageDrawer")
+    fn view(&self) -> Mat4<f32> {
+        self.view
     }
-}
 
-impl Drawable for TextContainer {
-    #[inline]
-    fn draw(&self, graphics: &Graphics) -> Result<()> {
-        graphics
-            .epaint_display
-            .draw_container(graphics.view, self)
-            .context("Cannot draw text using epaint")
+    fn image_drawer(&self) -> &ImageDrawer {
+        &self.image_drawer
     }
-}
 
-impl Drawable for ShapeContainer {
-    #[inline]
-    fn draw(&self, graphics: &Graphics) -> Result<()> {
-        graphics
-            .epaint_display
-            .draw_shape(graphics.view, self)
-            .context("Cannot draw shape using epaint")
+    fn epaint_display(&self) -> &EpaintDisplay {
+        &self.epaint_display
     }
 }

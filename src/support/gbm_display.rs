@@ -4,6 +4,7 @@ use std::{
     num::NonZeroU32,
     os::unix::io::{AsFd, BorrowedFd},
     ptr::NonNull,
+    rc::Rc,
     sync::Arc,
 };
 
@@ -23,10 +24,7 @@ use log::debug;
 use raw_window_handle::{GbmDisplayHandle, GbmWindowHandle, RawDisplayHandle, RawWindowHandle};
 
 use super::ApplicationContext;
-use crate::{
-    configuration::Conf,
-    gl::{FutureGlThreadContext, GlContext},
-};
+use crate::{configuration::Conf, gl::FutureGlThreadContext};
 
 #[derive(Debug)]
 /// A simple wrapper for a device node.
@@ -108,7 +106,7 @@ where
             .find_configs(
                 ConfigTemplateBuilder::new()
                     .prefer_hardware_accelerated(Some(true))
-                    .with_api(Api::GLES2 | Api::GLES3)
+                    .with_api(Api::GLES2)
                     .build(),
             )
             .context("Cannot find config")?
@@ -189,8 +187,7 @@ where
         )
         .context("Cannot setup DRM device CRTC")?;
 
-    let mut app =
-        T::new(app_config, GlContext::clone(&gl), bg_gl).context("Cannot create application")?;
+    let mut app = T::new(app_config, Rc::clone(&gl), bg_gl).context("Cannot create application")?;
     loop {
         app.draw_frame().context("Error while drawing a frame")?;
 

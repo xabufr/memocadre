@@ -1,7 +1,6 @@
 use std::{cell::RefCell, num::NonZeroU32, ops::Deref, rc::Rc};
 
-use anyhow::{bail, Context as _, Result};
-use glow::HasContext;
+use anyhow::{Context as _, Result};
 use glutin::{
     context::{NotCurrentContext, PossiblyCurrentContext},
     prelude::{GlDisplay as _, NotCurrentGlContext},
@@ -10,22 +9,23 @@ use glutin::{
 use vao::VaoBindGuard;
 use vek::{Extent2, Rect, Vec2};
 
-use self::shader::ProgramGuard;
-pub use self::{shader::Program, texture::Texture};
+use self::{shader::ProgramGuard, wrapper::GlowContext};
 
 pub mod buffer_object;
 pub mod framebuffer;
 pub mod shader;
+#[cfg_attr(test, allow(dead_code))]
 pub mod texture;
 pub mod vao;
+pub mod wrapper;
 
-pub type GlContext = Rc<GlContextInner>;
-
-pub struct GlContextInner {
-    gl: glow::Context,
+#[derive(Debug)]
+pub struct GlContext {
+    gl: GlowContext,
     capacities: Capabilities,
     info: RefCell<GlContextInfo>,
     surface: Option<Surface<WindowSurface>>,
+    #[cfg(not(test))]
     context: PossiblyCurrentContext,
 }
 
@@ -48,7 +48,7 @@ impl FutureGlThreadContext {
         }
     }
 
-    pub fn activate(self) -> Result<GlContext> {
+    pub fn activate(self) -> Result<Rc<GlContext>> {
         let context = match &self.surface {
             Some(surface) => {
                 let current = self
@@ -78,7 +78,7 @@ impl FutureGlThreadContext {
             glow::Context::from_loader_function_cstr(|s| self.display.get_proc_address(s))
         };
 
-        GlContextInner::new(self.surface, context, gl)
+        GlContext::new(self.surface, context, gl.into())
     }
 
     pub fn get_context(&self) -> &NotCurrentContext {
@@ -86,20 +86,22 @@ impl FutureGlThreadContext {
     }
 }
 
-impl Deref for GlContextInner {
-    type Target = glow::Context;
+impl Deref for GlContext {
+    type Target = GlowContext;
 
     fn deref(&self) -> &Self::Target {
         &self.gl
     }
 }
 
+#[derive(Debug)]
 pub struct GlContextInfo {
     viewport: Rect<i32, i32>,
     bound_shader: Option<NonZeroU32>,
     blend_mode: Option<BlendMode>,
 }
 
+#[derive(Debug)]
 pub struct Capabilities {
     pub max_texture_size: u32,
 }
@@ -109,25 +111,25 @@ pub struct DrawParameters {
     pub blend: Option<BlendMode>,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct BlendMode {
     pub alpha: BlendEquation,
     pub color: BlendEquation,
 }
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum BlendEquation {
     Add(BlendFunction),
     Subtract(BlendFunction),
     ReverseSubtract(BlendFunction),
 }
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub struct BlendFunction {
     pub src: BlendFactor,
     pub dst: BlendFactor,
 }
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum BlendFactor {
     Zero,
@@ -199,11 +201,28 @@ impl BlendFactor {
     }
 }
 
-impl GlContextInner {
+impl GlContext {
+    #[cfg(test)]
+    pub fn mocked(gl: GlowContext) -> Self {
+        Self {
+            capacities: Capabilities {
+                max_texture_size: 2048,
+            },
+            info: RefCell::new(GlContextInfo {
+                viewport: Rect::new(0, 0, 800, 600),
+                bound_shader: None,
+                blend_mode: None,
+            }),
+            gl,
+            surface: None,
+        }
+    }
+
+    #[cfg_attr(test, allow(unused_variables))]
     fn new(
         surface: Option<Surface<WindowSurface>>,
         context: PossiblyCurrentContext,
-        gl: glow::Context,
+        gl: GlowContext,
     ) -> Result<Rc<Self>> {
         let dimensions = if let Some(surface) = &surface {
             let width = surface.width().context("cannot get surface width")?;
@@ -224,6 +243,7 @@ impl GlContextInner {
             }),
             gl,
             surface,
+            #[cfg(not(test))]
             context,
         }))
     }
@@ -280,13 +300,16 @@ impl GlContextInner {
     }
 
     pub fn swap_buffers(&self) -> Result<()> {
+        #[cfg(not(test))]
         if let Some(surface) = &self.surface {
             surface
                 .swap_buffers(&self.context)
                 .context("Cannot swap buffers")
         } else {
-            bail!("Cannot swap buffers on offscreen surface")
+            anyhow::bail!("Cannot swap buffers on offscreen surface")
         }
+        #[cfg(test)]
+        Ok(())
     }
 
     pub fn is_background(&self) -> bool {

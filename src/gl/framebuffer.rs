@@ -1,8 +1,9 @@
+use std::rc::Rc;
+
 use anyhow::{Error, Result};
-use glow::HasContext;
 use vek::Rect;
 
-use super::{GlContext, Texture};
+use super::{texture::Texture, GlContext};
 
 pub struct FramebufferGuard<'a> {
     previous_viewport: Rect<i32, i32>,
@@ -23,11 +24,11 @@ impl Drop for FramebufferGuard<'_> {
 pub struct FramebufferObject {
     framebuffer: glow::NativeFramebuffer,
     texture: Option<Texture>,
-    gl: GlContext,
+    gl: Rc<GlContext>,
 }
 
 impl FramebufferObject {
-    pub fn with_texture(gl: GlContext, texture: Texture) -> Result<Self> {
+    pub fn with_texture(gl: Rc<GlContext>, texture: Texture) -> Result<Self> {
         unsafe {
             let fbo = gl.create_framebuffer().map_err(Error::msg)?;
             gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));

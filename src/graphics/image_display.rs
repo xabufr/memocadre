@@ -1,21 +1,30 @@
+use std::rc::Rc;
+
 use anyhow::{Context, Result};
 use vek::{num_traits::Inv, Extent2, Mat4, Rect, Vec2};
 
-use super::{SharedTexture2d, Vertex2dUv};
+use super::{Drawable, Graphics, SharedTexture2d, Vertex2dUv};
 use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
+    shader::{Program, ProgramGuard},
     vao::{BufferInfo, VertexArrayObject},
-    BlendMode, DrawParameters, GlContext, Program,
+    BlendMode, DrawParameters, GlContext,
 };
 
-pub struct ImageDrawert {
+pub struct ImageDrawer {
     // vertex_array: glow::NativeVertexArray,
     // index_buffer: ElementBufferObject,
     // vertex_buffer: BufferObject<Vertex2dUv>,
     vao: VertexArrayObject<Vertex2dUv>,
     // index_buffer: glow::NativeBuffer,
     program: Program,
-    gl: GlContext,
+    gl: Rc<GlContext>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct TextureRegion {
+    pub uv_center: Vec2<f32>,
+    pub uv_size: Extent2<f32>,
 }
 
 pub struct Sprite {
@@ -29,10 +38,13 @@ pub struct Sprite {
     //
     pub opacity: f32,
 
-    sub_rect: (Vec2<f32>, Vec2<f32>),
+    sub_rect: TextureRegion,
 }
 
-const DEFAULT_SUB_RECT: (Vec2<f32>, Vec2<f32>) = (Vec2::new(0.5, 0.5), Vec2::new(0.5, 0.5));
+const DEFAULT_SUB_RECT: TextureRegion = TextureRegion {
+    uv_center: Vec2::new(0.5, 0.5),
+    uv_size: Extent2::new(0.5, 0.5),
+};
 
 impl Sprite {
     pub fn new(texture: SharedTexture2d) -> Self {
@@ -45,7 +57,6 @@ impl Sprite {
         }
     }
 
-    // TODO: test me!
     // Scales the sprite to fit the given dimensions while maintaining aspect ratio
     pub fn resize_respecting_ratio(&mut self, target_size: Extent2<u32>) {
         let target_size: Extent2<f32> = target_size.as_();
@@ -59,17 +70,31 @@ impl Sprite {
         self.texture.size()
     }
 
-    // TODO: test me!
     pub fn set_sub_rect(&mut self, sub_rect: Rect<i32, i32>) {
-        let tex_size = self.get_texture_size();
-        let tr = Vec2::from(tex_size.as_::<f32>()).inv();
-        let uv_offset_center = sub_rect.center().as_::<f32>() * tr;
-        let uv_offset_size = sub_rect.extent().as_::<f32>() * tr * 0.5;
-        self.sub_rect = (uv_offset_center, uv_offset_size.into());
+        let sub_rect = sub_rect.as_::<f32, f32>();
+        let tr = Vec2::from(self.get_texture_size().as_::<f32>()).inv();
+        self.sub_rect.uv_center = sub_rect.center() * tr;
+        self.sub_rect.uv_size = sub_rect.extent() * tr * 0.5;
     }
 
     pub fn set_sub_center_size(&mut self, uv_offset_center: Vec2<f32>, uv_offset_size: Vec2<f32>) {
-        self.sub_rect = (uv_offset_center, uv_offset_size);
+        self.sub_rect.uv_center = uv_offset_center;
+        self.sub_rect.uv_size = uv_offset_size.into();
+    }
+
+    #[cfg(test)]
+    pub fn get_sub_center_size(&self) -> TextureRegion {
+        self.sub_rect
+    }
+}
+
+impl Drawable for Sprite {
+    #[inline]
+    fn draw(&self, graphics: &Graphics) -> Result<()> {
+        graphics
+            .image_drawer()
+            .draw_sprite(graphics.view(), self)
+            .context("Cannot draw sprite using ImageDrawer")
     }
 }
 
@@ -82,15 +107,14 @@ const VERTICES: [Vertex2dUv; 4] = [
 ];
 const INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 
-impl ImageDrawert {
-    pub fn new(gl: GlContext) -> Result<Self> {
-        let mut vbo = BufferObject::new_vertex_buffer(GlContext::clone(&gl), BufferUsage::Static)
+impl ImageDrawer {
+    pub fn new(gl: Rc<GlContext>) -> Result<Self> {
+        let mut vbo = BufferObject::new_vertex_buffer(Rc::clone(&gl), BufferUsage::Static)
             .context("Cannot create VertexArray")?;
-        let mut ebo =
-            ElementBufferObject::new_index_buffer(GlContext::clone(&gl), BufferUsage::Static)
-                .context("Cannot create ElementBufferArray")?;
+        let mut ebo = ElementBufferObject::new_index_buffer(Rc::clone(&gl), BufferUsage::Static)
+            .context("Cannot create ElementBufferArray")?;
 
-        let program = Program::new(GlContext::clone(&gl), shader::VERTEX, shader::FRAGMENT)
+        let program = Program::new(Rc::clone(&gl), shader::VERTEX, shader::FRAGMENT)
             .context("Cannot create ImageDrawer shader")?;
         let pos = program.get_attrib_location("pos")?;
         let uv = program.get_attrib_location("uv")?;
@@ -117,7 +141,7 @@ impl ImageDrawert {
                 offset: memoffset::offset_of!(Vertex2dUv, uv) as i32,
             },
         ];
-        let vao = VertexArrayObject::new(GlContext::clone(&gl), vbo, ebo, buffer_infos)
+        let vao = VertexArrayObject::new(Rc::clone(&gl), vbo, ebo, buffer_infos)
             .context("Cannot create ImageDrawer VAO")?;
         Ok(Self { vao, program, gl })
     }
@@ -125,14 +149,14 @@ impl ImageDrawert {
     pub fn draw_sprite(&self, view: Mat4<f32>, sprite: &Sprite) -> Result<()> {
         let model = Mat4::scaling_3d(Vec2::from(sprite.size)).translated_2d(sprite.position);
 
-        let prog_bind = self.program.bind();
+        let prog_bind = ProgramGuard::bind(&self.program);
 
         prog_bind.set_uniform("opacity", sprite.opacity)?;
         prog_bind.set_uniform("model", model)?;
         prog_bind.set_uniform("view", view)?;
         prog_bind.set_uniform("tex", 0)?;
-        prog_bind.set_uniform("uv_offset_center", sprite.sub_rect.0)?;
-        prog_bind.set_uniform("uv_offset_size", sprite.sub_rect.1)?;
+        prog_bind.set_uniform("uv_offset_center", sprite.sub_rect.uv_center)?;
+        prog_bind.set_uniform("uv_offset_size", sprite.sub_rect.uv_size)?;
 
         sprite.texture.bind(Some(0));
 
@@ -177,4 +201,70 @@ mod shader {
     void main() {
         gl_FragColor = vec4(texture2D(tex, texcoord).rgb, opacity);
     }"#;
+}
+
+#[cfg(test)]
+mod test {
+    use googletest::{expect_that, gtest, matchers::matches_pattern, prelude::approx_eq};
+    use vek::Extent2;
+
+    use super::*;
+    use crate::gl::{texture::Texture, wrapper::mocked_gl};
+
+    #[gtest]
+    fn test_sprite_resize_respecting_ratio() {
+        let gl = mocked_gl();
+        let context = Rc::new(GlContext::mocked(gl));
+        let texture = Texture::mocked(context.clone(), Extent2::new(100, 100));
+        let mut sprite = Sprite::new(SharedTexture2d::new(texture));
+
+        sprite.resize_respecting_ratio(Extent2::new(50, 50));
+        expect_that!(
+            sprite.size,
+            matches_pattern!(Extent2 {
+                w: approx_eq(50.),
+                h: approx_eq(50.)
+            })
+        );
+
+        sprite.resize_respecting_ratio(Extent2::new(50, 40));
+        expect_that!(
+            sprite.size,
+            matches_pattern!(Extent2 {
+                w: approx_eq(40.),
+                h: approx_eq(40.)
+            })
+        );
+
+        sprite.resize_respecting_ratio(Extent2::new(30, 40));
+        expect_that!(
+            sprite.size,
+            matches_pattern!(Extent2 {
+                w: approx_eq(30.),
+                h: approx_eq(30.)
+            })
+        );
+    }
+
+    #[gtest]
+    fn test_sprite_set_sub_rect() {
+        let gl = mocked_gl();
+        let context = Rc::new(GlContext::mocked(gl));
+        let texture = Texture::mocked(context.clone(), Extent2::new(100, 100));
+        let mut sprite = Sprite::new(SharedTexture2d::new(texture));
+        sprite.set_sub_rect(Rect::from((Vec2::new(10, 10), Extent2::new(10, 10))));
+        expect_that!(
+            sprite.sub_rect,
+            matches_pattern!(TextureRegion {
+                uv_center: matches_pattern!(Vec2 {
+                    x: approx_eq(0.15),
+                    y: approx_eq(0.15)
+                }),
+                uv_size: matches_pattern!(Extent2 {
+                    w: approx_eq(0.05),
+                    h: approx_eq(0.05)
+                })
+            })
+        );
+    }
 }

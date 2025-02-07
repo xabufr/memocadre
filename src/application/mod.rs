@@ -1,25 +1,25 @@
 mod fps;
 mod slide;
 
-use std::sync::{mpsc::TryRecvError, Arc};
+use std::{rc::Rc, sync::{mpsc::TryRecvError, Arc}};
 
 use anyhow::{Context, Result};
-use slide::Slides;
+use slide::Slideshow;
 use vek::Extent2;
 
 use self::{fps::FPSCounter, slide::Slide};
 use crate::{
     configuration::Conf,
     gl::{FutureGlThreadContext, GlContext},
-    graphics::Graphics,
+    graphics::{Drawable, Graphics},
     support::ApplicationContext,
     worker::Worker,
 };
 
 pub struct Application {
-    slides: Slides,
+    slides: Slideshow,
     worker: Worker,
-    gl: GlContext,
+    gl: Rc<GlContext>,
     graphics: Graphics,
     config: Arc<Conf>,
     fps: Option<FPSCounter>,
@@ -28,8 +28,8 @@ pub struct Application {
 impl ApplicationContext for Application {
     const WINDOW_TITLE: &'static str = "test";
 
-    fn new(config: Arc<Conf>, gl: GlContext, bg_gl: FutureGlThreadContext) -> Result<Self> {
-        let mut graphics = Graphics::new(GlContext::clone(&gl), config.slideshow.rotation)
+    fn new(config: Arc<Conf>, gl: Rc<GlContext>, bg_gl: FutureGlThreadContext) -> Result<Self> {
+        let mut graphics = Graphics::new(Rc::clone(&gl), config.slideshow.rotation)
             .context("Cannot create Graphics")?;
         let worker = Worker::new(
             Arc::clone(&config),
@@ -44,7 +44,7 @@ impl ApplicationContext for Application {
         Ok(Self {
             graphics,
             gl,
-            slides: Slides::None,
+            slides: Slideshow::None,
             worker,
             config,
             fps,
@@ -78,9 +78,9 @@ impl ApplicationContext for Application {
 
         self.graphics.update();
 
-        self.graphics.draw(&self.slides)?;
+        self.slides.draw(&self.graphics)?;
         if let Some(fps) = &self.fps {
-            self.graphics.draw(fps)?;
+            fps.draw(&self.graphics)?;
         }
         Ok(())
     }

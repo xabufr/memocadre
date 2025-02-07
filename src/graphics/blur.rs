@@ -1,4 +1,4 @@
-use std::{thread, time::Duration};
+use std::{rc::Rc, thread, time::Duration};
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -7,15 +7,16 @@ use super::Vertex2dUv;
 use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
     framebuffer::FramebufferObject,
-    texture::TextureFormat,
+    shader::{Program, ProgramGuard},
+    texture::{Texture, TextureFormat},
     vao::{BufferInfo, VertexArrayObject},
-    GlContext, Program, Texture,
+    GlContext,
 };
 
 pub struct ImageBlurr {
     vertex_array: VertexArrayObject<Vertex2dUv>,
     program: Program,
-    gl: GlContext,
+    gl: Rc<GlContext>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]
@@ -43,19 +44,14 @@ const VERTICES: [Vertex2dUv; 4] = [
 ];
 const INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 impl ImageBlurr {
-    pub fn new(gl: GlContext) -> Result<Self> {
-        let mut vbo = BufferObject::new_vertex_buffer(GlContext::clone(&gl), BufferUsage::Static)
+    pub fn new(gl: Rc<GlContext>) -> Result<Self> {
+        let mut vbo = BufferObject::new_vertex_buffer(Rc::clone(&gl), BufferUsage::Static)
             .context("Cannot create vertex buffer")?;
-        let mut ebo =
-            ElementBufferObject::new_index_buffer(GlContext::clone(&gl), BufferUsage::Static)
-                .context("Cannot create ElementArrayBuffer")?;
+        let mut ebo = ElementBufferObject::new_index_buffer(Rc::clone(&gl), BufferUsage::Static)
+            .context("Cannot create ElementArrayBuffer")?;
 
-        let program = Program::new(
-            GlContext::clone(&gl),
-            shader::VERTEX_BLUR,
-            shader::FRAGMENT_BLUR,
-        )
-        .context("Cannot compile ImageBlurr shader")?;
+        let program = Program::new(Rc::clone(&gl), shader::VERTEX_BLUR, shader::FRAGMENT_BLUR)
+            .context("Cannot compile ImageBlurr shader")?;
         let program = program;
         let pos = program.get_attrib_location("pos")?;
         let uv = program.get_attrib_location("uv")?;
@@ -82,7 +78,7 @@ impl ImageBlurr {
 
         vbo.write(&VERTICES);
         ebo.write(&INDICES);
-        let vao = VertexArrayObject::new(GlContext::clone(&gl), vbo, ebo, buffer_infos)
+        let vao = VertexArrayObject::new(Rc::clone(&gl), vbo, ebo, buffer_infos)
             .context("Cannot create VAO")?;
 
         Ok(Self {
@@ -98,30 +94,22 @@ impl ImageBlurr {
         texture: &Texture,
     ) -> Result<Texture> {
         let textures = [
-            Texture::empty(
-                GlContext::clone(&self.gl),
-                TextureFormat::Rgb,
-                texture.size(),
-            )
-            .context("cannot create texture")?,
-            Texture::empty(
-                GlContext::clone(&self.gl),
-                TextureFormat::Rgb,
-                texture.size(),
-            )
-            .context("cannot create texture")?,
+            Texture::empty(Rc::clone(&self.gl), TextureFormat::Rgb, texture.size())
+                .context("cannot create texture")?,
+            Texture::empty(Rc::clone(&self.gl), TextureFormat::Rgb, texture.size())
+                .context("cannot create texture")?,
         ];
         let fbos = textures
             .into_iter()
             .map(|texture| {
-                FramebufferObject::with_texture(GlContext::clone(&self.gl), texture)
+                FramebufferObject::with_texture(Rc::clone(&self.gl), texture)
                     .context("Cannot create blur framebuffer")
             })
             .collect::<Result<Vec<_>>>()?;
 
         let mut source_texture = texture;
 
-        let program_bind = self.program.bind();
+        let program_bind = ProgramGuard::bind(&self.program);
         let _vao_guard = self.vertex_array.bind_guard();
 
         program_bind.set_uniform("tex_size", texture.size().as_::<f32>())?;

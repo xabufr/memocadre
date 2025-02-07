@@ -11,22 +11,23 @@ use epaint::{
 };
 use vek::{Extent2, Mat4, Rect, Vec2};
 
-use super::SharedTexture2d;
+use super::{Drawable, Graphics, SharedTexture2d};
 use crate::gl::{
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
-    texture::{TextureFiltering, TextureFormat, TextureOptions, TextureWrapMode},
+    shader::{Program, ProgramGuard},
+    texture::{Texture, TextureFiltering, TextureFormat, TextureOptions, TextureWrapMode},
     vao::{BufferInfo, VertexArrayObject},
-    BlendMode, DrawParameters, GlContext, Program, Texture,
+    BlendMode, DrawParameters, GlContext,
 };
 
 pub struct EpaintDisplay {
     fonts: Fonts,
     pixels_per_point: f32,
     max_texture_size: usize,
-    texture: Texture,
+    texture: Rc<RefCell<Texture>>,
     tesselator: Tessellator,
-    program: Program,
-    gl: GlContext,
+    program: Rc<Program>,
+    gl: Rc<GlContext>,
     containers: Vec<Weak<RefCell<TextContainerInner>>>,
     atlas_updated: bool,
 }
@@ -43,12 +44,56 @@ pub struct TextContainer(Rc<RefCell<TextContainerInner>>);
 
 pub struct ShapeContainer {
     pub position: Vec2<f32>,
+    pub opacity_factor: f32,
+
     vao: VertexArrayObject<Vertex>,
     texture: Option<SharedTexture2d>,
-    pub opacity_factor: f32,
+}
+
+impl ShapeContainer {
+    fn new(vao: VertexArrayObject<Vertex>, texture: Option<SharedTexture2d>) -> Self {
+        Self {
+            position: [0., 0.].into(),
+            vao,
+            texture,
+            opacity_factor: 1f32,
+        }
+    }
+
+    pub fn set_position(&mut self, pos: Vec2<f32>) {
+        self.position = pos;
+    }
+
+    pub fn set_opacity(&mut self, opacity: f32) {
+        self.opacity_factor = opacity;
+    }
+
+    #[inline]
+    fn texture(&self) -> Option<&SharedTexture2d> {
+        self.texture.as_ref()
+    }
+
+    #[inline]
+    fn position(&self) -> Vec2<f32> {
+        self.position
+    }
+
+    #[inline]
+    fn opacity(&self) -> f32 {
+        self.opacity_factor
+    }
+
+    #[inline]
+    fn vao(&self) -> &VertexArrayObject<Vertex> {
+        &self.vao
+    }
 }
 
 impl TextContainer {
+    fn new(inner: Rc<RefCell<TextContainerInner>>) -> Self {
+        Self(inner)
+    }
+
     pub fn set_layout(&self, job: LayoutJob) {
         let mut c = self.0.borrow_mut();
         c.next_layout = Some(job);
@@ -91,6 +136,31 @@ impl TextContainer {
     pub fn set_opacity(&self, opacity: f32) {
         self.0.borrow_mut().opacity_factor = opacity;
     }
+
+    pub fn force_update(&self, epaint: &mut EpaintDisplay) {
+        self.0.borrow_mut().update(epaint);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn galley(&self) -> Option<std::sync::Arc<epaint::Galley>> {
+        self.0
+            .borrow()
+            .shape
+            .as_ref()
+            .map(|shape| shape.galley.clone())
+    }
+}
+
+impl Drawable for TextContainer {
+    fn draw(&self, graphics: &Graphics) -> Result<()> {
+        self.0.borrow().draw(graphics)
+    }
+}
+
+impl Drawable for ShapeContainer {
+    fn draw(&self, graphics: &Graphics) -> Result<()> {
+        graphics.epaint_display().draw_shape(graphics.view(), self)
+    }
 }
 
 struct TextContainerInner {
@@ -104,6 +174,31 @@ struct TextContainerInner {
     is_dirty: bool,
 }
 
+impl TextContainerInner {
+    #[inline]
+    fn draw(&self, graphics: &super::Graphics) -> Result<()> {
+        graphics.epaint_display().draw_text(graphics.view(), self)
+    }
+
+    fn update(&mut self, epaint: &mut EpaintDisplay) {
+        if let Some(job) = self.next_layout.take() {
+            let galley = epaint.fonts.layout_job(job);
+            self.shape = Some(TextShape::new([0., 0.].into(), galley, Color32::WHITE));
+        }
+        if self.is_dirty || epaint.atlas_updated {
+            self.is_dirty = false;
+            self.text_mesh.clear();
+            if let Some(shape) = &self.shape {
+                epaint
+                    .tesselator
+                    .tessellate_text(shape, &mut self.text_mesh);
+
+                write_mesh_to_vao(&self.text_mesh, &mut self.text_vao);
+            }
+        }
+    }
+}
+
 impl From<epaint::Vertex> for Vertex {
     fn from(value: epaint::Vertex) -> Self {
         Self {
@@ -115,7 +210,7 @@ impl From<epaint::Vertex> for Vertex {
 }
 
 impl EpaintDisplay {
-    pub fn new(gl: GlContext) -> Result<Self> {
+    pub fn new(gl: Rc<GlContext>) -> Result<Self> {
         let pixels_per_point: f32 = 1.;
         let max_texture_size = gl.capabilities().max_texture_size as usize;
         let fonts = Fonts::new(
@@ -130,17 +225,18 @@ impl EpaintDisplay {
             Vec::new(),
         );
 
-        let program = Program::new(GlContext::clone(&gl), shaders::VERTEX, shaders::FRAGMENT)
+        let program = Program::new(Rc::clone(&gl), shaders::VERTEX, shaders::FRAGMENT)
             .context("Cannot compile epaint shader")?;
+        let texture = Texture::empty(Rc::clone(&gl), TextureFormat::Rgba, (0, 0).into())
+            .context("Cannot create texture")?;
 
         Ok(Self {
             fonts,
             pixels_per_point,
             max_texture_size,
-            texture: Texture::empty(GlContext::clone(&gl), TextureFormat::Rgba, (0, 0).into())
-                .context("Cannot create texture")?,
+            texture: Rc::new(texture.into()),
             tesselator,
-            program,
+            program: Rc::new(program),
             gl,
             containers: vec![],
             atlas_updated: false,
@@ -169,12 +265,7 @@ impl EpaintDisplay {
             .new_vao(vbo_data, ebo_data, BufferUsage::Static)
             .context("Cannot create shape VAO")?;
         write_mesh_to_vao(&mesh, &mut vao);
-        Ok(ShapeContainer {
-            position: [0., 0.].into(),
-            vao,
-            texture,
-            opacity_factor: 1f32,
-        })
+        Ok(ShapeContainer::new(vao, texture))
     }
 
     pub fn create_text_container(&mut self) -> Result<TextContainer> {
@@ -193,7 +284,7 @@ impl EpaintDisplay {
         };
         let container = Rc::new(RefCell::new(container));
         self.containers.push(Rc::downgrade(&container));
-        Ok(TextContainer(container))
+        Ok(TextContainer::new(container))
     }
 
     fn update_container(&mut self, container: &mut TextContainerInner) {
@@ -213,56 +304,6 @@ impl EpaintDisplay {
         }
     }
 
-    pub fn draw_shape(&self, view: Mat4<f32>, shape: &ShapeContainer) -> Result<()> {
-        let prog = self.program.bind();
-        prog.set_uniform("tex", 0)?;
-        shape
-            .texture
-            .as_deref()
-            .unwrap_or(&self.texture)
-            .bind(Some(0));
-        prog.set_uniform("view", view)?;
-        let model = Mat4::translation_2d(shape.position);
-        prog.set_uniform("model", model)?;
-        prog.set_uniform("opacity", shape.opacity_factor)?;
-        let vao_bind = shape.vao.bind_guard();
-        self.gl.draw(
-            &vao_bind,
-            &prog,
-            shape.vao.element_buffer.size() as _,
-            0,
-            &DrawParameters {
-                blend: Some(BlendMode::alpha()),
-            },
-        );
-        Ok(())
-    }
-
-    pub fn draw_container(&self, view: Mat4<f32>, container: &TextContainer) -> Result<()> {
-        let container = RefCell::borrow(&container.0);
-        if container.shape.is_none() {
-            return Ok(());
-        }
-        let prog = self.program.bind();
-        prog.set_uniform("tex", 0)?;
-        self.texture.bind(Some(0));
-        prog.set_uniform("view", view)?;
-        let model = Mat4::translation_2d(container.position);
-        prog.set_uniform("model", model)?;
-        prog.set_uniform("opacity", container.opacity_factor)?;
-        let vao_bind = container.text_vao.bind_guard();
-        self.gl.draw(
-            &vao_bind,
-            &prog,
-            container.text_mesh.indices.len() as _,
-            0,
-            &DrawParameters {
-                blend: Some(BlendMode::alpha()),
-            },
-        );
-        Ok(())
-    }
-
     pub fn update(&mut self) {
         if let Some(delta) = self.fonts.font_image_delta() {
             self.update_texture(delta);
@@ -278,9 +319,53 @@ impl EpaintDisplay {
         }
     }
 
-    pub fn force_container_update(&mut self, container: &TextContainer) {
-        let mut container = container.0.borrow_mut();
-        self.update_container(&mut container);
+    fn draw_text(&self, view: Mat4<f32>, text_container: &TextContainerInner) -> Result<()> {
+        if text_container.shape.is_none() {
+            return Ok(());
+        }
+        let prog = ProgramGuard::bind(&self.program);
+        prog.set_uniform("tex", 0)?;
+        self.texture.borrow().bind(Some(0));
+        prog.set_uniform("view", view)?;
+        let model = Mat4::translation_2d(text_container.position);
+        prog.set_uniform("model", model)?;
+        prog.set_uniform("opacity", text_container.opacity_factor)?;
+        let vao_bind = text_container.text_vao.bind_guard();
+        self.gl.draw(
+            &vao_bind,
+            &prog,
+            text_container.text_mesh.indices.len() as _,
+            0,
+            &DrawParameters {
+                blend: Some(BlendMode::alpha()),
+            },
+        );
+        Ok(())
+    }
+
+    pub fn draw_shape(&self, view: Mat4<f32>, shape: &ShapeContainer) -> Result<()> {
+        let prog = ProgramGuard::bind(&self.program);
+        prog.set_uniform("tex", 0)?;
+        if let Some(texture) = shape.texture() {
+            texture.bind(Some(0));
+        } else {
+            self.texture.borrow().bind(Some(0));
+        }
+        prog.set_uniform("view", view)?;
+        let model = Mat4::translation_2d(shape.position());
+        prog.set_uniform("model", model)?;
+        prog.set_uniform("opacity", shape.opacity())?;
+        let vao_bind = shape.vao().bind_guard();
+        self.gl.draw(
+            &vao_bind,
+            &prog,
+            shape.vao().element_buffer.size() as _,
+            0,
+            &DrawParameters {
+                blend: Some(BlendMode::alpha()),
+            },
+        );
+        Ok(())
     }
 
     fn update_texture(&mut self, delta: epaint::ImageDelta) {
@@ -295,12 +380,12 @@ impl EpaintDisplay {
                 }
             },
         };
-        self.texture.set_options(options);
+        self.texture.borrow_mut().set_options(options);
 
         let data = Self::convert_texture(&delta.image);
         let dimensions = (delta.image.width() as u32, delta.image.height() as _).into();
         if let Some(pos) = delta.pos {
-            self.texture.write_sub(
+            self.texture.borrow_mut().write_sub(
                 Rect::from((Vec2::<usize>::from(pos).as_::<u32>(), dimensions)),
                 &data,
             );
@@ -311,7 +396,9 @@ impl EpaintDisplay {
                 delta.image.size(),
                 Vec::new(),
             );
-            self.texture.write(TextureFormat::Rgba, dimensions, &data);
+            self.texture
+                .borrow_mut()
+                .write(TextureFormat::Rgba, dimensions, &data);
             self.atlas_updated = true;
         }
     }
@@ -359,14 +446,13 @@ impl EpaintDisplay {
                 offset: memoffset::offset_of!(Vertex, uv) as i32,
             },
         ];
-        let mut vbo = BufferObject::new_vertex_buffer(GlContext::clone(&self.gl), buffer_usage)
+        let mut vbo = BufferObject::new_vertex_buffer(Rc::clone(&self.gl), buffer_usage)
             .context("Cannot create VertexBuffer")?;
-        let mut ebo =
-            ElementBufferObject::new_index_buffer(GlContext::clone(&self.gl), buffer_usage)
-                .context("Cannot create ElementBufferArray")?;
+        let mut ebo = ElementBufferObject::new_index_buffer(Rc::clone(&self.gl), buffer_usage)
+            .context("Cannot create ElementBufferArray")?;
         vbo.write(vbo_data);
         ebo.write(ebo_data);
-        VertexArrayObject::new(GlContext::clone(&self.gl), vbo, ebo, buffer_infos)
+        VertexArrayObject::new(Rc::clone(&self.gl), vbo, ebo, buffer_infos)
             .context("Cannot create VAO")
     }
 }

@@ -1,9 +1,11 @@
+use std::rc::Rc;
+
 use anyhow::{Context, Error, Result};
-use glow::{HasContext, NativeProgram};
+use glow::{NativeProgram};
 use micromap::Map;
 use vek::{Extent2, Mat4, Vec2};
 
-use super::GlContext;
+use super::{wrapper::GlowContext, GlContext};
 
 type UniformLocation = glow::NativeUniformLocation;
 
@@ -13,7 +15,7 @@ pub struct ProgramGuard<'a> {
 
 pub struct Program {
     program: NativeProgram,
-    gl: GlContext,
+    gl: Rc<GlContext>,
     uniforms: Map<String, UniformLocation, 10>,
 }
 
@@ -76,32 +78,19 @@ impl ToUniformValue for Mat4<f32> {
     }
 }
 
-impl ProgramGuard<'_> {
+impl<'a> ProgramGuard<'a> {
+    pub fn bind(program: &'a Program) -> ProgramGuard<'a> {
+        program.bind();
+        Self { program }
+    }
+
     pub fn set_uniform(&self, name: &str, value: impl ToUniformValue) -> Result<()> {
-        let location = self
-            .program
-            .uniforms
-            .get(name)
-            .with_context(|| format!("Uniform {name} doesn't exists"))?;
-        let location = Some(location);
-        let value = value.to_uniform_value();
-        let gl = &self.program.gl;
-        unsafe {
-            match value {
-                UniformValue::Float(f) => gl.uniform_1_f32(location, f),
-                UniformValue::SignedInt(i) => gl.uniform_1_i32(location, i),
-                UniformValue::Vec2(x, y) => gl.uniform_2_f32(location, x, y),
-                UniformValue::Vec3(x, y, z) => gl.uniform_3_f32(location, x, y, z),
-                UniformValue::Vec4(x, y, z, w) => gl.uniform_4_f32(location, x, y, z, w),
-                UniformValue::Mat4(v) => gl.uniform_matrix_4_f32_slice(location, false, &v),
-            }
-        }
-        Ok(())
+        self.program.set_uniform(name, value)
     }
 }
 
 impl Program {
-    pub fn new(gl: GlContext, vertex: &str, fragment: &str) -> Result<Self> {
+    pub fn new(gl: Rc<GlContext>, vertex: &str, fragment: &str) -> Result<Self> {
         let (program, uniforms) = unsafe {
             let vertex = Self::compile_shader(&gl, glow::VERTEX_SHADER, vertex)
                 .context("Cannot compile vertex shader")?;
@@ -130,14 +119,13 @@ impl Program {
         })
     }
 
-    pub fn bind(&self) -> ProgramGuard {
+    pub fn bind<'a>(&'a self) {
         let previous = self.gl.set_bound_shader(self.program.0);
         if previous != Some(self.program.0) {
             unsafe {
                 self.gl.use_program(Some(self.program));
             }
         }
-        ProgramGuard { program: self }
     }
 
     pub fn get_attrib_location(&self, name: &str) -> Result<u32> {
@@ -149,7 +137,7 @@ impl Program {
     }
 
     unsafe fn compile_shader(
-        gl: &glow::Context,
+        gl: &GlowContext,
         shader_type: u32,
         source: &str,
     ) -> Result<glow::Shader> {
@@ -169,7 +157,7 @@ impl Program {
     }
 
     unsafe fn link_program<'a, T: IntoIterator<Item = &'a glow::Shader>>(
-        gl: &glow::Context,
+        gl: &GlowContext,
         shaders: T,
     ) -> Result<glow::Program> {
         unsafe {
@@ -187,6 +175,27 @@ impl Program {
                 Err(Error::msg(gl.get_program_info_log(program)))
             }
         }
+    }
+
+    fn set_uniform(&self, name: &str, value: impl ToUniformValue) -> Result<()> {
+        let location = self
+            .uniforms
+            .get(name)
+            .with_context(|| format!("Uniform {name} doesn't exists"))?;
+        let location = Some(location);
+        let value = value.to_uniform_value();
+        let gl = &self.gl;
+        unsafe {
+            match value {
+                UniformValue::Float(f) => gl.uniform_1_f32(location, f),
+                UniformValue::SignedInt(i) => gl.uniform_1_i32(location, i),
+                UniformValue::Vec2(x, y) => gl.uniform_2_f32(location, x, y),
+                UniformValue::Vec3(x, y, z) => gl.uniform_3_f32(location, x, y, z),
+                UniformValue::Vec4(x, y, z, w) => gl.uniform_4_f32(location, x, y, z, w),
+                UniformValue::Mat4(v) => gl.uniform_matrix_4_f32_slice(location, false, &v),
+            }
+        }
+        Ok(())
     }
 }
 
