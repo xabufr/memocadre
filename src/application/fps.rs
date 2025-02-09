@@ -17,8 +17,7 @@ pub struct FPSCounter {
 }
 
 impl FPSCounter {
-    pub fn count_frame(&mut self) {
-        let now = Instant::now();
+    pub fn count_frame(&mut self, now: Instant) {
         let elapsed = now - self.last_instant;
         if elapsed > Duration::from_secs(1) {
             self.last_fps = self.frames;

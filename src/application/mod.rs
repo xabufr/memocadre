@@ -78,7 +78,7 @@ impl ApplicationContext for Application {
         self.slides.update(&self.config, time);
 
         if let Some(fps) = &mut self.fps {
-            fps.count_frame();
+            fps.count_frame(time);
         }
 
         self.graphics.update();
