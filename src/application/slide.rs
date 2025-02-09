@@ -228,16 +228,16 @@ impl TextWithBackground {
 
 impl Slideshow {
     // TODO: Take instant as argument
-    pub fn should_load_next(&self) -> bool {
+    pub fn should_load_next(&self, time: Instant) -> bool {
         match self {
             Slideshow::None => true,
-            Slideshow::Single(slide) => slide.animation.is_finished(Instant::now()),
+            Slideshow::Single(slide) => slide.animation.is_finished(time),
             Slideshow::Transitioning(_) => false,
         }
     }
 
     // TODO: Take instant as argument
-    pub fn load_next(&mut self, slide: Slide, config: &Conf) {
+    pub fn load_next(&mut self, slide: Slide, config: &Conf, time: Instant) {
         let mut old_self = Self::None;
         std::mem::swap(self, &mut old_self);
         match old_self {
@@ -249,15 +249,14 @@ impl Slideshow {
                         ..SlideProperties::default()
                     },
                     config,
-                    Instant::now(),
+                    time,
                 )
             }
             Slideshow::Single(old)
             | Slideshow::Transitioning(TransitioningSlide { prev: _, next: old }) => {
                 let transition_duration = config.slideshow.transition_duration;
                 let easing = glissade::Easing::QuarticInOut;
-                let now = Instant::now();
-                let old_properties = old.animation.get(now);
+                let old_properties = old.animation.get(time);
                 let old = AnimatedSlide {
                     slide: old.slide,
                     animation: Box::new(
@@ -270,7 +269,7 @@ impl Slideshow {
                                 transition_duration,
                                 easing.clone(),
                             )
-                            .run(now),
+                            .run(time),
                     ),
                 };
                 let new = AnimatedSlide {
@@ -288,7 +287,7 @@ impl Slideshow {
                             transition_duration,
                             easing,
                         )
-                        .run(now),
+                        .run(time),
                     ),
                 };
 
@@ -300,28 +299,21 @@ impl Slideshow {
         }
     }
 
-    // TODO: Take instant as argument
     // TODO: Test me !
-    pub fn update(&mut self, config: &Conf) {
+    pub fn update(&mut self, config: &Conf, time: Instant) {
         let mut old_self = Self::None;
         std::mem::swap(self, &mut old_self);
-        let instant = Instant::now();
         match old_self {
             Slideshow::None => (),
             Slideshow::Single(ref mut slide) => {
-                slide.update(instant);
+                slide.update(time);
                 *self = old_self
             }
             Slideshow::Transitioning(mut t) => {
-                if t.is_finished(instant) {
-                    *self = Self::to_single(
-                        t.next.slide,
-                        t.next.animation.get(instant),
-                        config,
-                        instant,
-                    );
+                if t.is_finished(time) {
+                    *self = Self::to_single(t.next.slide, t.next.animation.get(time), config, time);
                 } else {
-                    t.update(instant);
+                    t.update(time);
                     *self = Slideshow::Transitioning(t);
                 }
             }

@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use anyhow::{Context, Error, Result};
-use glow::{NativeProgram};
+use glow::NativeProgram;
 use micromap::Map;
 use vek::{Extent2, Mat4, Vec2};
 

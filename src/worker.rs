@@ -1,7 +1,10 @@
-use std::{rc::Rc, sync::{
-    mpsc::{Receiver, SyncSender},
-    Arc, RwLock, Weak,
-}};
+use std::{
+    rc::Rc,
+    sync::{
+        mpsc::{Receiver, SyncSender},
+        Arc, RwLock, Weak,
+    },
+};
 
 use anyhow::{Context, Result};
 use image::{imageops::FilterType, DynamicImage, GenericImageView};

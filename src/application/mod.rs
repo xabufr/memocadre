@@ -1,7 +1,11 @@
 mod fps;
 mod slide;
 
-use std::{rc::Rc, sync::{mpsc::TryRecvError, Arc}};
+use std::{
+    rc::Rc,
+    sync::{mpsc::TryRecvError, Arc},
+    time::Instant,
+};
 
 use anyhow::{Context, Result};
 use slide::Slideshow;
@@ -53,11 +57,12 @@ impl ApplicationContext for Application {
 
     fn draw_frame(&mut self) -> Result<()> {
         self.gl.clear();
+        let time = Instant::now();
         self.graphics.begin_frame();
         self.worker
             .set_ideal_max_size(Self::get_ideal_image_size(&self.gl, &self.graphics));
 
-        if self.slides.should_load_next() {
+        if self.slides.should_load_next(time) {
             match self.worker.recv().try_recv() {
                 Err(TryRecvError::Empty) => {}
                 Err(error) => Err(error).context("Cannot get next image")?,
@@ -65,12 +70,12 @@ impl ApplicationContext for Application {
                     let slide = Slide::create(image, &mut self.graphics, &self.config)
                         .context("Cannot laod next frame")?;
 
-                    self.slides.load_next(slide, &self.config);
+                    self.slides.load_next(slide, &self.config, time);
                 }
             }
         }
 
-        self.slides.update(&self.config);
+        self.slides.update(&self.config, time);
 
         if let Some(fps) = &mut self.fps {
             fps.count_frame();
