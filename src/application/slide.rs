@@ -227,7 +227,6 @@ impl TextWithBackground {
 }
 
 impl Slideshow {
-    // TODO: Take instant as argument
     pub fn should_load_next(&self, time: Instant) -> bool {
         match self {
             Slideshow::None => true,
@@ -236,7 +235,6 @@ impl Slideshow {
         }
     }
 
-    // TODO: Take instant as argument
     pub fn load_next(&mut self, slide: Slide, config: &Conf, time: Instant) {
         let mut old_self = Self::None;
         std::mem::swap(self, &mut old_self);
