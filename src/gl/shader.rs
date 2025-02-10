@@ -119,7 +119,7 @@ impl Program {
         })
     }
 
-    pub fn bind<'a>(&'a self) {
+    pub fn bind(&self) {
         let previous = self.gl.set_bound_shader(self.program.0);
         if previous != Some(self.program.0) {
             unsafe {

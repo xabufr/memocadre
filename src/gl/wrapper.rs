@@ -110,7 +110,8 @@ impl GlowContext {
     }
 
     #[inline(always)]
-    pub unsafe fn tex_sub_image_2d<'a>(
+    #[allow(clippy::too_many_arguments)]
+    pub unsafe fn tex_sub_image_2d(
         &self,
         target: u32,
         level: i32,
@@ -120,7 +121,7 @@ impl GlowContext {
         height: i32,
         format: u32,
         ty: u32,
-        pixels: PixelUnpackData<'a>,
+        pixels: PixelUnpackData,
     ) {
         self.0.tex_sub_image_2d(
             target, level, x_offset, y_offset, width, height, format, ty, pixels,
@@ -128,7 +129,8 @@ impl GlowContext {
     }
 
     #[inline(always)]
-    pub unsafe fn tex_image_2d<'a>(
+    #[allow(clippy::too_many_arguments)]
+    pub unsafe fn tex_image_2d(
         &self,
         target: u32,
         level: i32,
@@ -138,7 +140,7 @@ impl GlowContext {
         border: i32,
         format: u32,
         ty: u32,
-        pixels: PixelUnpackData<'a>,
+        pixels: PixelUnpackData,
     ) {
         self.0.tex_image_2d(
             target,

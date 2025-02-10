@@ -17,6 +17,7 @@ pub mod shader;
 #[cfg_attr(test, allow(dead_code))]
 pub mod texture;
 pub mod vao;
+#[cfg_attr(test, allow(elided_named_lifetimes))]
 pub mod wrapper;
 
 #[derive(Debug)]
