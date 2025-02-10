@@ -8,6 +8,7 @@ use epaint::{
 use vek::Rect;
 
 use crate::{
+    application::slideshow::animation::animated_properties,
     configuration::{Background, Conf},
     graphics::{Drawable, Graphics, ShapeContainer, SharedTexture2d, Sprite, TextContainer},
     worker::PreloadedSlide,
@@ -29,15 +30,7 @@ struct TextWithBackground {
     background: ShapeContainer,
 }
 
-// #[derive(Mix, SmartDefault, Clone)]
-// pub struct SlideProperties {
-//     #[default(1_f32)]
-//     pub global_opacity: f32,
-//     #[default(1_f32)]
-//     pub zoom: f32,
-// }
-
-crate::application::slideshow::animation::animated_properties!(SlideProperties {
+animated_properties!(SlideProperties {
     global_opacity: f32 = 1.0,
     zoom: f32 = 1.0,
 });
