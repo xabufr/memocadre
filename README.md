@@ -14,8 +14,9 @@ Todo:
    - Other layouts when possible (two photos at the same time)
 
 - Technical:
-   - Reduce Gl calls (shader bindings)
+   - More robust worker (network errors, etc...)
    - unit testing where possible
+   - Debian packaging
    - Better immich errors - OK?
    - Direnv -> switch to flake
    - Better init for GBM/winit
@@ -26,6 +27,7 @@ Todo:
    - Sleep when nothing to do ? -> no with zoom effect
    - Investigate text rendering using signed distance fields (SDF)
    - profiling - hard on ARMv6
+   - Reduce Gl calls (shader bindings) - OK?
 
 
 - HTTP Api ?

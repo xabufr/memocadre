@@ -68,7 +68,6 @@ impl<T: ApplicationContext + 'static> ApplicationHandler<()> for App<T> {
                 if let Some(state) = &mut self.state {
                     state.context.update();
                     state.context.draw_frame().expect("Cannot draw frame");
-                    state.gl.swap_buffers().expect("Cannot swap window buffers");
                     if self.close_promptly {
                         event_loop.exit();
                     }

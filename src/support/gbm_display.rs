@@ -191,9 +191,6 @@ where
     loop {
         app.draw_frame().context("Error while drawing a frame")?;
 
-        gl.swap_buffers()
-            .context("Cannot swap buffers on surface")?;
-
         let next_bo =
             unsafe { gbm_surface.lock_front_buffer() }.context("Cannot lock front buffer")?;
         let next_fb = device

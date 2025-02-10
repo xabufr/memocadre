@@ -68,7 +68,7 @@ impl ApplicationContext for Application {
                 Err(error) => Err(error).context("Cannot get next image")?,
                 Ok(image) => {
                     let slide = Slide::create(image, &mut self.graphics, &self.config)
-                        .context("Cannot laod next frame")?;
+                        .context("Cannot load next frame")?;
 
                     self.slides.load_next(slide, &self.config, time);
                 }
@@ -87,6 +87,7 @@ impl ApplicationContext for Application {
         if let Some(fps) = &self.fps {
             fps.draw(&self.graphics)?;
         }
+        self.gl.swap_buffers()?;
         Ok(())
     }
 }
