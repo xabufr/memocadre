@@ -5,8 +5,6 @@ use epaint::{
     text::{LayoutJob, TextFormat},
     Color32, FontId, Pos2, RectShape,
 };
-use glissade::Mix;
-use smart_default::SmartDefault;
 use vek::Rect;
 
 use crate::{
@@ -23,7 +21,7 @@ pub struct Slide {
 
 pub struct AnimatedSlide {
     pub slide: Slide,
-    pub animation: Box<dyn glissade::Animated<SlideProperties, Instant>>,
+    pub animation: AnimatedSlideProperties,
 }
 
 struct TextWithBackground {
@@ -31,17 +29,22 @@ struct TextWithBackground {
     background: ShapeContainer,
 }
 
-#[derive(Mix, SmartDefault, Clone)]
-pub struct SlideProperties {
-    #[default(1_f32)]
-    pub global_opacity: f32,
-    #[default(1_f32)]
-    pub zoom: f32,
-}
+// #[derive(Mix, SmartDefault, Clone)]
+// pub struct SlideProperties {
+//     #[default(1_f32)]
+//     pub global_opacity: f32,
+//     #[default(1_f32)]
+//     pub zoom: f32,
+// }
+
+crate::application::slideshow::animation::animated_properties!(SlideProperties {
+    global_opacity: f32 = 1.0,
+    zoom: f32 = 1.0,
+});
 
 impl AnimatedSlide {
     pub fn update(&mut self, instant: Instant) {
-        let properties = self.animation.get(instant);
+        let properties = self.animation.to_slide_properties(instant);
         self.slide.apply(properties);
     }
 }

@@ -4,7 +4,8 @@ mod slide;
 use std::time::Instant;
 
 use anyhow::Result;
-use glissade::Keyframes;
+use glissade::Easing;
+use slide::AnimatedSlideProperties;
 
 use self::slide::{AnimatedSlide, Slide, SlideProperties};
 use crate::{
@@ -55,44 +56,21 @@ impl Slideshow {
                     time,
                 )
             }
-            Slideshow::Single(old)
-            | Slideshow::Transitioning(TransitioningSlide { prev: _, next: old }) => {
+            Slideshow::Single(mut old)
+            | Slideshow::Transitioning(TransitioningSlide {
+                prev: _,
+                next: mut old,
+            }) => {
                 let transition_duration = config.slideshow.transition_duration;
-                let easing = glissade::Easing::QuarticInOut;
-                let old_properties = old.animation.get(time);
-                let old = AnimatedSlide {
-                    slide: old.slide,
-                    animation: Box::new(
-                        glissade::keyframes::from(old_properties.clone())
-                            .ease_to(
-                                SlideProperties {
-                                    global_opacity: 0.,
-                                    ..old_properties
-                                },
-                                transition_duration,
-                                easing.clone(),
-                            )
-                            .run(time),
-                    ),
-                };
-                let new = AnimatedSlide {
-                    slide,
-                    animation: Box::new(
-                        glissade::keyframes::from(SlideProperties {
-                            global_opacity: 0.,
-                            zoom: 0.9,
-                        })
-                        .ease_to(
-                            SlideProperties {
-                                global_opacity: 1.,
-                                zoom: 0.9,
-                            },
-                            transition_duration,
-                            easing,
-                        )
-                        .run(time),
-                    ),
-                };
+                let easing = Easing::QuarticInOut;
+                old.animation
+                    .ease_global_opacity(0., time, transition_duration, easing.clone());
+                let mut animation = AnimatedSlideProperties::from(SlideProperties {
+                    global_opacity: 0.,
+                    zoom: 0.9,
+                });
+                animation.ease_global_opacity(1.0, time, transition_duration, easing);
+                let new = AnimatedSlide { slide, animation };
 
                 *self = Slideshow::Transitioning(TransitioningSlide {
                     prev: old,
@@ -115,7 +93,8 @@ impl Slideshow {
             }
             Slideshow::Transitioning(mut t) => {
                 if t.is_finished(time) {
-                    *self = Self::to_single(t.next.slide, t.next.animation.get(time), config, time);
+                    *self =
+                        Self::to_single(t.next.slide, t.next.animation.get_target(), config, time);
                 } else {
                     t.update(time);
                     *self = Slideshow::Transitioning(t);
@@ -130,21 +109,15 @@ impl Slideshow {
         config: &Conf,
         start: Instant,
     ) -> Self {
-        let animation = glissade::keyframes::from(current_properties.clone())
-            .ease_to(
-                SlideProperties {
-                    // zoom: 0.9,
-                    ..Default::default()
-                },
-                config.slideshow.display_duration,
-                glissade::Easing::CubicInOut,
-            )
-            .run(start);
+        let mut animation = AnimatedSlideProperties::from(current_properties);
+        animation.ease_zoom(
+            1.0,
+            start,
+            config.slideshow.display_duration,
+            Easing::CubicInOut,
+        );
 
-        Self::Single(AnimatedSlide {
-            slide,
-            animation: Box::new(animation),
-        })
+        Self::Single(AnimatedSlide { slide, animation })
     }
 }
 

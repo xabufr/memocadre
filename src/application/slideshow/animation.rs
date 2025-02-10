@@ -1,13 +1,3 @@
-use std::time::Instant;
-
-use glissade::{Animated as _, Easing, Inertial};
-use paste::paste;
-use std::time::Duration;
-
-use super::slide::SlideProperties;
-
-type Animated<T> = Inertial<T, Instant>;
-
 macro_rules! animated_properties {
     (
         $struct_name:ident {
@@ -16,131 +6,164 @@ macro_rules! animated_properties {
            )*
         }
     ) => {
-        #[derive(Debug, Clone)]
-        pub struct $struct_name {
-            $(
-                $field_name: Animated<$field_type>,
-            )*
-        }
+        paste::paste! {
+            pub use self::[<$struct_name:snake>]::{[<Animated $struct_name>], $struct_name};
+            mod [<$struct_name:snake>] {
+                use glissade::{Easing, Inertial, Animated};
+                use std::time::{Duration, Instant};
 
-        impl $struct_name {
-            #[allow(dead_code)]
-            pub fn is_finished(&self, instant: Instant) -> bool {
-                $(
-                    self.$field_name.is_finished(instant)
-                )&&*
-            }
-
-            #[allow(dead_code)]
-            pub fn to_slide_properties(&self, instant: Instant) -> SlideProperties {
-                SlideProperties {
+                #[derive(Debug, Clone)]
+                pub struct $struct_name {
                     $(
-                        $field_name: self.$field_name.get(instant),
+                        pub $field_name: $field_type,
                     )*
                 }
-            }
 
-            #[allow(dead_code)]
-            pub fn get_target(&self) -> SlideProperties {
-                SlideProperties {
+                #[derive(Debug, Clone)]
+                pub struct [<Animated $struct_name>] {
                     $(
-                        $field_name: self.$field_name.target(),
+                        $field_name: Inertial<$field_type, Instant>,
                     )*
                 }
-            }
-
-            $(
-                paste! {
+                impl [<Animated $struct_name>] {
                     #[allow(dead_code)]
-                    pub fn [<ease_ $field_name>](
-                        &mut self,
-                        target: $field_type,
-                        start: Instant,
-                        duration: Duration,
-                        ease: Easing,
-                    ) {
-                        let mut field = Animated::new(target);
-                        std::mem::swap(&mut self.$field_name, &mut field);
-                        field = field.ease_to(target, start, duration, ease);
-                        std::mem::swap(&mut self.$field_name, &mut field);
+                    pub fn is_finished(&self, instant: Instant) -> bool {
+                        $(
+                            self.$field_name.is_finished(instant)
+                        )&&*
                     }
 
                     #[allow(dead_code)]
-                    pub fn [<then_ease $field_name>](
-                        &mut self,
-                        target: $field_type,
-                        duration: Duration,
-                        now: Instant,
-                        ease: Easing,
-                    ) {
-                        let mut field = Animated::new(target);
-                        std::mem::swap(&mut self.$field_name, &mut field);
-                        let start = field.end_time().unwrap_or(now);
-                        field = field.ease_to(target, start, duration, ease);
-                        std::mem::swap(&mut self.$field_name, &mut field);
+                    pub fn to_slide_properties(&self, instant: Instant) -> SlideProperties {
+                        SlideProperties {
+                            $(
+                                $field_name: self.$field_name.get(instant),
+                            )*
+                        }
                     }
 
                     #[allow(dead_code)]
-                    pub fn [<set_ $field_name _no_ease>](
-                        &mut self,
-                        value: $field_type,
-                    ) {
-                        self.$field_name = Animated::new(value);
+                    pub fn get_target(&self) -> SlideProperties {
+                        SlideProperties {
+                            $(
+                                $field_name: self.$field_name.target(),
+                            )*
+                        }
                     }
 
-                    #[allow(dead_code)]
-                    pub fn [<get_target_ $field_name>](
-                        &self
-                    ) -> $field_type {
-                        self.$field_name.target()
+                    $(
+                        #[allow(dead_code)]
+                        pub fn [<ease_ $field_name>](
+                            &mut self,
+                            target: $field_type,
+                            start: Instant,
+                            duration: Duration,
+                            ease: Easing,
+                        ) {
+                            let mut field = Inertial::new(target);
+                            std::mem::swap(&mut self.$field_name, &mut field);
+                            field = field.ease_to(target, start, duration, ease);
+                            std::mem::swap(&mut self.$field_name, &mut field);
+                        }
+
+                        #[allow(dead_code)]
+                        pub fn [<then_ease_ $field_name>](
+                            &mut self,
+                            target: $field_type,
+                            duration: Duration,
+                            now: Instant,
+                            ease: Easing,
+                        ) {
+                            let mut field = Inertial::new(target);
+                            std::mem::swap(&mut self.$field_name, &mut field);
+                            let start = field.end_time().unwrap_or(now);
+                            field = field.ease_to(target, start, duration, ease);
+                            std::mem::swap(&mut self.$field_name, &mut field);
+                        }
+
+                        #[allow(dead_code)]
+                        pub fn [<set_ $field_name _no_ease>](
+                            &mut self,
+                            value: $field_type,
+                        ) {
+                            self.$field_name = Inertial::new(value);
+                        }
+
+                        #[allow(dead_code)]
+                        pub fn [<get_ $field_name>](
+                            &self, time: Instant
+                        ) -> $field_type {
+                            self.$field_name.get(time)
+                        }
+
+                        #[allow(dead_code)]
+                        pub fn [<get_target_ $field_name>](
+                            &self
+                        ) -> $field_type {
+                            self.$field_name.target()
+                        }
+                    )*
+                }
+
+                impl From<SlideProperties> for [<Animated $struct_name>] {
+                    fn from(properties: SlideProperties) -> Self {
+                        [<Animated $struct_name>] {
+                            $(
+                                $field_name: Inertial::new(properties.$field_name),
+                            )*
+                        }
                     }
                 }
-            )*
-        }
 
-        impl From<SlideProperties> for $struct_name {
-            fn from(properties: SlideProperties) -> Self {
-                $struct_name {
-                    $(
-                        $field_name: Animated::new(properties.$field_name),
-                    )*
+                impl Default for [<Animated $struct_name>] {
+                    fn default() -> Self {
+                        [<Animated $struct_name>] {
+                            $(
+                                $field_name: Inertial::new($default),
+                            )*
+                        }
+                    }
+                }
+                impl Default for $struct_name {
+                    fn default() -> Self {
+                        $struct_name {
+                            $(
+                                $field_name: $default,
+                            )*
+                        }
+                    }
                 }
             }
-        }
 
-        impl Default for $struct_name {
-            fn default() -> Self {
-                $struct_name {
-                    $(
-                        $field_name: Animated::new($default),
-                    )*
-                }
-            }
         }
     };
 }
 
-animated_properties!(AnimatedSlideProperties {
-    global_opacity: f32 = 1.0,
-    zoom: f32 = 1.0,
-});
+pub(crate) use animated_properties;
 
 #[cfg(test)]
 mod test {
-    use glissade::Animated;
+    use std::time::{Duration, Instant};
+
+    use glissade::Easing;
     use googletest::{
         expect_that, gtest,
         prelude::{eq, is_false, is_true},
     };
 
-    use super::*;
+    use super::animated_properties;
+
+    animated_properties!(SlideProperties {
+        global_opacity: f32 = 1.0,
+        zoom: f32 = 1.0,
+    });
 
     #[gtest]
     fn test_animated_properties_defaults() {
         let now = Instant::now();
         let properties = AnimatedSlideProperties::default();
-        expect_that!(properties.global_opacity.get(now), eq(1.0));
-        expect_that!(properties.zoom.get(now), eq(1.0));
+        expect_that!(properties.get_global_opacity(now), eq(1.0));
+        expect_that!(properties.get_zoom(now), eq(1.0));
         expect_that!(properties.is_finished(now), is_true());
         expect_that!(
             properties.is_finished(now - Duration::from_secs(100)),
@@ -156,14 +179,14 @@ mod test {
         let now = Instant::now();
         let mut properties = AnimatedSlideProperties::default();
         properties.ease_global_opacity(0.0, now, Duration::from_secs(1), Easing::Linear);
-        expect_that!(properties.global_opacity.get(now), eq(1.0));
+        expect_that!(properties.get_global_opacity(now), eq(1.0));
         expect_that!(properties.is_finished(now), is_false());
         expect_that!(
             properties.is_finished(now + Duration::from_millis(999)),
             is_false()
         );
         expect_that!(
-            properties.global_opacity.get(now + Duration::from_secs(1)),
+            properties.get_global_opacity(now + Duration::from_secs(1)),
             eq(0.0)
         );
         expect_that!(
@@ -180,9 +203,7 @@ mod test {
         properties.ease_global_opacity(0.0, now, Duration::from_secs(1), Easing::Linear);
         properties.set_global_opacity_no_ease(1.0);
         expect_that!(
-            properties
-                .global_opacity
-                .get(now + Duration::from_millis(500)),
+            properties.get_global_opacity(now + Duration::from_millis(500)),
             eq(1.0)
         );
         expect_that!(properties.is_finished(now), is_true());
