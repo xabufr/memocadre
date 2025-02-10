@@ -1,5 +1,5 @@
 mod fps;
-mod slide;
+mod slideshow;
 
 use std::{
     rc::Rc,
@@ -8,10 +8,9 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use slide::Slideshow;
 use vek::Extent2;
 
-use self::{fps::FPSCounter, slide::Slide};
+use self::{fps::FPSCounter, slideshow::Slideshow};
 use crate::{
     configuration::Conf,
     gl::{FutureGlThreadContext, GlContext},
@@ -66,11 +65,10 @@ impl ApplicationContext for Application {
             match self.worker.recv().try_recv() {
                 Err(TryRecvError::Empty) => {}
                 Err(error) => Err(error).context("Cannot get next image")?,
-                Ok(image) => {
-                    let slide = Slide::create(image, &mut self.graphics, &self.config)
+                Ok(preloaded_slide) => {
+                    self.slides
+                        .load_next(&mut self.graphics, preloaded_slide, &self.config, time)
                         .context("Cannot load next frame")?;
-
-                    self.slides.load_next(slide, &self.config, time);
                 }
             }
         }

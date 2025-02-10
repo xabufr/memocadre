@@ -5,7 +5,7 @@ use epaint::{
     text::{LayoutJob, TextFormat},
     Color32, FontId, Pos2, RectShape,
 };
-use glissade::{Keyframes, Mix};
+use glissade::Mix;
 use smart_default::SmartDefault;
 use vek::Rect;
 
@@ -21,20 +21,9 @@ pub struct Slide {
     text: Option<TextWithBackground>,
 }
 
-pub enum Slideshow {
-    None,
-    Single(AnimatedSlide),
-    Transitioning(TransitioningSlide),
-}
-
-pub struct TransitioningSlide {
-    prev: AnimatedSlide,
-    next: AnimatedSlide,
-}
-
 pub struct AnimatedSlide {
-    slide: Slide,
-    animation: Box<dyn glissade::Animated<SlideProperties, Instant>>,
+    pub slide: Slide,
+    pub animation: Box<dyn glissade::Animated<SlideProperties, Instant>>,
 }
 
 struct TextWithBackground {
@@ -43,15 +32,15 @@ struct TextWithBackground {
 }
 
 #[derive(Mix, SmartDefault, Clone)]
-struct SlideProperties {
+pub struct SlideProperties {
     #[default(1_f32)]
-    global_opacity: f32,
+    pub global_opacity: f32,
     #[default(1_f32)]
-    zoom: f32,
+    pub zoom: f32,
 }
 
 impl AnimatedSlide {
-    fn update(&mut self, instant: Instant) {
+    pub fn update(&mut self, instant: Instant) {
         let properties = self.animation.get(instant);
         self.slide.apply(properties);
     }
@@ -164,7 +153,7 @@ impl Slide {
         };
     }
 
-    fn apply(&mut self, properties: SlideProperties) {
+    pub fn apply(&mut self, properties: SlideProperties) {
         self.set_opacity(properties.global_opacity);
         self.main_sprite
             .set_sub_center_size(0.5.into(), (properties.zoom * 0.5).into());
@@ -226,141 +215,6 @@ impl TextWithBackground {
     }
 }
 
-impl Slideshow {
-    pub fn should_load_next(&self, time: Instant) -> bool {
-        match self {
-            Slideshow::None => true,
-            Slideshow::Single(slide) => slide.animation.is_finished(time),
-            Slideshow::Transitioning(_) => false,
-        }
-    }
-
-    pub fn load_next(&mut self, slide: Slide, config: &Conf, time: Instant) {
-        let mut old_self = Self::None;
-        std::mem::swap(self, &mut old_self);
-        match old_self {
-            Slideshow::None => {
-                *self = Self::to_single(
-                    slide,
-                    SlideProperties {
-                        zoom: 0.9,
-                        ..SlideProperties::default()
-                    },
-                    config,
-                    time,
-                )
-            }
-            Slideshow::Single(old)
-            | Slideshow::Transitioning(TransitioningSlide { prev: _, next: old }) => {
-                let transition_duration = config.slideshow.transition_duration;
-                let easing = glissade::Easing::QuarticInOut;
-                let old_properties = old.animation.get(time);
-                let old = AnimatedSlide {
-                    slide: old.slide,
-                    animation: Box::new(
-                        glissade::keyframes::from(old_properties.clone())
-                            .ease_to(
-                                SlideProperties {
-                                    global_opacity: 0.,
-                                    ..old_properties
-                                },
-                                transition_duration,
-                                easing.clone(),
-                            )
-                            .run(time),
-                    ),
-                };
-                let new = AnimatedSlide {
-                    slide,
-                    animation: Box::new(
-                        glissade::keyframes::from(SlideProperties {
-                            global_opacity: 0.,
-                            zoom: 0.9,
-                        })
-                        .ease_to(
-                            SlideProperties {
-                                global_opacity: 1.,
-                                zoom: 0.9,
-                            },
-                            transition_duration,
-                            easing,
-                        )
-                        .run(time),
-                    ),
-                };
-
-                *self = Slideshow::Transitioning(TransitioningSlide {
-                    prev: old,
-                    next: new,
-                })
-            }
-        }
-    }
-
-    // TODO: Test me !
-    pub fn update(&mut self, config: &Conf, time: Instant) {
-        let mut old_self = Self::None;
-        std::mem::swap(self, &mut old_self);
-        match old_self {
-            Slideshow::None => (),
-            Slideshow::Single(ref mut slide) => {
-                slide.update(time);
-                *self = old_self
-            }
-            Slideshow::Transitioning(mut t) => {
-                if t.is_finished(time) {
-                    *self = Self::to_single(t.next.slide, t.next.animation.get(time), config, time);
-                } else {
-                    t.update(time);
-                    *self = Slideshow::Transitioning(t);
-                }
-            }
-        }
-    }
-
-    fn to_single(
-        slide: Slide,
-        current_properties: SlideProperties,
-        config: &Conf,
-        start: Instant,
-    ) -> Self {
-        let animation = glissade::keyframes::from(current_properties.clone())
-            .ease_to(
-                SlideProperties {
-                    // zoom: 0.9,
-                    ..Default::default()
-                },
-                config.slideshow.display_duration,
-                glissade::Easing::CubicInOut,
-            )
-            .run(start);
-
-        Self::Single(AnimatedSlide {
-            slide,
-            animation: Box::new(animation),
-        })
-    }
-}
-
-impl TransitioningSlide {
-    fn is_finished(&self, instant: Instant) -> bool {
-        self.prev.animation.is_finished(instant) && self.next.animation.is_finished(instant)
-    }
-
-    fn update(&mut self, instant: Instant) {
-        self.prev.update(instant);
-        self.next.update(instant);
-    }
-}
-
-impl Drawable for TransitioningSlide {
-    fn draw(&self, graphics: &Graphics) -> Result<()> {
-        self.prev.draw(graphics)?;
-        self.next.draw(graphics)?;
-        Ok(())
-    }
-}
-
 impl Drawable for Slide {
     fn draw(&self, graphics: &Graphics) -> Result<()> {
         for sprite in self.background.iter().flatten() {
@@ -371,16 +225,6 @@ impl Drawable for Slide {
             text.draw(graphics)?;
         }
         Ok(())
-    }
-}
-
-impl Drawable for Slideshow {
-    fn draw(&self, graphics: &Graphics) -> Result<()> {
-        match self {
-            Slideshow::None => Ok(()),
-            Slideshow::Single(slide) => slide.draw(graphics),
-            Slideshow::Transitioning(transitioning_slide) => transitioning_slide.draw(graphics),
-        }
     }
 }
 
@@ -403,7 +247,7 @@ impl Drawable for AnimatedSlide {
 mod test {
     use std::rc::Rc;
 
-    use chrono::{DateTime, Locale, NaiveDate, Utc};
+    use chrono::{Locale, NaiveDate, Utc};
     use googletest::{
         assert_pred, expect_pred, expect_that, gtest,
         matchers::matches_pattern,

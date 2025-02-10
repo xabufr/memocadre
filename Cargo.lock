@@ -1735,6 +1735,7 @@ dependencies = [
  "micromap",
  "minreq",
  "mint",
+ "paste",
  "raw-window-handle",
  "serde",
  "serde_json",
