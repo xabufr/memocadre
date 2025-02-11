@@ -30,7 +30,7 @@ impl LoadingSlide {
             graphics.create_shape(epaint::Shape::Circle(shape), None)
         })?;
 
-        let positions = array_init::array_init(|i| {
+        let positions = std::array::from_fn(|i| {
             let angle = 2.0 * std::f32::consts::PI / CIRCLE_ELEMENTS as f32 * i as f32;
             let x = angle.cos() * circle_radius;
             let y = angle.sin() * circle_radius;
