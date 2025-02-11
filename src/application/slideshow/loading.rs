@@ -23,6 +23,7 @@ impl LoadingSlide {
         let circle_radius = graphics.get_dimensions().reduce_min() as f32 / 10.0;
         let circle_size = circle_radius * 0.2;
 
+        // TODO: use std::array::try_from_fn when stabilized
         let circles = array_init::try_array_init(|i| {
             let gray = 255.0 / CIRCLE_ELEMENTS as f32 * (i + 1) as f32;
             let shape =
