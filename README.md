@@ -2,12 +2,12 @@ Todo:
 
 - Configuration
    - Blur (radius, algo...) - OK for now
-   - Transitions
-   - Text properties (font, size, color, position, padding, etc...)
+   - More transitions
+   - More text properties (font, size, color, position, padding, etc...)
 
 - Graphics:
    - Pixel perfect rework
-   - Splash screen - OK
+   - Splash screen - OK for now
    - Handle descriptions from immich (memory lane, etc...)
    - Info placement - OK for now
    - Other effects / transitions -> fadeout-fadein
