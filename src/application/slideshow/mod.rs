@@ -1,14 +1,17 @@
 mod animation;
+mod loading;
 mod slide;
 
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use glissade::Easing;
-use slide::AnimatedSlideProperties;
 use vek::Vec2;
 
-use self::slide::{AnimatedSlide, Slide, SlideProperties};
+use self::{
+    loading::LoadingSlide,
+    slide::{AnimatedSlide, AnimatedSlideProperties, Slide, SlideProperties},
+};
 use crate::{
     configuration::Conf,
     graphics::{Drawable, Graphics},
@@ -17,6 +20,7 @@ use crate::{
 
 pub enum Slideshow {
     None,
+    Loading(LoadingSlide),
     Single(AnimatedSlide),
     Transitioning(TransitioningSlide),
 }
@@ -27,9 +31,14 @@ pub struct TransitioningSlide {
 }
 
 impl Slideshow {
+    pub fn create(graphics: &mut Graphics) -> Result<Self> {
+        let loading_slide = LoadingSlide::create(graphics)?;
+        Ok(Slideshow::Loading(loading_slide))
+    }
     pub fn should_load_next(&self, time: Instant) -> bool {
         match self {
             Slideshow::None => true,
+            Slideshow::Loading(_) => true,
             Slideshow::Single(slide) => slide.animation.is_finished(time),
             Slideshow::Transitioning(_) => false,
         }
@@ -46,7 +55,7 @@ impl Slideshow {
         let mut old_self = Self::None;
         std::mem::swap(self, &mut old_self);
         match old_self {
-            Slideshow::None => {
+            Slideshow::None | Slideshow::Loading(_) => {
                 *self = Self::to_single(
                     graphics,
                     slide,
@@ -88,24 +97,28 @@ impl Slideshow {
     pub fn update(&mut self, graphics: &Graphics, config: &Conf, time: Instant) {
         let mut old_self = Self::None;
         std::mem::swap(self, &mut old_self);
-        match old_self {
-            Slideshow::None => (),
+        *self = match old_self {
+            Slideshow::None => old_self,
+            Slideshow::Loading(ref mut loading) => {
+                loading.update(graphics, time);
+                old_self
+            }
             Slideshow::Single(ref mut slide) => {
                 slide.update(time);
-                *self = old_self
+                old_self
             }
             Slideshow::Transitioning(mut t) => {
                 if t.is_finished(time) {
-                    *self = Self::to_single(
+                    Self::to_single(
                         graphics,
                         t.next.slide,
                         t.next.animation.get_target(),
                         config,
                         time,
-                    );
+                    )
                 } else {
                     t.update(time);
-                    *self = Slideshow::Transitioning(t);
+                    Slideshow::Transitioning(t)
                 }
             }
         }
@@ -167,6 +180,7 @@ impl Drawable for Slideshow {
     fn draw(&self, graphics: &Graphics) -> Result<()> {
         match self {
             Slideshow::None => Ok(()),
+            Slideshow::Loading(slide) => slide.draw(graphics),
             Slideshow::Single(slide) => slide.draw(graphics),
             Slideshow::Transitioning(transitioning_slide) => transitioning_slide.draw(graphics),
         }

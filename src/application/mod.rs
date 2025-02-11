@@ -44,10 +44,11 @@ impl ApplicationContext for Application {
         } else {
             None
         };
+        let slides = Slideshow::create(&mut graphics)?;
         Ok(Self {
             graphics,
             gl,
-            slides: Slideshow::None,
+            slides,
             worker,
             config,
             fps,
