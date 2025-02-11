@@ -1,11 +1,12 @@
 mod animation;
 mod slide;
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use glissade::Easing;
 use slide::AnimatedSlideProperties;
+use vek::Vec2;
 
 use self::slide::{AnimatedSlide, Slide, SlideProperties};
 use crate::{
@@ -47,6 +48,7 @@ impl Slideshow {
         match old_self {
             Slideshow::None => {
                 *self = Self::to_single(
+                    graphics,
                     slide,
                     SlideProperties {
                         zoom: 0.9,
@@ -68,6 +70,7 @@ impl Slideshow {
                 let mut animation = AnimatedSlideProperties::from(SlideProperties {
                     global_opacity: 0.,
                     zoom: 0.9,
+                    text_position: [0., graphics.get_dimensions().h as f32],
                 });
                 animation.ease_global_opacity(1.0, time, transition_duration, easing);
                 let new = AnimatedSlide { slide, animation };
@@ -82,7 +85,7 @@ impl Slideshow {
     }
 
     // TODO: Test me !
-    pub fn update(&mut self, config: &Conf, time: Instant) {
+    pub fn update(&mut self, graphics: &Graphics, config: &Conf, time: Instant) {
         let mut old_self = Self::None;
         std::mem::swap(self, &mut old_self);
         match old_self {
@@ -93,8 +96,13 @@ impl Slideshow {
             }
             Slideshow::Transitioning(mut t) => {
                 if t.is_finished(time) {
-                    *self =
-                        Self::to_single(t.next.slide, t.next.animation.get_target(), config, time);
+                    *self = Self::to_single(
+                        graphics,
+                        t.next.slide,
+                        t.next.animation.get_target(),
+                        config,
+                        time,
+                    );
                 } else {
                     t.update(time);
                     *self = Slideshow::Transitioning(t);
@@ -104,6 +112,7 @@ impl Slideshow {
     }
 
     fn to_single(
+        graphics: &Graphics,
         slide: Slide,
         current_properties: SlideProperties,
         config: &Conf,
@@ -116,6 +125,20 @@ impl Slideshow {
             config.slideshow.display_duration,
             Easing::CubicInOut,
         );
+        if let Some(text) = slide.get_text() {
+            let size = text.size().as_::<f32>();
+            let screen = graphics.get_dimensions().as_::<f32>();
+
+            let target_pos = Vec2::new(screen.w * 0.5 - size.w * 0.5, screen.h - size.h);
+            let from_pos = target_pos + Vec2::new(0., size.h);
+            animation.set_text_position_no_ease(from_pos.into_array());
+            animation.ease_text_position(
+                target_pos.into_array(),
+                start,
+                Duration::from_millis(250),
+                Easing::Linear,
+            );
+        }
 
         Self::Single(AnimatedSlide { slide, animation })
     }

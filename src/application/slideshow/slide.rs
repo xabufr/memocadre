@@ -5,7 +5,7 @@ use epaint::{
     text::{LayoutJob, TextFormat},
     Color32, FontId, Pos2, RectShape,
 };
-use vek::Rect;
+use vek::{Extent2, Rect, Vec2};
 
 use crate::{
     application::slideshow::animation::animated_properties,
@@ -25,14 +25,16 @@ pub struct AnimatedSlide {
     pub animation: AnimatedSlideProperties,
 }
 
-struct TextWithBackground {
+pub struct TextWithBackground {
     container: TextContainer,
     background: ShapeContainer,
+    bg_padding: f32,
 }
 
 animated_properties!(SlideProperties {
     global_opacity: f32 = 1.0,
     zoom: f32 = 1.0,
+    text_position: [f32; 2] = [0.0, 0.0],
 });
 
 impl AnimatedSlide {
@@ -149,18 +151,23 @@ impl Slide {
         };
     }
 
+    pub fn get_text(&self) -> Option<&TextWithBackground> {
+        self.text.as_ref()
+    }
+
     pub fn apply(&mut self, properties: SlideProperties) {
         self.set_opacity(properties.global_opacity);
         self.main_sprite
             .set_sub_center_size(0.5.into(), (properties.zoom * 0.5).into());
+        if let Some(text) = self.text.as_mut() {
+            text.set_position(properties.text_position.into());
+        }
     }
 }
 
 impl TextWithBackground {
     // TODO Test me !
     fn create(graphics: &mut Graphics, text: String) -> Result<Self> {
-        let display_size = graphics.get_dimensions();
-        let bottom_padding = 10f32;
         let bg_padding = 5f32;
 
         let container = {
@@ -175,14 +182,6 @@ impl TextWithBackground {
                 )
             });
             graphics.force_text_container_update(&container);
-            let dims = container.get_dimensions();
-            container.set_position(
-                (
-                    display_size.w as f32 * 0.5,
-                    display_size.h as f32 - dims.h - bottom_padding - bg_padding,
-                )
-                    .into(),
-            );
             container
         };
         let shape = {
@@ -195,19 +194,31 @@ impl TextWithBackground {
                     Color32::BLACK.linear_multiply(0.5),
                 )
             };
-            let mut shape = graphics.create_shape(rect.into(), None)?;
-            shape.set_position(container.get_bounding_rect().position() - bg_padding);
-            shape
+            graphics.create_shape(rect.into(), None)?
         };
         Ok(Self {
             container,
             background: shape,
+            bg_padding,
         })
     }
 
     fn set_opacity(&mut self, alpha: f32) {
         self.container.set_opacity(alpha);
         self.background.set_opacity(alpha);
+    }
+
+    fn set_position(&mut self, position: Vec2<f32>) {
+        let c_pos = self.container.get_position();
+        // Text origin may not be at the top left corner
+        let offset = c_pos - self.container.get_bounding_rect().position();
+        self.container
+            .set_position(position + offset + self.bg_padding);
+        self.background.set_position(position);
+    }
+
+    pub fn size(&self) -> Extent2<f32> {
+        self.container.get_dimensions() + self.bg_padding * 2_f32
     }
 }
 
