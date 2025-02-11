@@ -7,7 +7,7 @@ Todo:
 
 - Graphics:
    - Pixel perfect rework
-   - Splash screen
+   - Splash screen - OK
    - Handle descriptions from immich (memory lane, etc...)
    - Info placement - OK for now
    - Other effects / transitions -> fadeout-fadein
