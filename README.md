@@ -16,6 +16,7 @@ Todo:
 - Technical:
    - More robust worker (network errors, etc...)
    - unit testing where possible
+   - Feature flags for GBM, winit, etc...
    - Debian packaging
    - Better immich errors - OK?
    - Direnv -> switch to flake
