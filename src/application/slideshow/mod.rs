@@ -13,7 +13,7 @@ use self::{
     slide::{AnimatedSlide, AnimatedSlideProperties, Slide, SlideProperties},
 };
 use crate::{
-    configuration::Conf,
+    configuration::{Conf, InitSlideOptions},
     graphics::{Drawable, Graphics},
     worker::PreloadedSlide,
 };
@@ -31,9 +31,14 @@ pub struct TransitioningSlide {
 }
 
 impl Slideshow {
-    pub fn create(graphics: &mut Graphics) -> Result<Self> {
-        let loading_slide = LoadingSlide::create(graphics)?;
-        Ok(Slideshow::Loading(loading_slide))
+    pub fn create(graphics: &mut Graphics, config: &Conf) -> Result<Self> {
+        match &config.slideshow.init_slide {
+            InitSlideOptions::Empty => Ok(Slideshow::None),
+            InitSlideOptions::LoadingCircle(loading_circle_options) => {
+                let loading_slide = LoadingSlide::create(graphics, loading_circle_options)?;
+                Ok(Slideshow::Loading(loading_slide))
+            }
+        }
     }
     pub fn should_load_next(&self, time: Instant) -> bool {
         match self {

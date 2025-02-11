@@ -40,6 +40,7 @@ pub struct Slideshow {
     #[serde(with = "humantime_serde")]
     pub transition_duration: Duration,
 
+    pub init_slide: InitSlideOptions,
     pub blur_options: BlurOptions,
     pub background: Background,
     pub rotation: OrientationName,
@@ -149,6 +150,20 @@ pub enum ImmichPerson {
     Name(String),
 }
 
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type", rename_all = "camelCase", deny_unknown_fields)]
+pub enum InitSlideOptions {
+    Empty,
+    LoadingCircle(LoadingCircleOptions),
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(default, deny_unknown_fields)]
+pub struct LoadingCircleOptions {
+    /// Number of rotations per second.
+    pub velocity: f32,
+}
+
 #[derive(Clone, Copy, Deserialize_repr, Debug, Default)]
 #[serde(deny_unknown_fields)]
 #[repr(u16)]
@@ -165,6 +180,7 @@ impl Default for Slideshow {
         Self {
             background: Background::default(),
             blur_options: BlurOptions::default(),
+            init_slide: Default::default(),
             display_duration: Duration::from_secs(30),
             transition_duration: Duration::from_secs(1),
             rotation: Default::default(),
@@ -196,5 +212,17 @@ impl Default for CaptionOptions {
             date_format: Default::default(),
             font_size: 28.,
         }
+    }
+}
+
+impl Default for InitSlideOptions {
+    fn default() -> Self {
+        Self::LoadingCircle(Default::default())
+    }
+}
+
+impl Default for LoadingCircleOptions {
+    fn default() -> Self {
+        Self { velocity: 1.5 }
     }
 }

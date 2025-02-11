@@ -1,12 +1,13 @@
-use std::{
-    mem::MaybeUninit,
-    time::{Duration, Instant},
-};
+use std::{mem::MaybeUninit, time::Instant};
 
-use crate::graphics::{Drawable, Graphics, ShapeContainer};
 use anyhow::Result;
 use epaint::{CircleShape, Color32};
 use vek::Vec2;
+
+use crate::{
+    configuration::LoadingCircleOptions,
+    graphics::{Drawable, Graphics, ShapeContainer},
+};
 
 const CIRCLE_ELEMENTS: u8 = 12;
 
@@ -18,7 +19,7 @@ pub struct LoadingSlide {
 }
 
 impl LoadingSlide {
-    pub fn create(graphics: &mut Graphics, config: &Conf) -> Result<Self> {
+    pub fn create(graphics: &mut Graphics, config: &LoadingCircleOptions) -> Result<Self> {
         let circle_radius = graphics.get_dimensions().reduce_min() as f32 / 10.0;
         let circle_size = circle_radius * 0.2;
 
@@ -46,7 +47,7 @@ impl LoadingSlide {
                 circles: std::mem::transmute(circles),
                 positions: std::mem::transmute(positions),
                 last_time: Instant::now(),
-                velocity: 1000 / CIRCLE_ELEMENTS as u16,
+                velocity: (1000. / config.velocity) as u16 / CIRCLE_ELEMENTS as u16,
             })
         }
     }

@@ -44,7 +44,7 @@ impl ApplicationContext for Application {
         } else {
             None
         };
-        let slides = Slideshow::create(&mut graphics)?;
+        let slides = Slideshow::create(&mut graphics, &config)?;
         Ok(Self {
             graphics,
             gl,
