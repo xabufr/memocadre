@@ -2,6 +2,9 @@
 name = "photo-kiosk"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+maintener = "MIT"
+authors = ["Thomas Loubiou <xabufr@gmail.com>"]
 
 [profile.release]
 lto = "thin"
@@ -45,3 +48,10 @@ winit = { version = "0.30.8", default-features = false, features = ["x11"] }
 [dev-dependencies]
 faux = "0.1.12"
 googletest = "0.13.0"
+
+[package.metadata.deb]
+maintainer-scripts = "debian/"
+systemd-units = { enable = true }
+depends = [
+    "libgbm1"
+]

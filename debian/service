@@ -1,0 +1,10 @@
+[Unit]
+Description=Start photo-kiosk using DRM/KMS
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/photo-kiosk
+Group=video
+
+[Install]
+WantedBy=multi-user.target

@@ -13,6 +13,7 @@ pkgs.mkShell {
     xorg.libXcursor
     libxkbcommon
     mesa
+    cargo-deb
   ];
   # TODO: add rust nightly for fmt
   shellHook = ''
