@@ -115,24 +115,32 @@ impl Slide {
             }
         }
 
-        let date = preloaded_slide.details.date.map(|date| {
-            date.date_naive()
-                .format_localized(&config.slideshow.date.format, config.slideshow.date.locale)
-                .to_string()
-        });
-        let text = [preloaded_slide.details.city, date]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>();
-        let text = if text.is_empty() {
-            None
-        } else {
-            Some(text.join("\n"))
-        };
+        let text = if config.slideshow.caption.enabled {
+            let date = preloaded_slide.details.date.map(|date| {
+                date.date_naive()
+                    .format_localized(
+                        &config.slideshow.caption.date_format.format,
+                        config.slideshow.caption.date_format.locale,
+                    )
+                    .to_string()
+            });
+            let text = [preloaded_slide.details.city, date]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>();
+            let text = if text.is_empty() {
+                None
+            } else {
+                Some(text.join("\n"))
+            };
 
-        let text = text
-            .map(|text| TextWithBackground::create(graphics, text))
-            .transpose()?;
+            text.map(|text| {
+                TextWithBackground::create(graphics, text, config.slideshow.caption.font_size)
+            })
+            .transpose()?
+        } else {
+            None
+        };
 
         Ok(Slide {
             main_sprite,
@@ -167,7 +175,7 @@ impl Slide {
 
 impl TextWithBackground {
     // TODO Test me !
-    fn create(graphics: &mut Graphics, text: String) -> Result<Self> {
+    fn create(graphics: &mut Graphics, text: String, font_size: f32) -> Result<Self> {
         let bg_padding = 5f32;
 
         let container = {
@@ -178,7 +186,7 @@ impl TextWithBackground {
                 halign: epaint::emath::Align::Center,
                 ..LayoutJob::single_section(
                     text,
-                    TextFormat::simple(FontId::proportional(28.), Color32::WHITE),
+                    TextFormat::simple(FontId::proportional(font_size), Color32::WHITE),
                 )
             });
             graphics.force_text_container_update(&container);

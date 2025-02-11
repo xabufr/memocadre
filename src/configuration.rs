@@ -43,7 +43,7 @@ pub struct Slideshow {
     pub blur_options: BlurOptions,
     pub background: Background,
     pub rotation: OrientationName,
-    pub date: DateFormat,
+    pub caption: CaptionOptions,
     pub downscaled_image_filter: ImageFilter,
 }
 
@@ -61,6 +61,14 @@ pub enum ImageFilter {
 #[serde(deny_unknown_fields)]
 pub struct DebugSettings {
     pub show_fps: bool,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(default, deny_unknown_fields)]
+pub struct CaptionOptions {
+    pub enabled: bool,
+    pub date_format: DateFormat,
+    pub font_size: f32,
 }
 
 #[derive(Deserialize, Debug)]
@@ -160,7 +168,7 @@ impl Default for Slideshow {
             display_duration: Duration::from_secs(30),
             transition_duration: Duration::from_secs(1),
             rotation: Default::default(),
-            date: Default::default(),
+            caption: Default::default(),
             downscaled_image_filter: Default::default(),
         }
     }
@@ -177,6 +185,16 @@ impl Default for DateFormat {
         Self {
             format: "%A, %e. %B %Y".to_string(),
             locale: Locale::en_US,
+        }
+    }
+}
+
+impl Default for CaptionOptions {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            date_format: Default::default(),
+            font_size: 28.,
         }
     }
 }
