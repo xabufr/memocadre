@@ -16,8 +16,10 @@ debug = true
 [dependencies]
 anyhow = "1.0.95"
 array-init = "2.1.0"
+better_default = "1.0.5"
 bytemuck = { version = "1.21.0", features = ["derive"] }
 chrono = { version = "0.4.39", default-features = false, features = ["alloc", "serde", "std", "unstable-locales"] }
+config = { version = "0.15.8", default-features = false, features = ["toml", "yaml"] }
 drm = "0.14.1"
 env_logger = "0.11.6"
 epaint = { version = "0.31.0", features = ["log", "mint"] }
@@ -36,7 +38,6 @@ minreq = { version = "2.13.0", features = ["https-rustls", "punycode", "json-usi
 mint = "0.5.9"
 paste = "1.0.15"
 raw-window-handle = "0.6.2"
-schematic = { version = "0.17.11", features = ["json", "renderer_template", "yml"] }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.134"
 serde_repr = "0.1.19"

@@ -1,13 +1,3 @@
-use anyhow::{Context, Result};
-use application::Application;
-use log::debug;
-use schematic::{
-    schema::{JsoncTemplateRenderer, SchemaGenerator, TemplateOptions, YamlTemplateRenderer},
-    ConfigLoader,
-};
-
-use self::configuration::Conf;
-
 mod application;
 mod configuration;
 mod gallery;
@@ -16,26 +6,25 @@ mod graphics;
 mod support;
 mod worker;
 
+use anyhow::{Context, Result};
+use config::Config;
+use log::debug;
+
+use self::{application::Application, configuration::Conf};
+
 fn main() -> Result<()> {
     let config_path = std::env::var("CONFIG_PATH").unwrap_or("config.yaml".to_string());
 
     env_logger::init();
-    let mut generator = SchemaGenerator::default();
-    let options = TemplateOptions {
-        expand_fields: vec![
-            "sources".into(),
-            "sources.instances".into(),
-            "sources.specs".into(),
-        ],
-        ..Default::default()
-    };
-    let renderer = JsoncTemplateRenderer::new(options);
+    let settings = Config::builder()
+        .add_source(::config::File::with_name(&config_path))
+        .build()
+        .context("Cannot parse configuration")?;
+    let config: Conf = settings
+        .try_deserialize()
+        .context("Cannot deserialize configuration")?;
 
-    generator.add::<Conf>();
-    generator.generate("test.json", renderer).unwrap();
-    let config = ConfigLoader::<Conf>::new().file(config_path)?.load()?;
-
-    debug!("Configuration: {:#?}", config.config);
-    support::start::<Application>(config.config)?;
+    debug!("Configuration: {:#?}", config);
+    support::start::<Application>(config)?;
     Ok(())
 }

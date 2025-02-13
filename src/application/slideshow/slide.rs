@@ -65,7 +65,7 @@ impl Slide {
         main_sprite.position = (free_space * 0.5).into();
 
         let mut background = None;
-        if let Background::Burr(BlurBackground { min_free_space }) = config.slideshow.background {
+        if let Background::Blur(BlurBackground { min_free_space }) = config.slideshow.background {
             if free_space.reduce_partial_max() > min_free_space as f32 {
                 let mut blur_sprites = [
                     Sprite::new(SharedTexture2d::clone(&texture_blur)),
@@ -120,7 +120,7 @@ impl Slide {
                 date.date_naive()
                     .format_localized(
                         &config.slideshow.caption.date_format.format,
-                        config.slideshow.caption.date_format.locale.0,
+                        config.slideshow.caption.date_format.locale,
                     )
                     .to_string()
             });
@@ -326,7 +326,7 @@ mod test {
         let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
 
         let mut config = Conf::mock();
-        config.slideshow.background = Background::Burr { min_free_space: 50 };
+        config.slideshow.background = Background::Blur { min_free_space: 50 };
         let preloaded_slide = preloaded_slide((400, 600).into());
 
         let slide = Slide::create(preloaded_slide, &mut graphics, &config).unwrap();
@@ -405,7 +405,7 @@ mod test {
         let gl = Rc::new(GlContext::mocked(gl));
         let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
         let mut config = Conf::mock();
-        config.slideshow.background = Background::Burr { min_free_space: 50 };
+        config.slideshow.background = Background::Blur { min_free_space: 50 };
         let preloaded_slide = preloaded_slide((800, 400).into());
 
         let slide = Slide::create(preloaded_slide, &mut graphics, &config).unwrap();

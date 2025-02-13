@@ -77,7 +77,7 @@ impl Slideshow {
                 prev: _,
                 next: mut old,
             }) => {
-                let transition_duration = *config.slideshow.transition_duration;
+                let transition_duration = config.slideshow.transition_duration;
                 let easing = Easing::QuarticInOut;
                 old.animation
                     .ease_global_opacity(0., time, transition_duration, easing.clone());
@@ -140,7 +140,7 @@ impl Slideshow {
         animation.ease_zoom(
             1.0,
             start,
-            *config.slideshow.display_duration,
+            config.slideshow.display_duration,
             Easing::CubicInOut,
         );
         if let Some(text) = slide.get_text() {
