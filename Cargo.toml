@@ -18,7 +18,6 @@ anyhow = "1.0.95"
 array-init = "2.1.0"
 bytemuck = { version = "1.21.0", features = ["derive"] }
 chrono = { version = "0.4.39", default-features = false, features = ["alloc", "serde", "std", "unstable-locales"] }
-config = { version = "0.15.6", default-features = false, features = ["toml", "yaml"] }
 drm = "0.14.1"
 env_logger = "0.11.6"
 epaint = { version = "0.31.0", features = ["log", "mint"] }

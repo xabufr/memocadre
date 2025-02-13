@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use application::Application;
-use config::Config;
 use log::debug;
 use schematic::{
     schema::{JsoncTemplateRenderer, SchemaGenerator, TemplateOptions, YamlTemplateRenderer},
