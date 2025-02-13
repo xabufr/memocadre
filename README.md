@@ -1,27 +1,34 @@
 Todo:
 
 - Configuration
-   - Blur (radius, algo...) - OK for now
    - More transitions
    - More text properties (font, size, color, position, padding, etc...)
 
+   - Blur (radius, algo...) - OK for now
+
 - Graphics:
+   - Other effects / transitions -> fadeout-fadein
+   - Splash screen transition
    - Pixel perfect rework
+
    - Splash screen - OK for now
    - Handle descriptions from immich (memory lane, etc...)
    - Info placement - OK for now
-   - Other effects / transitions -> fadeout-fadein
    - Other layouts when possible (two photos at the same time)
 
 - Technical:
    - More robust worker (network errors, etc...)
    - unit testing where possible
-   - Feature flags for GBM, winit, etc...
    - Debian packaging
+      - config sample generate
+   - Just arm deploy
+   - Feature flags for GBM, winit, etc...
+
    - Better immich errors - OK?
    - Direnv -> switch to flake
    - Better init for GBM/winit
-   - switch to https://lib.rs/crates/schematic for config?
+   - switch to https://lib.rs/crates/schematic for config? -> not a good library for our use case
+     - Test https://docs.rs/foundations
    - from Schematic -> better serde errors OR switch to schematic
    - Error handling - OK? (miette)
 
