@@ -19,7 +19,7 @@ use crate::{
         texture::{DetachedTexture, Texture},
         FutureGlThreadContext, GlContext,
     },
-    graphics::{BlurOptions, ImageBlurr},
+    graphics::ImageBlurr,
 };
 
 type Message = PreloadedSlide;
@@ -92,7 +92,9 @@ impl WorkerImpl {
             let mut img_with_details = source.get_next_image()?;
             img_with_details.image = self.resize_image_if_necessay(img_with_details.image);
             let texture = Texture::new_from_image(gl.clone(), &img_with_details.image).unwrap();
-            let blurred_texture = blurr.blur(BlurOptions::default(), &texture).unwrap();
+            let blurred_texture = blurr
+                .blur(self.config.slideshow.blur_options.clone().into(), &texture)
+                .unwrap();
             unsafe { gl.finish() };
             let msg = PreloadedSlide {
                 details: img_with_details.details,

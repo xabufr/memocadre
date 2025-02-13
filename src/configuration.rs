@@ -26,12 +26,12 @@ impl Conf {
     }
 }
 
-#[derive(Config, Debug)]
-pub struct BlurOptions {
+#[derive(Config, Debug, Clone)]
+pub struct BlurConfig {
     #[setting(default = 6.)]
-    radius: f32,
+    pub radius: f32,
     #[setting(default = 3)]
-    passes: u8,
+    pub passes: u8,
 }
 
 #[derive(Config, Debug)]
@@ -40,18 +40,19 @@ pub struct Slideshow {
     ///
     /// Please note that on low-power devices, photos may be displayed for longer
     /// than this minimum duration if the next photo is not yet available.
+    /// Defaults to 30 seconds ("30s").
     #[setting(default = DurationWrapper::from_secs(30))]
     pub display_duration: DurationWrapper,
 
     /// Duration of the transition between two photos.
-    // #[serde(with = "humantime_serde")]
+    /// Defaults to 1 second ("1s").
     #[setting(default = DurationWrapper::from_secs(1))]
     pub transition_duration: DurationWrapper,
 
     #[setting(nested)]
     pub init_slide: InitSlideOptions,
     #[setting(nested)]
-    pub blur_options: BlurOptions,
+    pub blur_options: BlurConfig,
     #[setting(nested)]
     pub background: Background,
     // #[setting(nested)]

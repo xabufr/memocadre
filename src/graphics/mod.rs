@@ -14,7 +14,7 @@ use self::epaint_display::EpaintDisplay;
 #[cfg(test)]
 pub use self::image_display::TextureRegion;
 pub use self::{
-    blur::{BlurOptions, ImageBlurr},
+    blur::ImageBlurr,
     epaint_display::{ShapeContainer, TextContainer},
     image_display::{ImageDrawer, Sprite},
 };

@@ -4,13 +4,16 @@ use anyhow::{Context, Result};
 use serde::Deserialize;
 
 use super::Vertex2dUv;
-use crate::gl::{
-    buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
-    framebuffer::FramebufferObject,
-    shader::{Program, ProgramGuard},
-    texture::{Texture, TextureFormat},
-    vao::{BufferInfo, VertexArrayObject},
-    GlContext,
+use crate::{
+    configuration::BlurConfig,
+    gl::{
+        buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
+        framebuffer::FramebufferObject,
+        shader::{Program, ProgramGuard},
+        texture::{Texture, TextureFormat},
+        vao::{BufferInfo, VertexArrayObject},
+        GlContext,
+    },
 };
 
 pub struct ImageBlurr {
@@ -22,8 +25,17 @@ pub struct ImageBlurr {
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct BlurOptions {
-    radius: f32,
-    passes: u8,
+    pub radius: f32,
+    pub passes: u8,
+}
+
+impl From<BlurConfig> for BlurOptions {
+    fn from(options: BlurConfig) -> Self {
+        Self {
+            radius: options.radius,
+            passes: options.passes,
+        }
+    }
 }
 
 impl Default for BlurOptions {
