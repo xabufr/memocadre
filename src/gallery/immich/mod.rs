@@ -9,7 +9,7 @@ use log::debug;
 use self::client::{AssetResponse, AssetType, ImmichClient, SearchRandomRequest};
 use super::{Gallery, GalleryProvider};
 use crate::{
-    configuration::{ImmichPerson, ImmichSearchQuery, ImmichSource, ImmichSpec},
+    configuration::{ImmichPerson, ImmichSearchQuery, ImmichSource, ImmichSpec, PrivateAlbum},
     gallery::{ImageDetails, ImageWithDetails},
 };
 
@@ -101,7 +101,9 @@ impl ImmichGalleryProvider {
                 query: search.query.clone(),
                 ..Default::default()
             }),
-            ImmichSpec::PrivateAlbum { id } => ImmichRequest::PrivateAlbum { id: id.clone() },
+            ImmichSpec::PrivateAlbum(PrivateAlbum { id }) => {
+                ImmichRequest::PrivateAlbum { id: id.clone() }
+            }
             ImmichSpec::MemoryLane => ImmichRequest::MemoryLane,
         };
         let search = immich_request;

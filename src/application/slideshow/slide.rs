@@ -9,7 +9,7 @@ use vek::{Extent2, Rect, Vec2};
 
 use crate::{
     application::slideshow::animation::animated_properties,
-    configuration::{Background, Conf},
+    configuration::{Background, BlurBackground, Conf},
     graphics::{Drawable, Graphics, ShapeContainer, SharedTexture2d, Sprite, TextContainer},
     worker::PreloadedSlide,
 };
@@ -65,7 +65,7 @@ impl Slide {
         main_sprite.position = (free_space * 0.5).into();
 
         let mut background = None;
-        if let Background::Burr { min_free_space } = config.slideshow.background {
+        if let Background::Burr(BlurBackground { min_free_space }) = config.slideshow.background {
             if free_space.reduce_partial_max() > min_free_space as f32 {
                 let mut blur_sprites = [
                     Sprite::new(SharedTexture2d::clone(&texture_blur)),
@@ -120,7 +120,7 @@ impl Slide {
                 date.date_naive()
                     .format_localized(
                         &config.slideshow.caption.date_format.format,
-                        config.slideshow.caption.date_format.locale,
+                        config.slideshow.caption.date_format.locale.0,
                     )
                     .to_string()
             });

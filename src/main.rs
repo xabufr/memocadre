@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use application::Application;
 use config::Config;
 use log::debug;
+use schematic::ConfigLoader;
 
 use self::configuration::Conf;
 
@@ -17,14 +18,16 @@ fn main() -> Result<()> {
     let config_path = std::env::var("CONFIG_PATH").unwrap_or("config".to_string());
 
     env_logger::init();
-    let settings = Config::builder()
-        .add_source(::config::File::with_name(&config_path))
-        .build()
-        .context("Cannot parse configuration")?;
-    let config: Conf = settings
-        .try_deserialize()
-        .context("Cannot deserialize configuration")?;
-    debug!("Configuration: {config:#?}");
-    support::start::<Application>(config)?;
+    let config = ConfigLoader::<Conf>::new().file("config.yaml")?.load()?;
+    let settings = config.config;
+    // let settings = Config::builder()
+    //     .add_source(::config::File::with_name(&config_path))
+    //     .build()
+    //     .context("Cannot parse configuration")?;
+    // let config: Conf = settings
+    //     .try_deserialize()
+    //     .context("Cannot deserialize configuration")?;
+    debug!("Configuration: {settings:#?}");
+    support::start::<Application>(settings)?;
     Ok(())
 }

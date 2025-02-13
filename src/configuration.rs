@@ -1,17 +1,17 @@
 use std::time::Duration;
 
 use chrono::Locale;
-use serde::{Deserialize, Deserializer};
-use serde_repr::Deserialize_repr;
+use schematic::{derive_enum, Config, ConfigEnum};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use crate::graphics::BlurOptions;
-
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
+#[derive(Config, Debug)]
 pub struct Conf {
+    #[setting(nested)]
     pub sources: Vec<Source>,
+    #[setting(nested)]
     pub slideshow: Slideshow,
-    #[serde(default)]
+    #[setting(nested)]
     pub debug: DebugSettings,
 }
 
@@ -26,59 +26,76 @@ impl Conf {
     }
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(default, deny_unknown_fields)]
+#[derive(Config, Debug)]
+pub struct BlurOptions {
+    radius: f32,
+    passes: u8,
+}
+
+#[derive(Config, Debug)]
 pub struct Slideshow {
     /// The minimum amount of time that photos are displayed before switching to the next.
     ///
     /// Please note that on low-power devices, photos may be displayed for longer
     /// than this minimum duration if the next photo is not yet available.
-    #[serde(with = "humantime_serde")]
+    // #[serde(with = "humantime_serde")]
     pub display_duration: Duration,
 
     /// Duration of the transition between two photos.
-    #[serde(with = "humantime_serde")]
+    // #[serde(with = "humantime_serde")]
     pub transition_duration: Duration,
 
+    #[setting(nested)]
     pub init_slide: InitSlideOptions,
+    #[setting(nested)]
     pub blur_options: BlurOptions,
+    #[setting(nested)]
     pub background: Background,
+    // #[setting(nested)]
     pub rotation: OrientationName,
+    #[setting(nested)]
     pub caption: CaptionOptions,
     pub downscaled_image_filter: ImageFilter,
 }
 
-#[derive(Deserialize, Debug, Default, Clone, Copy)]
-pub enum ImageFilter {
-    Nearest,
-    Triangle,
-    CatmullRom,
-    Gaussian,
-    #[default]
-    Lanczos3,
+derive_enum! {
+    #[derive(ConfigEnum, Copy, Default)]
+    pub enum ImageFilter {
+        Nearest,
+        Triangle,
+        CatmullRom,
+        Gaussian,
+        #[default]
+        Lanczos3,
+    }
 }
 
-#[derive(Deserialize, Debug, Default)]
-#[serde(deny_unknown_fields)]
+#[derive(Config, Debug)]
 pub struct DebugSettings {
     pub show_fps: bool,
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(default, deny_unknown_fields)]
+#[derive(Config, Debug)]
 pub struct CaptionOptions {
+    #[setting(default = true)]
     pub enabled: bool,
+    #[setting(nested)]
     pub date_format: DateFormat,
+    #[setting(default = 28.)]
     pub font_size: f32,
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(default, deny_unknown_fields)]
+#[derive(Config, Debug)]
 pub struct DateFormat {
+    #[setting(default = "%A, %e. %B %Y")]
     pub format: String,
-    #[serde(deserialize_with = "deser_locale")]
-    pub locale: Locale,
+    // #[serde(deserialize_with = "deser_locale")]
+    pub locale: LocaleWrapper,
 }
+#[derive(Debug, Deserialize, PartialEq, Serialize, Clone)]
+pub struct LocaleWrapper(
+    #[serde(deserialize_with = "deser_locale", serialize_with = "ser_locale")] pub Locale,
+);
 fn deser_locale<'de, D>(deser: D) -> Result<Locale, D::Error>
 where
     D: Deserializer<'de>,
@@ -87,84 +104,101 @@ where
     s.parse()
         .map_err(|e| serde::de::Error::custom(format!("Invalid locale: {:?}", e)))
 }
-#[derive(Deserialize, Debug)]
-#[serde(tag = "type", rename_all = "lowercase", deny_unknown_fields)]
+fn ser_locale<S>(locale: &Locale, ser: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    locale.to_string().serialize(ser)
+}
+#[derive(Config, Debug)]
 pub enum Background {
     Black,
-    Burr { min_free_space: u16 },
+    #[setting(default, nested)]
+    Burr(BlurBackground),
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(tag = "type", rename_all = "lowercase", deny_unknown_fields)]
+#[derive(Config, Debug)]
+pub struct BlurBackground {
+    #[setting(default = 50)]
+    pub min_free_space: u16,
+}
+
+#[derive(Config, Debug)]
+#[config(serde(tag = "type"))]
 pub enum Source {
+    #[setting(nested)]
     Immich(ImmichSource),
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
+#[derive(Config, Debug)]
 pub struct ImmichSource {
-    #[serde(default, flatten)]
+    #[setting(nested)]
     pub instance: Option<ImmichInstance>,
-    #[serde(default)]
+    #[setting(nested)]
     pub instances: Vec<ImmichInstance>,
+    #[setting(nested)]
     pub specs: Vec<ImmichSpec>,
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
+#[derive(Config, Debug)]
 pub struct ImmichInstance {
     pub url: String,
     pub api_key: String,
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(tag = "type", rename_all = "camelCase", deny_unknown_fields)]
+#[derive(Config, Debug)]
+#[config(serde(tag = "type"))]
 pub enum ImmichSpec {
+    #[setting(nested)]
     RandomSearch(ImmichSearchQuery),
+    #[setting(nested)]
     SmartSearch(ImmichSmartSearchQuery),
-    PrivateAlbum { id: String },
+    #[setting(nested)]
+    PrivateAlbum(PrivateAlbum),
     MemoryLane,
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
+#[derive(Config, Debug)]
+pub struct PrivateAlbum {
+    pub id: String,
+}
+
+#[derive(Config, Debug)]
 pub struct ImmichSearchQuery {
-    #[serde(default)]
+    #[setting(nested)]
     pub persons: Option<Vec<ImmichPerson>>,
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
+#[derive(Config, Debug)]
 pub struct ImmichSmartSearchQuery {
-    #[serde(default)]
+    #[setting(nested)]
     pub persons: Option<Vec<ImmichPerson>>,
     pub query: String,
-    #[serde(default)]
     pub city: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "lowercase", deny_unknown_fields)]
+#[derive(Config, Debug)]
 pub enum ImmichPerson {
     Id(String),
     Name(String),
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(tag = "type", rename_all = "camelCase", deny_unknown_fields)]
+#[derive(Config, Debug)]
+#[config(serde(tag = "type"))]
 pub enum InitSlideOptions {
     Empty,
+    #[setting(nested, default)]
     LoadingCircle(LoadingCircleOptions),
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(default, deny_unknown_fields)]
+#[derive(Config, Debug)]
 pub struct LoadingCircleOptions {
     /// Number of rotations per second.
+    #[setting(default = 1.5)]
     pub velocity: f32,
 }
 
-#[derive(Clone, Copy, Deserialize_repr, Debug, Default)]
+#[derive(Clone, Copy, Deserialize_repr, Debug, Default, PartialEq, Serialize_repr)]
 #[serde(deny_unknown_fields)]
 #[repr(u16)]
 pub enum OrientationName {
@@ -175,54 +209,47 @@ pub enum OrientationName {
     Angle270 = 270,
 }
 
-impl Default for Slideshow {
-    fn default() -> Self {
-        Self {
-            background: Background::default(),
-            blur_options: BlurOptions::default(),
-            init_slide: Default::default(),
-            display_duration: Duration::from_secs(30),
-            transition_duration: Duration::from_secs(1),
-            rotation: Default::default(),
-            caption: Default::default(),
-            downscaled_image_filter: Default::default(),
-        }
-    }
-}
+// impl Default for Slideshow {
+//     fn default() -> Self {
+//         Self {
+//             background: Background::default(),
+//             blur_options: BlurOptions::default(),
+//             init_slide: Default::default(),
+//             display_duration: Duration::from_secs(30),
+//             transition_duration: Duration::from_secs(1),
+//             rotation: Default::default(),
+//             caption: Default::default(),
+//             downscaled_image_filter: Default::default(),
+//         }
+//     }
+// }
 
-impl Default for Background {
-    fn default() -> Self {
-        Self::Burr { min_free_space: 50 }
-    }
-}
+// impl Default for Background {
+//     fn default() -> Self {
+//         Self::Burr { min_free_space: 50 }
+//     }
+// }
 
-impl Default for DateFormat {
+impl Default for LocaleWrapper {
     fn default() -> Self {
-        Self {
-            format: "%A, %e. %B %Y".to_string(),
-            locale: Locale::en_US,
-        }
+        LocaleWrapper(Locale::en_US)
     }
 }
+// impl Default for DateFormat {
+//     fn default() -> Self {
+//         Self {
+//             format: "%A, %e. %B %Y".to_string(),
+//             locale: Locale::en_US,
+//         }
+//     }
+// }
 
-impl Default for CaptionOptions {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            date_format: Default::default(),
-            font_size: 28.,
-        }
-    }
-}
-
-impl Default for InitSlideOptions {
-    fn default() -> Self {
-        Self::LoadingCircle(Default::default())
-    }
-}
-
-impl Default for LoadingCircleOptions {
-    fn default() -> Self {
-        Self { velocity: 1.5 }
-    }
-}
+// impl Default for CaptionOptions {
+//     fn default() -> Self {
+//         Self {
+//             enabled: true,
+//             date_format: Default::default(),
+//             font_size: 28.,
+//         }
+//     }
+// }
