@@ -1152,6 +1152,7 @@ checksum = "8c9c992b02b5b4c94ea26e32fe5bccb7aa7d9f390ab5c1221ff895bc7ea8b652"
 dependencies = [
  "equivalent",
  "hashbrown 0.15.2",
+ "serde",
 ]
 
 [[package]]
@@ -2271,10 +2272,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "365f270caf8e8539eaad997c3800bfe0159e664eab1da87ca8043f527234539e"
 dependencies = [
  "garde",
+ "indexmap",
  "miette",
  "schematic_macros",
  "schematic_types",
  "serde",
+ "serde_json",
  "serde_path_to_error",
  "serde_yml",
  "starbase_styles",
@@ -2302,6 +2305,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "15254cba352d302f26c0e427bf2634e513dff936f8a86c6df4f94843818fa4e3"
 dependencies = [
  "indexmap",
+ "serde_json",
  "serde_yml",
 ]
 
@@ -2353,6 +2357,7 @@ version = "1.0.138"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d434192e7da787e94a6ea7e9670b26a036d0ca41e0b7efb2676dd32bae872949"
 dependencies = [
+ "indexmap",
  "itoa",
  "memchr",
  "ryu",

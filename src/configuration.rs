@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use chrono::Locale;
-use schematic::{derive_enum, Config, ConfigEnum};
+use schematic::{derive_enum, Config, ConfigEnum, Schematic};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -96,6 +96,16 @@ pub struct DateFormat {
 pub struct LocaleWrapper(
     #[serde(deserialize_with = "deser_locale", serialize_with = "ser_locale")] pub Locale,
 );
+
+impl Schematic for LocaleWrapper {
+    fn build_schema(mut schema: schematic::SchemaBuilder) -> schematic::Schema {
+        schema.string_default()
+    }
+    fn schema_name() -> Option<String> {
+        None
+    }
+}
+
 fn deser_locale<'de, D>(deser: D) -> Result<Locale, D::Error>
 where
     D: Deserializer<'de>,
@@ -126,7 +136,7 @@ pub struct BlurBackground {
 #[derive(Config, Debug)]
 #[config(serde(tag = "type"))]
 pub enum Source {
-    #[setting(nested)]
+    #[setting(default, nested)]
     Immich(ImmichSource),
 }
 
@@ -149,7 +159,7 @@ pub struct ImmichInstance {
 #[derive(Config, Debug)]
 #[config(serde(tag = "type"))]
 pub enum ImmichSpec {
-    #[setting(nested)]
+    #[setting(default, nested)]
     RandomSearch(ImmichSearchQuery),
     #[setting(nested)]
     SmartSearch(ImmichSmartSearchQuery),
@@ -180,6 +190,7 @@ pub struct ImmichSmartSearchQuery {
 #[derive(Config, Debug)]
 pub enum ImmichPerson {
     Id(String),
+    #[setting(default)]
     Name(String),
 }
 
@@ -209,6 +220,17 @@ pub enum OrientationName {
     Angle270 = 270,
 }
 
+impl Schematic for OrientationName {
+    fn build_schema(mut schema: schematic::SchemaBuilder) -> schematic::Schema {
+        schema.integer(schematic::schema::IntegerType {
+            kind: schematic::schema::IntegerKind::U16,
+            ..Default::default()
+        })
+    }
+    fn schema_name() -> Option<String> {
+        None
+    }
+}
 // impl Default for Slideshow {
 //     fn default() -> Self {
 //         Self {
