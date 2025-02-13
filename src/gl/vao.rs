@@ -131,6 +131,7 @@ impl<V> Drop for VertexArrayObject<V> {
 }
 // ----------------------------------------------------------------------------
 
+// TODO: cache result
 fn supports_vao(gl: &GlowContext) -> bool {
     const WEBGL_PREFIX: &str = "WebGL ";
     const OPENGL_ES_PREFIX: &str = "OpenGL ES ";
