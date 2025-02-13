@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{ops::Deref, time::Duration};
 
 use chrono::Locale;
 use schematic::{derive_enum, Config, ConfigEnum, Schematic};
@@ -28,7 +28,9 @@ impl Conf {
 
 #[derive(Config, Debug)]
 pub struct BlurOptions {
+    #[setting(default = 6.)]
     radius: f32,
+    #[setting(default = 3)]
     passes: u8,
 }
 
@@ -38,12 +40,13 @@ pub struct Slideshow {
     ///
     /// Please note that on low-power devices, photos may be displayed for longer
     /// than this minimum duration if the next photo is not yet available.
-    // #[serde(with = "humantime_serde")]
-    pub display_duration: Duration,
+    #[setting(default = DurationWrapper::from_secs(30))]
+    pub display_duration: DurationWrapper,
 
     /// Duration of the transition between two photos.
     // #[serde(with = "humantime_serde")]
-    pub transition_duration: Duration,
+    #[setting(default = DurationWrapper::from_secs(1))]
+    pub transition_duration: DurationWrapper,
 
     #[setting(nested)]
     pub init_slide: InitSlideOptions,
@@ -56,6 +59,36 @@ pub struct Slideshow {
     #[setting(nested)]
     pub caption: CaptionOptions,
     pub downscaled_image_filter: ImageFilter,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
+pub struct DurationWrapper(#[serde(with = "humantime_serde")] pub Duration);
+
+impl DurationWrapper {
+    pub fn from_secs(secs: u64) -> Self {
+        DurationWrapper(Duration::from_secs(secs))
+    }
+}
+impl Schematic for DurationWrapper {
+    fn schema_name() -> Option<String> {
+        Some("Duration".to_string())
+    }
+    fn build_schema(mut schema: schematic::SchemaBuilder) -> schematic::Schema {
+        schema.string_default()
+    }
+}
+impl From<Duration> for DurationWrapper {
+    fn from(duration: Duration) -> Self {
+        DurationWrapper(duration)
+    }
+}
+
+impl Deref for DurationWrapper {
+    type Target = Duration;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 derive_enum! {
@@ -90,6 +123,7 @@ pub struct DateFormat {
     #[setting(default = "%A, %e. %B %Y")]
     pub format: String,
     // #[serde(deserialize_with = "deser_locale")]
+    #[setting(default)]
     pub locale: LocaleWrapper,
 }
 #[derive(Debug, Deserialize, PartialEq, Serialize, Clone)]
@@ -231,47 +265,9 @@ impl Schematic for OrientationName {
         None
     }
 }
-// impl Default for Slideshow {
-//     fn default() -> Self {
-//         Self {
-//             background: Background::default(),
-//             blur_options: BlurOptions::default(),
-//             init_slide: Default::default(),
-//             display_duration: Duration::from_secs(30),
-//             transition_duration: Duration::from_secs(1),
-//             rotation: Default::default(),
-//             caption: Default::default(),
-//             downscaled_image_filter: Default::default(),
-//         }
-//     }
-// }
-
-// impl Default for Background {
-//     fn default() -> Self {
-//         Self::Burr { min_free_space: 50 }
-//     }
-// }
 
 impl Default for LocaleWrapper {
     fn default() -> Self {
         LocaleWrapper(Locale::en_US)
     }
 }
-// impl Default for DateFormat {
-//     fn default() -> Self {
-//         Self {
-//             format: "%A, %e. %B %Y".to_string(),
-//             locale: Locale::en_US,
-//         }
-//     }
-// }
-
-// impl Default for CaptionOptions {
-//     fn default() -> Self {
-//         Self {
-//             enabled: true,
-//             date_format: Default::default(),
-//             font_size: 28.,
-//         }
-//     }
-// }
