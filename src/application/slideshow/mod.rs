@@ -13,7 +13,7 @@ use self::{
     slide::{AnimatedSlide, AnimatedSlideProperties, Slide, SlideProperties},
 };
 use crate::{
-    configuration::{Conf, InitSlideOptions},
+    configuration::{AppConfiguration, InitSlideOptions},
     graphics::{Drawable, Graphics},
     worker::PreloadedSlide,
 };
@@ -31,7 +31,7 @@ pub struct TransitioningSlide {
 }
 
 impl Slideshow {
-    pub fn create(graphics: &mut Graphics, config: &Conf) -> Result<Self> {
+    pub fn create(graphics: &mut Graphics, config: &AppConfiguration) -> Result<Self> {
         match &config.slideshow.init_slide {
             InitSlideOptions::Empty => Ok(Slideshow::None),
             InitSlideOptions::LoadingCircle(loading_circle_options) => {
@@ -53,7 +53,7 @@ impl Slideshow {
         &mut self,
         graphics: &mut Graphics,
         slide: PreloadedSlide,
-        config: &Conf,
+        config: &AppConfiguration,
         time: Instant,
     ) -> Result<()> {
         let slide = Slide::create(slide, graphics, config)?;
@@ -99,7 +99,7 @@ impl Slideshow {
     }
 
     // TODO: Test me !
-    pub fn update(&mut self, graphics: &Graphics, config: &Conf, time: Instant) {
+    pub fn update(&mut self, graphics: &Graphics, config: &AppConfiguration, time: Instant) {
         let mut old_self = Self::None;
         std::mem::swap(self, &mut old_self);
         *self = match old_self {
@@ -133,7 +133,7 @@ impl Slideshow {
         graphics: &Graphics,
         slide: Slide,
         current_properties: SlideProperties,
-        config: &Conf,
+        config: &AppConfiguration,
         start: Instant,
     ) -> Self {
         let mut animation = AnimatedSlideProperties::from(current_properties);

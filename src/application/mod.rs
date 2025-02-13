@@ -12,7 +12,7 @@ use vek::Extent2;
 
 use self::{fps::FPSCounter, slideshow::Slideshow};
 use crate::{
-    configuration::Conf,
+    configuration::AppConfiguration,
     gl::{FutureGlThreadContext, GlContext},
     graphics::{Drawable, Graphics},
     support::ApplicationContext,
@@ -24,14 +24,18 @@ pub struct Application {
     worker: Worker,
     gl: Rc<GlContext>,
     graphics: Graphics,
-    config: Arc<Conf>,
+    config: Arc<AppConfiguration>,
     fps: Option<FPSCounter>,
 }
 
 impl ApplicationContext for Application {
     const WINDOW_TITLE: &'static str = "test";
 
-    fn new(config: Arc<Conf>, gl: Rc<GlContext>, bg_gl: FutureGlThreadContext) -> Result<Self> {
+    fn new(
+        config: Arc<AppConfiguration>,
+        gl: Rc<GlContext>,
+        bg_gl: FutureGlThreadContext,
+    ) -> Result<Self> {
         let mut graphics = Graphics::new(Rc::clone(&gl), config.slideshow.rotation)
             .context("Cannot create Graphics")?;
         let worker = Worker::new(

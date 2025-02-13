@@ -6,7 +6,7 @@ use std::time::Duration;
 
 #[derive(Deserialize, Default, Debug)]
 #[serde(deny_unknown_fields)]
-pub struct Conf {
+pub struct AppConfiguration {
     pub sources: Vec<Source>,
     #[serde(default)]
     pub slideshow: Slideshow,
@@ -15,7 +15,7 @@ pub struct Conf {
 }
 
 #[cfg(test)]
-impl Conf {
+impl AppConfiguration {
     pub fn mock() -> Self {
         Self {
             sources: Default::default(),

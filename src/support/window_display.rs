@@ -15,7 +15,7 @@ use winit::{
 
 use super::ApplicationContext;
 use crate::{
-    configuration::Conf,
+    configuration::AppConfiguration,
     gl::{FutureGlThreadContext, GlContext},
 };
 
@@ -26,7 +26,7 @@ pub struct State<T> {
 }
 
 struct App<T> {
-    config: Arc<Conf>,
+    config: Arc<AppConfiguration>,
     state: Option<State<T>>,
     visible: bool,
     close_promptly: bool,
@@ -104,7 +104,7 @@ impl<T: ApplicationContext + 'static> State<T> {
     pub fn new(
         event_loop: &winit::event_loop::ActiveEventLoop,
         visible: bool,
-        config: Arc<Conf>,
+        config: Arc<AppConfiguration>,
     ) -> Self {
         let window_attributes = winit::window::Window::default_attributes()
             .with_title(T::WINDOW_TITLE)
@@ -182,7 +182,7 @@ impl<T: ApplicationContext + 'static> State<T> {
     pub fn from_display_window(
         gl: FutureGlThreadContext,
         window: winit::window::Window,
-        config: Arc<Conf>,
+        config: Arc<AppConfiguration>,
         bg_gl: FutureGlThreadContext,
     ) -> Self {
         let gl = gl.activate().expect("Cannot make context current");
@@ -195,7 +195,7 @@ impl<T: ApplicationContext + 'static> State<T> {
     }
 
     /// Start the event_loop and keep rendering frames until the program is closed
-    pub fn run_loop(config: Arc<Conf>) -> Result<()> {
+    pub fn run_loop(config: Arc<AppConfiguration>) -> Result<()> {
         let event_loop = winit::event_loop::EventLoop::builder()
             .build()
             .context("event loop building")?;

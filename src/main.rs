@@ -10,7 +10,7 @@ use anyhow::{Context, Result};
 use config::Config;
 use log::debug;
 
-use self::{application::Application, configuration::Conf};
+use self::{application::Application, configuration::AppConfiguration};
 
 fn main() -> Result<()> {
     let config_path = std::env::var("CONFIG_PATH").unwrap_or("config.yaml".to_string());
@@ -20,7 +20,7 @@ fn main() -> Result<()> {
         .add_source(::config::File::with_name(&config_path))
         .build()
         .context("Cannot parse configuration")?;
-    let config: Conf = settings
+    let config: AppConfiguration = settings
         .try_deserialize()
         .context("Cannot deserialize configuration")?;
 

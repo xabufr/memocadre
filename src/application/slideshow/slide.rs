@@ -9,7 +9,7 @@ use vek::{Extent2, Rect, Vec2};
 
 use crate::{
     application::slideshow::animation::animated_properties,
-    configuration::{Background, BlurBackground, Conf},
+    configuration::{AppConfiguration, Background, BlurBackground},
     graphics::{Drawable, Graphics, ShapeContainer, SharedTexture2d, Sprite, TextContainer},
     worker::PreloadedSlide,
 };
@@ -49,7 +49,7 @@ impl Slide {
     pub fn create(
         preloaded_slide: PreloadedSlide,
         graphics: &mut Graphics,
-        config: &Conf,
+        config: &AppConfiguration,
     ) -> Result<Self> {
         let texture = graphics.texture_from_detached(preloaded_slide.texture);
         let texture = SharedTexture2d::new(texture);
@@ -270,7 +270,7 @@ mod test {
     };
     use vek::{Extent2, Vec2};
 
-    use super::{Background, Conf, PreloadedSlide, Slide};
+    use super::{AppConfiguration, Background, PreloadedSlide, Slide};
     use crate::{
         configuration::OrientationName,
         gallery::ImageDetails,
@@ -296,7 +296,7 @@ mod test {
         let gl = Rc::new(GlContext::mocked(gl));
         let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
 
-        let mut config = Conf::mock();
+        let mut config = AppConfiguration::mock();
         config.slideshow.background = Background::Black;
         let preloaded_slide = preloaded_slide((100, 100).into());
 
@@ -325,7 +325,7 @@ mod test {
         let gl = Rc::new(GlContext::mocked(gl));
         let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
 
-        let mut config = Conf::mock();
+        let mut config = AppConfiguration::mock();
         config.slideshow.background = Background::Blur { min_free_space: 50 };
         let preloaded_slide = preloaded_slide((400, 600).into());
 
@@ -404,7 +404,7 @@ mod test {
         let gl = mocked_gl();
         let gl = Rc::new(GlContext::mocked(gl));
         let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
-        let mut config = Conf::mock();
+        let mut config = AppConfiguration::mock();
         config.slideshow.background = Background::Blur { min_free_space: 50 };
         let preloaded_slide = preloaded_slide((800, 400).into());
 
@@ -484,7 +484,7 @@ mod test {
         let gl = Rc::new(GlContext::mocked(gl));
         let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
 
-        let config = Conf::mock();
+        let config = AppConfiguration::mock();
         let mut preloaded_slide = preloaded_slide((800, 600).into());
         preloaded_slide.details.city = Some("A wonderfull city".into());
 
@@ -501,7 +501,7 @@ mod test {
         let gl = Rc::new(GlContext::mocked(gl));
         let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
 
-        let mut config = Conf::mock();
+        let mut config = AppConfiguration::mock();
         config.slideshow.date.locale = Locale::fr_FR;
         config.slideshow.date.format = "%A %e %B %Y".into();
         let mut preloaded_slide = preloaded_slide((800, 600).into());

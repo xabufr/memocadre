@@ -24,7 +24,7 @@ use log::debug;
 use raw_window_handle::{GbmDisplayHandle, GbmWindowHandle, RawDisplayHandle, RawWindowHandle};
 
 use super::ApplicationContext;
-use crate::{configuration::Conf, gl::FutureGlThreadContext};
+use crate::{configuration::AppConfiguration, gl::FutureGlThreadContext};
 
 #[derive(Debug)]
 /// A simple wrapper for a device node.
@@ -59,7 +59,7 @@ impl Card {
         ))
     }
 }
-pub fn start_gbm<T>(app_config: Arc<Conf>) -> Result<()>
+pub fn start_gbm<T>(app_config: Arc<AppConfiguration>) -> Result<()>
 where
     T: ApplicationContext + 'static,
 {

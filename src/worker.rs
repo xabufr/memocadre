@@ -13,7 +13,7 @@ use thread_priority::{set_current_thread_priority, ThreadPriority};
 use vek::Extent2;
 
 use crate::{
-    configuration::{Conf, ImageFilter},
+    configuration::{AppConfiguration, ImageFilter},
     gallery::{build_sources, ImageDetails},
     gl::{
         texture::{DetachedTexture, Texture},
@@ -38,11 +38,15 @@ pub struct Worker {
 struct WorkerImpl {
     send: SyncSender<Message>,
     ideal_max_size: RwLock<Extent2<u32>>,
-    config: Arc<Conf>,
+    config: Arc<AppConfiguration>,
 }
 
 impl Worker {
-    pub fn new(config: Arc<Conf>, ideal_max_size: Extent2<u32>, gl: FutureGlThreadContext) -> Self {
+    pub fn new(
+        config: Arc<AppConfiguration>,
+        ideal_max_size: Extent2<u32>,
+        gl: FutureGlThreadContext,
+    ) -> Self {
         let (send, recv) = std::sync::mpsc::sync_channel(1);
         let worker_impl = Arc::new({
             WorkerImpl {
