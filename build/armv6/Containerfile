@@ -18,7 +18,6 @@ RUN bash -c "sh <(curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs) -y"
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 RUN rustup target add arm-unknown-linux-gnueabihf
-# ADD cross-gcc-13.3.0-pi_0-1.tar.gz /opt/
 
 COPY --from=raspbian /usr/lib/arm-linux-gnueabihf/ /usr/lib/arm-linux-gnueabihf/
 COPY --from=raspbian /lib/arm-linux-gnueabihf/ /lib/arm-linux-gnueabihf/
@@ -31,4 +30,9 @@ ENV CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_LINKER="$CROSS_TOOLCHAIN_PREFIX"gcc
     AR_arm_unknown_linux_gnueabihf="$CROSS_TOOLCHAIN_PREFIX"ar \
     CC_arm_unknown_linux_gnueabihf="$CROSS_TOOLCHAIN_PREFIX"gcc \
     CXX_arm_unknown_linux_gnueabihf="$CROSS_TOOLCHAIN_PREFIX"g++
-ENV RUSTFLAGS="-L /usr/lib/arm-linux-gnueabihf -L /lib/arm-linux-gnueabihf -L /usr/lib/arm-linux-gnueabihf/pulseaudio/ -C target-cpu=arm1176jzf-s -C link-args=-Wl,-rpath-link,/usr/lib/arm-linux-gnueabihf,-rpath-link,/lib/arm-linux-gnueabihf,-rpath-link,/usr/lib/arm-linux-gnueabihf/pulseaudio/ $CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS"
+ENV __LIBS="/lib/arm-linux-gnueabihf"
+ENV __USR_LIBS="/usr/lib/arm-linux-gnueabihf"
+ENV __CPU="generic"
+# For Raspberry Pi 1, Zero optimized builds
+# ENV __CPU="arm1176jzf-s"
+ENV CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS="-L $__USR_LIBS -L $__LIBS -C target-cpu=$__CPU -C link-args=-Wl,-rpath-link,$__USR_LIBS,-rpath-link,$__LIBS $CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS"
