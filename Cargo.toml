@@ -54,6 +54,12 @@ googletest = "0.13.0"
 [package.metadata.deb]
 maintainer-scripts = "debian/"
 systemd-units = { enable = true }
+assets = [
+  # binary
+  ["target/release/photo-kiosk", "/usr/bin/", "755"],
+  # config
+  ["debian/config.yaml", "etc/photo-kiosk.yaml", "600"],
+]
 depends = [
     "libgbm1"
 ]

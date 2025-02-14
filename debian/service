@@ -3,8 +3,11 @@ Description=Start photo-kiosk using DRM/KMS
 After=network.target
 
 [Service]
+Environment=CONFIG_PATH=/etc/photo-kiosk
 ExecStart=/usr/bin/photo-kiosk
 Group=video
+User=photo-kiosk
+Restart=always
 
 [Install]
 WantedBy=multi-user.target
