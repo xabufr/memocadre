@@ -66,7 +66,6 @@ impl<T: ApplicationContext + 'static> ApplicationHandler<()> for App<T> {
             }
             winit::event::WindowEvent::RedrawRequested => {
                 if let Some(state) = &mut self.state {
-                    state.context.update();
                     state.context.draw_frame().expect("Cannot draw frame");
                     if self.close_promptly {
                         event_loop.exit();
