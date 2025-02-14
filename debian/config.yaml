@@ -1,0 +1,49 @@
+---
+# photo-kiosk configuration file
+
+# # Where to fetch photos from
+sources: []
+  # # Immich source
+  # - type: immich
+    # # Immich instance URL
+    # instance:
+    #   url: "https://immich.XXXXX"
+    #   api_key: "XXXX"
+    # # Also support multiple instances
+    # instances:
+    #  - url: "https://immich.XXXX"
+    #    api_key: "XXXX"
+    # # search queries
+    # specs:
+      # - type: smart-search
+      #   # Query to search for [required]
+      #   query: dog
+      #   # Persons to search for
+      #   persons:
+      #      # by person Name
+      #     - name: Person Name
+      #      # or by person ID
+      #     - id: XXXXX
+      # - type: private-album
+      #   id: XXXX
+      # - type: memory-lane
+# slideshow:
+#   display_duration: "30s"
+  # transitionDuration: "1s"
+  # # Screen rotation in degrees (0, 90, 180, 270)
+  # rotation: 0
+  # caption:
+  #   enabled: true
+  #   date_format:
+  #     format: "%A, %e. %B %Y"
+  #     locale: "en_US"
+  #   font_size: 28
+  # blur_options:
+  #   passes: 3
+  #   radius: 6
+  # init_slide:
+    # other available types: loading-circle, empty
+    #type: loading-circle
+    #velocity: 1.5
+#debug:
+  #show_fps: false

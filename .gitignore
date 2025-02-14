@@ -1,4 +1,4 @@
 /target
-config.toml
-config.yaml
+/config.toml
+/config.yaml
 deploy.sh
