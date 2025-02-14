@@ -1,16 +1,19 @@
-mod animation;
+mod animated_properties;
 mod loading;
 mod slide;
+mod transition;
 
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use glissade::Easing;
+use transition::EaseInOutTransition;
 use vek::Vec2;
 
 use self::{
     loading::LoadingSlide,
     slide::{AnimatedSlide, AnimatedSlideProperties, Slide, SlideProperties},
+    transition::{DissolveTransition, Transition},
 };
 use crate::{
     configuration::{AppConfiguration, InitSlideOptions},
@@ -40,6 +43,7 @@ impl Slideshow {
             }
         }
     }
+
     pub fn should_load_next(&self, time: Instant) -> bool {
         match self {
             Slideshow::None => true,
@@ -77,16 +81,12 @@ impl Slideshow {
                 prev: _,
                 next: mut old,
             }) => {
+                let transition = get_random_transition();
                 let transition_duration = config.slideshow.transition_duration;
-                let easing = Easing::QuarticInOut;
-                old.animation
-                    .ease_global_opacity(0., time, transition_duration, easing.clone());
-                let mut animation = AnimatedSlideProperties::from(SlideProperties {
-                    global_opacity: 0.,
-                    zoom: 0.9,
-                    text_position: [0., graphics.get_dimensions().h as f32],
-                });
-                animation.ease_global_opacity(1.0, time, transition_duration, easing);
+                transition.ease_out(time, transition_duration, &mut old.animation);
+                let mut animation = transition.ease_in(time, transition_duration);
+                animation.set_zoom_no_ease(0.9);
+                animation.set_text_position_no_ease([0., graphics.get_dimensions().h as f32]);
                 let new = AnimatedSlide { slide, animation };
 
                 *self = Slideshow::Transitioning(TransitioningSlide {
@@ -189,5 +189,13 @@ impl Drawable for Slideshow {
             Slideshow::Single(slide) => slide.draw(graphics),
             Slideshow::Transitioning(transitioning_slide) => transitioning_slide.draw(graphics),
         }
+    }
+}
+
+fn get_random_transition() -> Box<dyn Transition> {
+    match rand::random::<u8>() % 2 {
+        0 => Box::new(DissolveTransition),
+        1 => Box::new(EaseInOutTransition),
+        _ => unreachable!(),
     }
 }

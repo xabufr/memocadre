@@ -8,7 +8,7 @@ use epaint::{
 use vek::{Extent2, Rect, Vec2};
 
 use crate::{
-    application::slideshow::animation::animated_properties,
+    application::slideshow::animated_properties::animated_properties,
     configuration::{AppConfiguration, Background, BlurBackground},
     graphics::{Drawable, Graphics, ShapeContainer, SharedTexture2d, Sprite, TextContainer},
     worker::PreloadedSlide,
