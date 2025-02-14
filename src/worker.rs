@@ -4,6 +4,7 @@ use std::{
         mpsc::{Receiver, SyncSender},
         Arc, RwLock, Weak,
     },
+    time::Duration,
 };
 
 use anyhow::{Context, Result};
@@ -95,7 +96,11 @@ impl WorkerImpl {
         let mut source = build_sources(&self.config.sources).context("Cannot build source")?;
         loop {
             let msg = (|| self.get_next(&mut *source, gl, blurr))
-                .retry(ExponentialBuilder::default())
+                .retry(
+                    ExponentialBuilder::default()
+                        .with_max_delay(Duration::from_secs(10))
+                        .with_max_times(10),
+                )
                 .call()?;
             self.send
                 .send(msg)
