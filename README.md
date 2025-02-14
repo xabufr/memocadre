@@ -2,14 +2,15 @@ Todo:
 
 - Configuration
    - More transitions
+      - Configurable transitions
+      - Fastblur transition?
    - More text properties (font, size, color, position, padding, etc...)
 
    - Blur (radius, algo...) - OK for now
 
 - Graphics:
-   - Other effects / transitions -> fadeout-fadein
    - Splash screen transition
-   - Pixel perfect rework
+   - Pixel perfect rework - OK?
 
    - Splash screen - OK for now
    - Handle descriptions from immich (memory lane, etc...)

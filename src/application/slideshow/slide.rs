@@ -62,7 +62,7 @@ impl Slide {
         main_sprite.resize_respecting_ratio(display_size);
 
         let free_space = display_size.as_() - main_sprite.size;
-        main_sprite.position = (free_space * 0.5).into();
+        main_sprite.position = Vec2::from(free_space * 0.5).round();
 
         let mut background = None;
         if let Background::Blur(BlurBackground { min_free_space }) = config.slideshow.background {
@@ -77,38 +77,38 @@ impl Slide {
                 }
 
                 if free_space.w > free_space.h {
-                    blur_sprites[0].size.w = free_space.w * 0.5;
+                    blur_sprites[0].size.w = main_sprite.position.x;
                     blur_sprites[0].set_sub_rect(Rect::new(
                         0,
                         0,
-                        (free_space.w * 0.5) as _,
+                        main_sprite.position.x as _,
                         height,
                     ));
 
-                    blur_sprites[1].position.x = display_size.w as f32 - free_space.w * 0.5;
-                    blur_sprites[1].size.w = free_space.w * 0.5;
+                    blur_sprites[1].position.x = main_sprite.position.x + main_sprite.size.w;
+                    blur_sprites[1].size.w = display_size.w as f32 - blur_sprites[1].position.x;
                     blur_sprites[1].set_sub_rect(Rect::new(
-                        texture.size().w as i32 - (free_space.w * 0.5) as i32,
+                        texture.size().w as i32 - main_sprite.position.x as i32,
                         0,
-                        (free_space.w * 0.5) as _,
+                        main_sprite.position.x as _,
                         height,
                     ));
                 } else {
-                    blur_sprites[0].size.h = free_space.h * 0.5;
+                    blur_sprites[0].size.h = main_sprite.position.y;
                     blur_sprites[0].set_sub_rect(Rect::new(
                         0,
                         0,
                         width,
-                        (free_space.h * 0.5) as i32,
+                        main_sprite.position.y as i32,
                     ));
 
-                    blur_sprites[1].position.y = display_size.h as f32 - free_space.h * 0.5;
-                    blur_sprites[1].size.h = free_space.h * 0.5;
+                    blur_sprites[1].position.y = main_sprite.position.y + main_sprite.size.h;
+                    blur_sprites[1].size.h = main_sprite.position.y;
                     blur_sprites[1].set_sub_rect(Rect::new(
                         0,
-                        texture.size().h as i32 - (free_space.h * 0.5) as i32,
+                        texture.size().h as i32 - main_sprite.position.y as i32,
                         width,
-                        (free_space.h * 0.5) as i32,
+                        main_sprite.position.y as i32,
                     ));
                 }
                 background = Some(blur_sprites);
@@ -272,7 +272,7 @@ mod test {
 
     use super::{AppConfiguration, Background, PreloadedSlide, Slide};
     use crate::{
-        configuration::OrientationName,
+        configuration::{BlurBackground, OrientationName},
         gallery::ImageDetails,
         gl::{texture::DetachedTexture, wrapper::mocked_gl, GlContext},
         graphics::{Graphics, TextureRegion},
@@ -326,7 +326,7 @@ mod test {
         let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
 
         let mut config = AppConfiguration::mock();
-        config.slideshow.background = Background::Blur { min_free_space: 50 };
+        config.slideshow.background = Background::Blur(BlurBackground { min_free_space: 50 });
         let preloaded_slide = preloaded_slide((400, 600).into());
 
         let slide = Slide::create(preloaded_slide, &mut graphics, &config).unwrap();
@@ -405,7 +405,7 @@ mod test {
         let gl = Rc::new(GlContext::mocked(gl));
         let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
         let mut config = AppConfiguration::mock();
-        config.slideshow.background = Background::Blur { min_free_space: 50 };
+        config.slideshow.background = Background::Blur(BlurBackground { min_free_space: 50 });
         let preloaded_slide = preloaded_slide((800, 400).into());
 
         let slide = Slide::create(preloaded_slide, &mut graphics, &config).unwrap();
@@ -502,8 +502,8 @@ mod test {
         let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
 
         let mut config = AppConfiguration::mock();
-        config.slideshow.date.locale = Locale::fr_FR;
-        config.slideshow.date.format = "%A %e %B %Y".into();
+        config.slideshow.caption.date_format.locale = Locale::fr_FR;
+        config.slideshow.caption.date_format.format = "%A %e %B %Y".into();
         let mut preloaded_slide = preloaded_slide((800, 600).into());
         let date = NaiveDate::from_ymd_opt(2025, 01, 25)
             .unwrap()
