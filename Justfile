@@ -3,3 +3,5 @@ build-armv6:
 
 debian-armv6: build-armv6
   cargo deb --target=arm-unknown-linux-gnueabihf --no-build --no-strip
+
+build: debian-armv6
