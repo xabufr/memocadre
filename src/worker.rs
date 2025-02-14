@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use backon::{BlockingRetryable, ExponentialBuilder};
 use image::{imageops::FilterType, DynamicImage, GenericImageView};
 use log::error;
 use thread_priority::{set_current_thread_priority, ThreadPriority};
@@ -14,7 +15,7 @@ use vek::Extent2;
 
 use crate::{
     configuration::{AppConfiguration, ImageFilter},
-    gallery::{build_sources, ImageDetails},
+    gallery::{build_sources, Gallery, ImageDetails},
     gl::{
         texture::{DetachedTexture, Texture},
         FutureGlThreadContext, GlContext,
@@ -93,22 +94,34 @@ impl WorkerImpl {
         }
         let mut source = build_sources(&self.config.sources).context("Cannot build source")?;
         loop {
-            let mut img_with_details = source.get_next_image()?;
-            img_with_details.image = self.resize_image_if_necessay(img_with_details.image);
-            let texture = Texture::new_from_image(gl.clone(), &img_with_details.image).unwrap();
-            let blurred_texture = blurr
-                .blur(self.config.slideshow.blur_options.clone().into(), &texture)
-                .unwrap();
-            unsafe { gl.finish() };
-            let msg = PreloadedSlide {
-                details: img_with_details.details,
-                texture: texture.detach(),
-                blurred_texture: blurred_texture.detach(),
-            };
+            let msg = (|| self.get_next(&mut *source, gl, blurr))
+                .retry(ExponentialBuilder::default())
+                .call()?;
             self.send
                 .send(msg)
                 .context("While sending next image to display thread")?;
         }
+    }
+
+    fn get_next(
+        &self,
+        source: &mut dyn Gallery,
+        gl: &Rc<GlContext>,
+        blurr: &ImageBlurr,
+    ) -> Result<PreloadedSlide> {
+        let mut img_with_details = source.get_next_image()?;
+        img_with_details.image = self.resize_image_if_necessay(img_with_details.image);
+        let texture = Texture::new_from_image(gl.clone(), &img_with_details.image).unwrap();
+        let blurred_texture = blurr
+            .blur(self.config.slideshow.blur_options.clone().into(), &texture)
+            .unwrap();
+        unsafe { gl.finish() };
+        let msg = PreloadedSlide {
+            details: img_with_details.details,
+            texture: texture.detach(),
+            blurred_texture: blurred_texture.detach(),
+        };
+        Ok(msg)
     }
 
     fn resize_image_if_necessay(&self, image: DynamicImage) -> DynamicImage {
