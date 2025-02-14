@@ -22,8 +22,6 @@ Todo:
    - unit testing where possible
    - Debian packaging
       - config sample generate
-   - Just arm deploy
-   - Feature flags for GBM, winit, etc...
 
    - Better immich errors - OK?
    - Direnv -> switch to flake
