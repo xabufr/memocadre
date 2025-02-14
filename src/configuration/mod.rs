@@ -47,8 +47,8 @@ pub struct Slideshow {
     pub display_duration: Duration,
 
     /// Duration of the transition between two photos.
-    /// Defaults to 1 second ("1s").
-    #[default(Duration::from_secs(1))]
+    /// Defaults to 1 second ("500ms").
+    #[default(Duration::from_millis(500))]
     #[serde(with = "humantime_serde")]
     pub transition_duration: Duration,
 
