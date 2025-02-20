@@ -1,4 +1,4 @@
-use std::{io::Cursor, ops::Deref, rc::Rc, time::Instant};
+use std::{io::Cursor, num::NonZeroU32, ops::Deref, rc::Rc, time::Instant};
 
 use anyhow::{Context, Result};
 use client::SmartSearchRequest;
@@ -30,7 +30,7 @@ enum ImmichRequest {
 }
 
 impl ImmichRequest {
-    fn load_next(&self, client: &ImmichClient) -> Result<Vec<AssetResponse>> {
+    fn load_next(&mut self, client: &ImmichClient) -> Result<Vec<AssetResponse>> {
         match self {
             ImmichRequest::RandomSearch(search_random_request) => Ok(client
                 .search_random(SearchRandomRequest {
@@ -39,15 +39,18 @@ impl ImmichRequest {
                     ..search_random_request.clone()
                 })
                 .context("Error while search next assets batch")?),
-            ImmichRequest::SmartSearch(request) => Ok(client
-                .smart_search(SmartSearchRequest {
-                    r#type: Some(AssetType::Image),
-                    with_exif: Some(true),
-                    ..request.clone()
-                })
-                .context("Error while smart searching next assets batch")?
-                .assets
-                .items),
+            ImmichRequest::SmartSearch(ref mut request) => {
+                request.page = request.page.map(|p| p.saturating_add(1));
+                Ok(client
+                    .smart_search(SmartSearchRequest {
+                        r#type: Some(AssetType::Image),
+                        with_exif: Some(true),
+                        ..request.clone()
+                    })
+                    .context("Error while smart searching next assets batch")?
+                    .assets
+                    .items)
+            }
             ImmichRequest::PrivateAlbum { id } => Ok(client
                 .get_album(id)
                 .context("Cannot get album for next batch")?
@@ -99,6 +102,7 @@ impl ImmichGalleryProvider {
                 person_ids: Self::get_persons_ids(client.deref(), &search.persons)?,
                 city: search.city.clone(),
                 query: search.query.clone(),
+                page: NonZeroU32::new(1),
                 ..Default::default()
             }),
             ImmichSpec::PrivateAlbum(PrivateAlbum { id }) => {

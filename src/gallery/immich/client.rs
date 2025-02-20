@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
 use log::trace;
@@ -112,6 +114,8 @@ pub struct SmartSearchRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub with_exif: Option<bool>,
     pub query: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page: Option<NonZeroU32>,
 }
 #[derive(Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
