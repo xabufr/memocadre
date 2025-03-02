@@ -10,6 +10,8 @@ use vek::{Extent2, Rect, Vec2};
 use crate::{
     application::slideshow::animated_properties::animated_properties,
     configuration::{AppConfiguration, Background, BlurBackground},
+    gallery::ImageDetails,
+    gl::texture::DetachedTexture,
     graphics::{Drawable, Graphics, ShapeContainer, SharedTexture2d, Sprite, TextContainer},
     worker::PreloadedSlide,
 };
@@ -37,6 +39,10 @@ animated_properties!(SlideProperties {
     text_position: [f32; 2] = [0.0, 0.0],
 });
 
+const BG_PADDING: f32 = 5.0;
+const TEXT_CORNER_RADIUS: f32 = 10.0;
+const BACKGROUND_BLUR_ALPHA: f32 = 0.5;
+
 impl AnimatedSlide {
     pub fn update(&mut self, instant: Instant) {
         let properties = self.animation.to_slide_properties(instant);
@@ -45,108 +51,135 @@ impl AnimatedSlide {
 }
 
 impl Slide {
-    // TODO: Should refactor this looong method (and test it too!)
     pub fn create(
         preloaded_slide: PreloadedSlide,
         graphics: &mut Graphics,
         config: &AppConfiguration,
     ) -> Result<Self> {
-        let texture = graphics.texture_from_detached(preloaded_slide.texture);
-        let texture = SharedTexture2d::new(texture);
-        let texture_blur =
-            SharedTexture2d::new(graphics.texture_from_detached(preloaded_slide.blurred_texture));
+        let texture = SharedTexture2d::new(graphics.texture_from_detached(preloaded_slide.texture));
+        let main_sprite = Self::create_main_sprite(graphics, &texture)?;
 
-        let mut main_sprite = Sprite::new(SharedTexture2d::clone(&texture));
-        let display_size = graphics.get_dimensions();
-        let (width, height) = display_size.as_::<i32>().into_tuple();
-        main_sprite.resize_respecting_ratio(display_size);
+        let background = Self::create_blurred_background(
+            graphics,
+            preloaded_slide.blurred_texture,
+            config,
+            &main_sprite,
+        )?;
 
-        let free_space = display_size.as_() - main_sprite.size;
-        main_sprite.position = Vec2::from(free_space * 0.5).round();
-
-        let mut background = None;
-        if let Background::Blur(BlurBackground { min_free_space }) = config.slideshow.background {
-            if free_space.reduce_partial_max() > min_free_space as f32 {
-                let mut blur_sprites = [
-                    Sprite::new(SharedTexture2d::clone(&texture_blur)),
-                    Sprite::new(SharedTexture2d::clone(&texture_blur)),
-                ];
-
-                for blur_sprite in blur_sprites.iter_mut() {
-                    blur_sprite.size = main_sprite.size;
-                }
-
-                if free_space.w > free_space.h {
-                    blur_sprites[0].size.w = main_sprite.position.x;
-                    blur_sprites[0].set_sub_rect(Rect::new(
-                        0,
-                        0,
-                        main_sprite.position.x as _,
-                        height,
-                    ));
-
-                    blur_sprites[1].position.x = main_sprite.position.x + main_sprite.size.w;
-                    blur_sprites[1].size.w = display_size.w as f32 - blur_sprites[1].position.x;
-                    blur_sprites[1].set_sub_rect(Rect::new(
-                        texture.size().w as i32 - main_sprite.position.x as i32,
-                        0,
-                        main_sprite.position.x as _,
-                        height,
-                    ));
-                } else {
-                    blur_sprites[0].size.h = main_sprite.position.y;
-                    blur_sprites[0].set_sub_rect(Rect::new(
-                        0,
-                        0,
-                        width,
-                        main_sprite.position.y as i32,
-                    ));
-
-                    blur_sprites[1].position.y = main_sprite.position.y + main_sprite.size.h;
-                    blur_sprites[1].size.h = main_sprite.position.y;
-                    blur_sprites[1].set_sub_rect(Rect::new(
-                        0,
-                        texture.size().h as i32 - main_sprite.position.y as i32,
-                        width,
-                        main_sprite.position.y as i32,
-                    ));
-                }
-                background = Some(blur_sprites);
-            }
-        }
-
-        let text = if config.slideshow.caption.enabled {
-            let date = preloaded_slide.details.date.map(|date| {
-                date.date_naive()
-                    .format_localized(
-                        &config.slideshow.caption.date_format.format,
-                        config.slideshow.caption.date_format.locale,
-                    )
-                    .to_string()
-            });
-            let text = [preloaded_slide.details.city, date]
-                .into_iter()
-                .flatten()
-                .collect::<Vec<_>>();
-            let text = if text.is_empty() {
-                None
-            } else {
-                Some(text.join("\n"))
-            };
-
-            text.map(|text| {
-                TextWithBackground::create(graphics, text, config.slideshow.caption.font_size)
-            })
-            .transpose()?
-        } else {
-            None
-        };
+        let text = Self::create_text(graphics, &preloaded_slide.details, config)?;
 
         Ok(Slide {
             main_sprite,
             background,
             text,
         })
+    }
+
+    fn create_main_sprite(graphics: &mut Graphics, texture: &SharedTexture2d) -> Result<Sprite> {
+        let mut main_sprite = Sprite::new(SharedTexture2d::clone(texture));
+        let display_size = graphics.get_dimensions();
+        main_sprite.resize_respecting_ratio(display_size);
+
+        let free_space = display_size.as_() - main_sprite.size;
+        main_sprite.position = Vec2::from(free_space * 0.5).round();
+        Ok(main_sprite)
+    }
+
+    fn create_blurred_background(
+        graphics: &mut Graphics,
+        blurred_texture: DetachedTexture,
+        config: &AppConfiguration,
+        main_sprite: &Sprite,
+    ) -> Result<Option<[Sprite; 2]>> {
+        if let Background::Blur(BlurBackground { min_free_space }) = config.slideshow.background {
+            let display_size = graphics.get_dimensions();
+            let free_space = display_size.as_::<f32>() - main_sprite.size;
+            if free_space.reduce_partial_max() > min_free_space as f32 {
+                let texture_blur = graphics.texture_from_detached(blurred_texture);
+                let texture_blur = SharedTexture2d::new(texture_blur);
+
+                let background_sprites =
+                    Self::calculate_background_sprites(main_sprite, &texture_blur, display_size);
+                return Ok(Some(background_sprites));
+            }
+        }
+        Ok(None)
+    }
+
+    fn calculate_background_sprites(
+        main_sprite: &Sprite,
+        texture_blur: &SharedTexture2d,
+        display_size: Extent2<u32>,
+    ) -> [Sprite; 2] {
+        let mut blur_sprites = [
+            Sprite::new(SharedTexture2d::clone(texture_blur)),
+            Sprite::new(SharedTexture2d::clone(texture_blur)),
+        ];
+
+        for blur_sprite in blur_sprites.iter_mut() {
+            blur_sprite.size = main_sprite.size;
+        }
+
+        let (width, height) = display_size.as_::<i32>().into_tuple();
+        let free_space = display_size.as_::<f32>() - main_sprite.size;
+        if free_space.w > free_space.h {
+            blur_sprites[0].size.w = main_sprite.position.x;
+            blur_sprites[0].set_sub_rect(Rect::new(0, 0, main_sprite.position.x as _, height));
+
+            blur_sprites[1].position.x = main_sprite.position.x + main_sprite.size.w;
+            blur_sprites[1].size.w = display_size.w as f32 - blur_sprites[1].position.x;
+            blur_sprites[1].set_sub_rect(Rect::new(
+                texture_blur.size().w as i32 - main_sprite.position.x as i32,
+                0,
+                main_sprite.position.x as _,
+                height,
+            ));
+        } else {
+            blur_sprites[0].size.h = main_sprite.position.y;
+            blur_sprites[0].set_sub_rect(Rect::new(0, 0, width, main_sprite.position.y as i32));
+
+            blur_sprites[1].position.y = main_sprite.position.y + main_sprite.size.h;
+            blur_sprites[1].size.h = main_sprite.position.y;
+            blur_sprites[1].set_sub_rect(Rect::new(
+                0,
+                texture_blur.size().h as i32 - main_sprite.position.y as i32,
+                width,
+                main_sprite.position.y as i32,
+            ));
+        }
+        blur_sprites
+    }
+
+    fn create_text(
+        graphics: &mut Graphics,
+        details: &ImageDetails,
+        config: &AppConfiguration,
+    ) -> Result<Option<TextWithBackground>> {
+        if !config.slideshow.caption.enabled {
+            return Ok(None);
+        }
+
+        let date = details.date.map(|date| {
+            date.date_naive()
+                .format_localized(
+                    &config.slideshow.caption.date_format.format,
+                    config.slideshow.caption.date_format.locale,
+                )
+                .to_string()
+        });
+        let text = [details.city.clone(), date]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+
+        if text.is_empty() {
+            return Ok(None);
+        }
+
+        let text = text.join("\n");
+        TextWithBackground::create(graphics, text, config.slideshow.caption.font_size)
+            .map(Some)
+            .context("Failed to create text for slide")
     }
 
     fn set_opacity(&mut self, alpha: f32) {
@@ -176,8 +209,6 @@ impl Slide {
 impl TextWithBackground {
     // TODO Test me !
     fn create(graphics: &mut Graphics, text: String, font_size: f32) -> Result<Self> {
-        let bg_padding = 5f32;
-
         let container = {
             let container = graphics
                 .create_text_container()
@@ -193,13 +224,13 @@ impl TextWithBackground {
             container
         };
         let shape = {
-            let dims = container.get_dimensions() + bg_padding * 2.;
+            let dims = container.get_dimensions() + BG_PADDING * 2.;
             let rect = RectShape {
-                blur_width: bg_padding,
+                blur_width: BG_PADDING,
                 ..RectShape::filled(
                     epaint::Rect::from_min_size(Pos2::ZERO, epaint::Vec2::new(dims.w, dims.h)),
-                    10f32,
-                    Color32::BLACK.linear_multiply(0.5),
+                    TEXT_CORNER_RADIUS,
+                    Color32::BLACK.linear_multiply(BACKGROUND_BLUR_ALPHA),
                 )
             };
             graphics.create_shape(rect.into(), None)?
@@ -207,7 +238,7 @@ impl TextWithBackground {
         Ok(Self {
             container,
             background: shape,
-            bg_padding,
+            bg_padding: BG_PADDING,
         })
     }
 
