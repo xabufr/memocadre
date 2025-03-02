@@ -1,49 +1,109 @@
 ---
 # photo-kiosk configuration file
 
-# # Where to fetch photos from
-sources: []
-  # # Immich source
+# Where to fetch photos from
+sources:
+  # You can define multiple sources.
+  # Each source is a dictionary with a "type" field.
+  # Currently, only "immich" type is supported.
+  # For "immich" type, you can configure either a single instance or multiple instances.
+  # See below for examples.
+
+  # Example for a single Immich instance:
   # - type: immich
-    # # Immich instance URL
-    # instance:
-    #   url: "https://immich.XXXXX"
-    #   api_key: "XXXX"
-    # # Also support multiple instances
-    # instances:
-    #  - url: "https://immich.XXXX"
-    #    api_key: "XXXX"
-    # # search queries
-    # specs:
-      # - type: smart-search
-      #   # Query to search for [required]
-      #   query: dog
-      #   # Persons to search for
-      #   persons:
-      #      # by person Name
-      #     - name: Person Name
-      #      # or by person ID
-      #     - id: XXXXX
-      # - type: private-album
-      #   id: XXXX
-      # - type: memory-lane
-# slideshow:
-#   display_duration: "30s"
-  # transitionDuration: "1s"
-  # # Screen rotation in degrees (0, 90, 180, 270)
-  # rotation: 0
-  # caption:
-  #   enabled: true
-  #   date_format:
-  #     format: "%A, %e. %B %Y"
-  #     locale: "en_US"
-  #   font_size: 28
-  # blur_options:
-  #   passes: 3
-  #   radius: 6
-  # init_slide:
-    # other available types: loading-circle, empty
-    #type: loading-circle
-    #velocity: 1.5
-#debug:
-  #show_fps: false
+  #   instance:
+  #     url: "https://immich.example.com" # URL of your Immich instance
+  #     api_key: "YOUR_API_KEY" # API key for your Immich instance
+
+  # Example for multiple Immich instances:
+  # - type: immich
+  #   instances:
+  #     - url: "https://immich1.example.com" # URL of your first Immich instance
+  #       api_key: "API_KEY_1" # API key for your first Immich instance
+  #     - url: "https://immich2.example.com" # URL of your second Immich instance
+  #       api_key: "API_KEY_2" # API key for your second Immich instance
+
+  # Under "specs", you define what photos to fetch from Immich.
+  # You can define multiple specs to fetch photos from different sources within Immich.
+  # Available spec types are:
+  #   - "random-search": Fetches photos based on a search query.
+  #   - "smart-search": Fetches photos based on a smart search query (similar to Immich's smart search).
+  #   - "private-album": Fetches photos from a specific private album.
+  #   - "memory-lane": Fetches photos from the memory lane (photos from this day in past years).
+
+  # Example for "random-search" spec:
+  # - type: immich
+  #   specs:
+  #     - type: random-search
+  #       # persons: Optional list of persons to filter by. Photos containing these persons will be included.
+  #       # You can specify persons by "id" or "name".
+  #       # persons:
+  #       #   - name: "John Doe" # Search for photos containing a person named "John Doe"
+  #       #   - id: "person-id-123" # Search for photos containing a person with ID "person-id-123"
+
+  # Example for "smart-search" spec:
+  # - type: immich
+  #   specs:
+  #     - type: smart-search
+  #       query: "beach" # Query to search for (e.g., "beach", "dog", "sunset").  This uses Immich's smart search capabilities.
+  #       # city: Optional city to filter by (e.g., "London", "New York"). Photos taken in this city will be prioritized.
+  #       # city: "London"
+  #       # persons: Optional list of persons to filter by.
+  #       # persons:
+  #       #   - name: "Jane Doe" # Search for photos containing a person named "Jane Doe"
+
+  # Example for "private-album" spec:
+  # - type: immich
+  #   specs:
+  #     - type: private-album
+  #       id: "album-id-456" # ID of the private album you want to display.  You can find the album ID in the Immich web interface URL when viewing the album.
+
+  # Example for "memory-lane" spec:
+  # - type: immich
+  #   specs:
+  #     - type: memory-lane # Fetches photos from the memory lane (photos from this day in past years).
+
+  - type: immich
+    instances:
+      - url: "https://immich.example.com" # Replace with your Immich instance URL
+        api_key: "YOUR_API_KEY" # Replace with your Immich API key
+    specs:
+      - type: memory-lane # Example spec: memory lane
+
+# Slideshow settings
+slideshow:
+  display_duration: "30s" # Minimum time each photo is displayed before switching to the next. Format is a duration string (e.g., "10s", "1m", "2h"). Defaults to "30s".
+  transition_duration: "500ms" # Duration of the transition effect between photos. Format is a duration string (e.g., "500ms", "1s", "2s"). Defaults to "500ms".
+  rotation: 0 # Screen rotation in degrees. Possible values: 0, 90, 180, 270. Defaults to 0 (no rotation).
+
+  # Settings for the initial slide shown before photos are loaded.
+  init_slide:
+    type: loading-circle # Type of initial slide to display. Possible values: "loading-circle", "empty". Defaults to "loading-circle".
+    loading_circle:
+      velocity: 1.5 # Number of rotations per second for the loading circle animation. Defaults to 1.5.
+
+  # Settings for the background displayed around photos when they don't fill the entire screen.
+  background:
+    type: blur # Type of background. Possible values: "blur", "black". Defaults to "blur" (blurred version of the photo).
+    blur:
+      min_free_space: 50 # Minimum percentage of free space around the photo to trigger background blur. If free space is less than this, the background will be black instead of blurred to save resources. Defaults to 50.
+
+  # Settings for the blur effect used for background and potentially other effects.
+  blur_options:
+    radius: 6.0 # Radius of the blur effect. Higher values mean more blur. Defaults to 6.0.
+    passes: 3 # Number of blur passes. More passes can improve blur quality but increase processing time. Defaults to 3.
+
+  # Settings for the caption (photo information) displayed at the bottom of the screen.
+  caption:
+    enabled: true # Whether to display captions. Defaults to true.
+    font_size: 28 # Font size of the caption text. Defaults to 28.
+    date_format:
+      format: "%A, %e. %B %Y" # Format string for displaying the date in the caption. Uses chrono format specifiers (see https://docs.rs/chrono/0.4.39/chrono/format/strftime/index.html). Defaults to "%A, %e. %B %Y" (e.g., "Monday, 1. January 2024").
+      locale: "en_US" # Locale for date formatting.  Uses standard locale codes (e.g., "en_US", "de_DE", "fr_FR"). Defaults to "en_US" (English, United States).
+
+  # Filter used when downscaling images to fit the display.
+  downscaled_image_filter: lanczos3 # Filter algorithm for downscaling images. Possible values: "nearest", "triangle", "catmull-rom", "gaussian", "lanczos3". "lanczos3" generally provides the best quality but may be slightly slower. Defaults to "lanczos3".
+
+# Debug settings - for development and troubleshooting
+debug:
+  show_fps: false # Whether to display a frames-per-second (FPS) counter on the screen. Useful for debugging performance issues. Defaults to false.
