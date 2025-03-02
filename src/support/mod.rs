@@ -50,6 +50,7 @@ pub fn start<T: ApplicationContext + 'static>(config: AppConfiguration) -> Resul
     }
     #[cfg(feature = "drm")]
     {
+        #[allow(clippy::needless_return)]
         return start_gbm::<T>(config).context("While running application");
     }
 
