@@ -1,10 +1,13 @@
 use std::{
+    ffi::CStr,
     fs::{File, OpenOptions},
     os::unix::io::{AsFd, BorrowedFd},
 };
 
 use anyhow::{Context as _, Result};
-use drm::control::{self, connector, crtc, Device as ControlDevice, ModeTypeFlags};
+use drm::control::{
+    self, connector, crtc, property::ValueType, Device as ControlDevice, ModeTypeFlags,
+};
 use log::warn;
 
 #[derive(Debug)]
@@ -126,5 +129,28 @@ impl DrmDevice {
             warn!("Connector does not support DPMS, screen will not turn off");
         }
         Ok(dpms_prop)
+    }
+
+    pub fn set_dpms_property(&self, value: &CStr) -> Result<()> {
+        if let Some(dpms_prop) = &self.dpms_prop {
+            if let ValueType::Enum(enum_value) = dpms_prop.value_type() {
+                for possible_value in enum_value.values().1 {
+                    if possible_value.name() == value {
+                        self.set_property(
+                            self.connector.handle(),
+                            dpms_prop.handle(),
+                            possible_value.value(),
+                        )
+                        .context(format!("Cannot set DPMS property to {value:?}"))?;
+                        return Ok(());
+                    }
+                }
+                anyhow::bail!("Invalid DPMS value: {value:?}");
+            } else {
+                anyhow::bail!("DPMS property is not an enum");
+            }
+        } else {
+            anyhow::bail!("DPMS property not found");
+        }
     }
 }

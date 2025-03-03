@@ -1,4 +1,4 @@
-use std::{ffi::c_void, num::NonZeroU32, ptr::NonNull};
+use std::{ffi::c_void, num::NonZeroU32, os::fd::AsFd, ptr::NonNull};
 
 use anyhow::{Context as _, Result};
 use gbm::{AsRaw, BufferObjectFlags};
@@ -16,10 +16,21 @@ pub struct GbmData {
     pub device: gbm::Device<DrmDevice>,
     pub display: glutin::display::Display,
     pub gl_config: glutin::config::Config,
+}
+
+pub struct GbmWindow {
     pub surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
     pub window: RawWindowHandle,
     pub gbm_surface: gbm::Surface<()>,
 }
+
+impl AsFd for GbmData {
+    fn as_fd(&self) -> std::os::fd::BorrowedFd<'_> {
+        self.device.as_fd()
+    }
+}
+impl drm::Device for GbmData {}
+impl drm::control::Device for GbmData {}
 
 impl GbmData {
     pub fn new(drm_device: DrmDevice) -> Result<Self> {
@@ -50,9 +61,19 @@ impl GbmData {
                 .context("No available config found")?
         };
 
-        debug!("Using gl config: {gl_config:?}");
+        Ok(Self {
+            device,
+            display,
+            gl_config,
+        })
+    }
+
+    pub fn create_gbm_window(&self) -> Result<GbmWindow> {
+        let (width, height) = self.device.mode.size();
+        debug!("Using gl config: {:?}", self.gl_config);
         let (surface, window, gbm_surface) = unsafe {
-            let gbm_surface = device
+            let gbm_surface = self
+                .device
                 .create_surface::<()>(
                     width as _,
                     height as _,
@@ -63,9 +84,10 @@ impl GbmData {
             let window_handle = RawWindowHandle::Gbm(GbmWindowHandle::new(
                 NonNull::new(gbm_surface.as_raw() as *mut c_void).context("GBM surface is null")?,
             ));
-            let surface = display
+            let surface = self
+                .display
                 .create_window_surface(
-                    &gl_config,
+                    &self.gl_config,
                     &SurfaceAttributesBuilder::<WindowSurface>::new().build(
                         window_handle,
                         NonZeroU32::new(width as _).unwrap(),
@@ -75,11 +97,7 @@ impl GbmData {
                 .context("Cannot create window surface")?;
             (surface, window_handle, gbm_surface)
         };
-
-        Ok(Self {
-            device,
-            display,
-            gl_config,
+        Ok(GbmWindow {
             surface,
             window,
             gbm_surface,

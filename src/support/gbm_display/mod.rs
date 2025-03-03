@@ -4,12 +4,37 @@ mod gbm_data;
 use std::{rc::Rc, sync::Arc, thread::sleep, time::Duration};
 
 use anyhow::{Context as _, Result};
-use drm::control::{self, property::ValueType, Device as ControlDevice, PageFlipFlags};
-use glutin::{context::ContextAttributesBuilder, display::GetGlDisplay, prelude::GlDisplay};
+use drm::control::{self, Device as ControlDevice, PageFlipFlags};
+use glutin::{
+    context::{ContextAttributesBuilder, NotCurrentContext, Priority},
+    display::GetGlDisplay,
+    prelude::GlDisplay,
+};
 
 use self::{drm_device::DrmDevice, gbm_data::GbmData};
 use super::ApplicationContext;
 use crate::{configuration::AppConfiguration, gl::FutureGlThreadContext};
+
+fn create_gl_context(
+    gbm_data: &GbmData,
+    share_with: Option<&NotCurrentContext>,
+    priority: Priority,
+) -> Result<NotCurrentContext> {
+    let mut builder = ContextAttributesBuilder::new()
+        .with_context_api(glutin::context::ContextApi::Gles(None))
+        .with_priority(priority);
+
+    if let Some(share_context) = share_with {
+        builder = builder.with_sharing(share_context);
+    }
+
+    unsafe {
+        gbm_data
+            .display
+            .create_context(&gbm_data.gl_config, &builder.build(None))
+            .context("Cannot create openGL context")
+    }
+}
 
 pub fn start_gbm<T>(app_config: Arc<AppConfiguration>) -> Result<()>
 where
@@ -17,38 +42,17 @@ where
 {
     let drm_device = DrmDevice::new().context("While creating DrmDevice")?;
     let gbm_data = GbmData::new(drm_device)?;
+    let gbm_window = gbm_data.create_gbm_window()?;
 
-    let not_current_gl_context = unsafe {
-        gbm_data
-            .display
-            .create_context(
-                &gbm_data.gl_config,
-                &ContextAttributesBuilder::new()
-                    .with_context_api(glutin::context::ContextApi::Gles(None))
-                    .build(Some(gbm_data.window)),
-            )
-            .context("Cannot create openGL context")?
-    };
+    let not_current_gl_context = create_gl_context(&gbm_data, None, Priority::Medium)?;
 
     let gl = FutureGlThreadContext::new(
-        Some(gbm_data.surface),
+        Some(gbm_window.surface),
         not_current_gl_context,
         gbm_data.gl_config.display(),
     );
 
-    let bg_context = unsafe {
-        gbm_data
-            .display
-            .create_context(
-                &gbm_data.gl_config,
-                &ContextAttributesBuilder::new()
-                    .with_context_api(glutin::context::ContextApi::Gles(None))
-                    .with_sharing(gl.get_context())
-                    .with_priority(glutin::context::Priority::Low)
-                    .build(Some(gbm_data.window)),
-            )
-            .context("Cannot create BG openGL context")?
-    };
+    let bg_context = create_gl_context(&gbm_data, Some(gl.get_context()), Priority::Low)?;
 
     let gl = gl
         .activate()
@@ -57,15 +61,13 @@ where
 
     gl.swap_buffers().context("Cannot swap buffers")?;
 
-    let mut bo =
-        unsafe { gbm_data.gbm_surface.lock_front_buffer() }.context("Cannot lock front buffer")?;
+    let mut bo = unsafe { gbm_window.gbm_surface.lock_front_buffer() }
+        .context("Cannot lock front buffer")?;
     let bpp = bo.bpp();
     let mut fb = gbm_data
-        .device
         .add_framebuffer(&bo, bpp, bpp)
         .context("Cannot get framebuffer")?;
     gbm_data
-        .device
         .set_crtc(
             gbm_data.device.crtc.handle(),
             Some(fb),
@@ -81,14 +83,12 @@ where
         if enabled {
             app.draw_frame().context("Error while drawing a frame")?;
 
-            let next_bo = unsafe { gbm_data.gbm_surface.lock_front_buffer() }
+            let next_bo = unsafe { gbm_window.gbm_surface.lock_front_buffer() }
                 .context("Cannot lock front buffer")?;
             let next_fb = gbm_data
-                .device
                 .add_framebuffer(&next_bo, bpp, bpp)
                 .context("Cannot get framebuffer")?;
             gbm_data
-                .device
                 .page_flip(
                     gbm_data.device.crtc.handle(),
                     next_fb,
@@ -99,7 +99,6 @@ where
 
             'outer: loop {
                 let mut events = gbm_data
-                    .device
                     .receive_events()
                     .context("Cannot read DRM device events")?;
                 for event in &mut events {
@@ -113,26 +112,11 @@ where
             drop(bo);
             bo = next_bo;
             gbm_data
-                .device
                 .destroy_framebuffer(fb)
                 .context("Cannot free old framebuffer")?;
             fb = next_fb;
-        } else if let Some(dpms_prop) = &gbm_data.device.dpms_prop {
-            if let ValueType::Enum(value) = dpms_prop.value_type() {
-                for value in value.values().1 {
-                    if value.name() == c"Standby" {
-                        gbm_data
-                            .device
-                            .set_property(
-                                gbm_data.device.connector.handle(),
-                                dpms_prop.handle(),
-                                value.value(),
-                            )
-                            .context("Cannot set DPMS property")?;
-                        break;
-                    }
-                }
-            }
+        } else {
+            gbm_data.device.set_dpms_property(c"Standby")?;
             sleep(Duration::from_secs(60));
         }
     }
