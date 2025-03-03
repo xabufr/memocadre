@@ -1,16 +1,15 @@
 use std::{
     fs::{File, OpenOptions},
     os::unix::io::{AsFd, BorrowedFd},
-    rc::Rc,
 };
 
 use anyhow::{Context as _, Result};
 use drm::control::{self, connector, crtc, Device as ControlDevice, ModeTypeFlags};
 use log::warn;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 /// A simple wrapper for a device node.
-pub struct Card(Rc<File>);
+pub struct Card(File);
 
 /// Implementing [`AsFd`] is a prerequisite to implementing the traits found
 /// in this crate. Here, we are just calling [`File::as_fd()`] on the inner
@@ -34,11 +33,11 @@ impl Card {
 
         // The normal location of the primary device node on Linux
         let path = "/dev/dri/card0";
-        Ok(Card(Rc::new(
+        Ok(Card(
             options
                 .open(path)
                 .context(format!("While opening {path}"))?,
-        )))
+        ))
     }
 }
 
@@ -49,6 +48,15 @@ pub struct DrmDevice {
     pub crtc: crtc::Info,
     pub dpms_prop: Option<control::property::Info>,
 }
+
+impl AsFd for DrmDevice {
+    fn as_fd(&self) -> BorrowedFd<'_> {
+        self.card.as_fd()
+    }
+}
+
+impl drm::Device for DrmDevice {}
+impl ControlDevice for DrmDevice {}
 
 impl DrmDevice {
     pub fn new() -> Result<Self> {

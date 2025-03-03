@@ -10,10 +10,10 @@ use glutin::{
 use log::debug;
 use raw_window_handle::{GbmDisplayHandle, GbmWindowHandle, RawDisplayHandle, RawWindowHandle};
 
-use super::drm_device::{Card, DrmDevice};
+use super::drm_device::DrmDevice;
 
 pub struct GbmData {
-    pub device: gbm::Device<Card>,
+    pub device: gbm::Device<DrmDevice>,
     pub display: glutin::display::Display,
     pub gl_config: glutin::config::Config,
     pub surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
@@ -22,14 +22,14 @@ pub struct GbmData {
 }
 
 impl GbmData {
-    pub fn new(drm_device: &DrmDevice) -> Result<Self> {
+    pub fn new(drm_device: DrmDevice) -> Result<Self> {
         let (width, height) = drm_device.mode.size();
         debug!(
             "Will start DRM rendering with {width}x{height}@{} resolution",
             drm_device.mode.vrefresh()
         );
 
-        let device = gbm::Device::new(drm_device.card.clone()).context("Cannot open GBM device")?;
+        let device = gbm::Device::new(drm_device).context("Cannot open GBM device")?;
         let display = unsafe {
             let ptr: NonNull<c_void> =
                 NonNull::new(device.as_raw() as *mut c_void).context("device pointer is null")?;

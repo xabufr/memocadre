@@ -4,7 +4,9 @@ mod gbm_data;
 use std::{rc::Rc, sync::Arc, thread::sleep, time::Duration};
 
 use anyhow::{Context as _, Result};
-use drm::control::{self, property::ValueType, Device as ControlDevice, PageFlipFlags};
+use drm::{
+    control::{self, property::ValueType, Device as ControlDevice, PageFlipFlags},
+};
 use glutin::{context::ContextAttributesBuilder, display::GetGlDisplay, prelude::GlDisplay};
 
 use self::{drm_device::DrmDevice, gbm_data::GbmData};
@@ -16,7 +18,7 @@ where
     T: ApplicationContext + 'static,
 {
     let drm_device = DrmDevice::new().context("While creating DrmDevice")?;
-    let gbm_data = GbmData::new(&drm_device)?;
+    let gbm_data = GbmData::new(drm_device)?;
 
     let not_current_gl_context = unsafe {
         gbm_data
@@ -60,18 +62,17 @@ where
     let mut bo =
         unsafe { gbm_data.gbm_surface.lock_front_buffer() }.context("Cannot lock front buffer")?;
     let bpp = bo.bpp();
-    let mut fb = drm_device
-        .card
+    let mut fb = gbm_data.device
         .add_framebuffer(&bo, bpp, bpp)
         .context("Cannot get framebuffer")?;
-    drm_device
-        .card
+    gbm_data
+        .device
         .set_crtc(
-            drm_device.crtc.handle(),
+            gbm_data.device.crtc.handle(),
             Some(fb),
             (0, 0),
-            &[drm_device.connector.handle()],
-            Some(drm_device.mode),
+            &[gbm_data.device.connector.handle()],
+            Some(gbm_data.device.mode),
         )
         .context("Cannot setup DRM device CRTC")?;
 
@@ -83,14 +84,13 @@ where
 
             let next_bo = unsafe { gbm_data.gbm_surface.lock_front_buffer() }
                 .context("Cannot lock front buffer")?;
-            let next_fb = drm_device
-                .card
+            let next_fb = gbm_data
+                .device
                 .add_framebuffer(&next_bo, bpp, bpp)
                 .context("Cannot get framebuffer")?;
-            drm_device
-                .card
+            gbm_data.device
                 .page_flip(
-                    drm_device.crtc.handle(),
+                    gbm_data.device.crtc.handle(),
                     next_fb,
                     PageFlipFlags::EVENT,
                     None,
@@ -98,13 +98,12 @@ where
                 .context("Cannot request pageflip")?;
 
             'outer: loop {
-                let mut events = drm_device
-                    .card
+                let mut events = gbm_data.device
                     .receive_events()
                     .context("Cannot read DRM device events")?;
                 for event in &mut events {
                     if let control::Event::PageFlip(event) = event {
-                        if event.crtc == drm_device.crtc.handle() {
+                        if event.crtc == gbm_data.device.crtc.handle() {
                             break 'outer;
                         }
                     }
@@ -112,19 +111,17 @@ where
             }
             drop(bo);
             bo = next_bo;
-            drm_device
-                .card
+            gbm_data.device
                 .destroy_framebuffer(fb)
                 .context("Cannot free old framebuffer")?;
             fb = next_fb;
-        } else if let Some(dpms_prop) = &drm_device.dpms_prop {
+        } else if let Some(dpms_prop) = &gbm_data.device.dpms_prop {
             if let ValueType::Enum(value) = dpms_prop.value_type() {
                 for value in value.values().1 {
                     if value.name() == c"Standby" {
-                        drm_device
-                            .card
+                        gbm_data.device
                             .set_property(
-                                drm_device.connector.handle(),
+                                gbm_data.device.connector.handle(),
                                 dpms_prop.handle(),
                                 value.value(),
                             )
