@@ -56,38 +56,12 @@ impl DrmDevice {
         let res = drm_device
             .resource_handles()
             .context("While listing DRM resources handles")?;
-        let connector = res
-            .connectors()
-            .iter()
-            .flat_map(|h| drm_device.get_connector(*h, true))
-            .find(|c| c.state() == connector::State::Connected)
-            .context("Cannot find connected connector")?;
-        let mode = connector
-            .modes()
-            .iter()
-            .find(|m| m.mode_type().contains(ModeTypeFlags::PREFERRED))
-            .context("Cannot find prefered connector mode")?
-            .clone();
-        let crtc = connector
-            .encoders()
-            .iter()
-            .flat_map(|h| drm_device.get_encoder(*h))
-            .flat_map(|e| e.crtc())
-            .flat_map(|c| drm_device.get_crtc(c))
-            .next()
-            .context("Cannot get CRTC")?;
 
-        let connector_props = drm_device
-            .get_properties(connector.handle())
-            .context("Cannot get connector properties")?;
+        let connector = Self::find_connected_connector(&drm_device, &res)?;
+        let mode = Self::find_preferred_mode(&connector)?;
+        let crtc = Self::find_crtc(&drm_device, &connector)?;
+        let dpms_prop = Self::get_dpms_property(&drm_device, &connector)?;
 
-        let connector_props = connector_props
-            .as_hashmap(&drm_device)
-            .context("Cannot convert connector properties")?;
-        let dpms_prop = connector_props.get("DPMS").cloned();
-        if dpms_prop.is_none() {
-            warn!("Connector does not support DPMS, screen will not turn off");
-        }
         Ok(Self {
             card: drm_device,
             connector,
@@ -95,5 +69,54 @@ impl DrmDevice {
             crtc,
             dpms_prop,
         })
+    }
+
+    fn find_connected_connector(
+        drm_device: &Card,
+        res: &control::ResourceHandles,
+    ) -> Result<connector::Info> {
+        res.connectors()
+            .iter()
+            .filter_map(|h| drm_device.get_connector(*h, true).ok())
+            .find(|c| c.state() == connector::State::Connected)
+            .context("Cannot find connected connector")
+    }
+
+    fn find_preferred_mode(connector: &connector::Info) -> Result<control::Mode> {
+        connector
+            .modes()
+            .iter()
+            .find(|m| m.mode_type().contains(ModeTypeFlags::PREFERRED))
+            .cloned()
+            .context("Cannot find preferred connector mode")
+    }
+
+    fn find_crtc(drm_device: &Card, connector: &connector::Info) -> Result<crtc::Info> {
+        connector
+            .encoders()
+            .iter()
+            .filter_map(|h| drm_device.get_encoder(*h).ok())
+            .filter_map(|e| e.crtc())
+            .filter_map(|c| drm_device.get_crtc(c).ok())
+            .next()
+            .context("Cannot get CRTC for connector")
+    }
+
+    fn get_dpms_property(
+        drm_device: &Card,
+        connector: &connector::Info,
+    ) -> Result<Option<control::property::Info>> {
+        let connector_props = drm_device
+            .get_properties(connector.handle())
+            .context("Cannot get connector properties")?;
+
+        let connector_props = connector_props
+            .as_hashmap(drm_device)
+            .context("Cannot convert connector properties")?;
+        let dpms_prop = connector_props.get("DPMS").cloned();
+        if dpms_prop.is_none() {
+            warn!("Connector does not support DPMS, screen will not turn off");
+        }
+        Ok(dpms_prop)
     }
 }
