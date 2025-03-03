@@ -1,21 +1,21 @@
+mod drm_device;
+
 use std::{
     ffi::c_void,
-    fs::{File, OpenOptions},
     num::NonZeroU32,
-    os::unix::io::{AsFd, BorrowedFd},
     ptr::NonNull,
     rc::Rc,
     sync::Arc,
-    thread::sleep, time::Duration,
+    thread::sleep,
+    time::Duration,
 };
 
 use anyhow::{Context as _, Result};
-use drm::{
+use drm::
     control::{
-        self, connector, property::ValueType, Device as ControlDevice, ModeTypeFlags, PageFlipFlags,
-    },
-    Device as DrmDevice,
-};
+        self, property::ValueType, Device as ControlDevice, PageFlipFlags,
+    }
+;
 use gbm::{AsRaw, BufferObjectFlags};
 use glutin::{
     config::{Api, ConfigTemplateBuilder},
@@ -23,92 +23,26 @@ use glutin::{
     display::{GetGlDisplay as _, GlDisplay},
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
-use log::{debug, warn};
+use log::debug;
 use raw_window_handle::{GbmDisplayHandle, GbmWindowHandle, RawDisplayHandle, RawWindowHandle};
 
 use super::ApplicationContext;
 use crate::{configuration::AppConfiguration, gl::FutureGlThreadContext};
+use self::drm_device::DrmDevice;
 
-#[derive(Debug)]
-/// A simple wrapper for a device node.
-struct Card(File);
-
-/// Implementing [`AsFd`] is a prerequisite to implementing the traits found
-/// in this crate. Here, we are just calling [`File::as_fd()`] on the inner
-/// [`File`].
-impl AsFd for Card {
-    fn as_fd(&self) -> BorrowedFd<'_> {
-        self.0.as_fd()
-    }
-}
-
-/// With [`AsFd`] implemented, we can now implement [`drm::Device`].
-impl DrmDevice for Card {}
-impl ControlDevice for Card {}
-
-impl Card {
-    /// Simple helper method for opening a [`Card`].
-    fn open() -> Result<Self> {
-        let mut options = OpenOptions::new();
-        options.read(true);
-        options.write(true);
-
-        // The normal location of the primary device node on Linux
-        let path = "/dev/dri/card0";
-        Ok(Card(
-            options
-                .open(path)
-                .context(format!("While opening {path}"))?,
-        ))
-    }
-}
 pub fn start_gbm<T>(app_config: Arc<AppConfiguration>) -> Result<()>
 where
     T: ApplicationContext + 'static,
 {
-    let drm_device = Card::open().context("While opening DRM device")?;
-    let res = drm_device
-        .resource_handles()
-        .context("While listing DRM resources handles")?;
-    let connector = res
-        .connectors()
-        .iter()
-        .flat_map(|h| drm_device.get_connector(*h, true))
-        .find(|c| c.state() == connector::State::Connected)
-        .context("Cannot find connected connector")?;
-    let mode = connector
-        .modes()
-        .iter()
-        .find(|m| m.mode_type().contains(ModeTypeFlags::PREFERRED))
-        .context("Cannot find prefered connector mode")?;
-    let crtc = connector
-        .encoders()
-        .iter()
-        .flat_map(|h| drm_device.get_encoder(*h))
-        .flat_map(|e| e.crtc())
-        .flat_map(|c| drm_device.get_crtc(c))
-        .next()
-        .context("Cannot get CRTC")?;
+    let drm_device = DrmDevice::new().context("While creating DrmDevice")?;
 
-    let connector_props = drm_device
-        .get_properties(connector.handle())
-        .context("Cannot get connector properties")?;
-
-    let connector_props = connector_props
-        .as_hashmap(&drm_device)
-        .context("Cannot convert connector properties")?;
-    let dpms_prop = connector_props.get("DPMS").clone();
-    if dpms_prop.is_none() {
-        warn!("Connector does not support DPMS, screen will not turn off");
-    }
-
-    let (width, height) = mode.size();
+    let (width, height) = drm_device.mode.size();
     debug!(
         "Will start DRM rendering with {width}x{height}@{} resolution",
-        mode.vrefresh()
+        drm_device.mode.vrefresh()
     );
 
-    let device = gbm::Device::new(drm_device).context("Cannot open GBM device")?;
+    let device = gbm::Device::new(drm_device.card.clone()).context("Cannot open GBM device")?;
     let display = unsafe {
         let ptr: NonNull<c_void> =
             NonNull::new(device.as_raw() as *mut c_void).context("device pointer is null")?;
@@ -189,16 +123,18 @@ where
 
     let mut bo = unsafe { gbm_surface.lock_front_buffer() }.context("Cannot lock front buffer")?;
     let bpp = bo.bpp();
-    let mut fb = device
+    let mut fb = drm_device
+        .card
         .add_framebuffer(&bo, bpp, bpp)
         .context("Cannot get framebuffer")?;
-    device
+    drm_device
+        .card
         .set_crtc(
-            crtc.handle(),
+            drm_device.crtc.handle(),
             Some(fb),
             (0, 0),
-            &[connector.handle()],
-            Some(*mode),
+            &[drm_device.connector.handle()],
+            Some(drm_device.mode),
         )
         .context("Cannot setup DRM device CRTC")?;
 
@@ -210,20 +146,28 @@ where
 
             let next_bo =
                 unsafe { gbm_surface.lock_front_buffer() }.context("Cannot lock front buffer")?;
-            let next_fb = device
+            let next_fb = drm_device
+                .card
                 .add_framebuffer(&next_bo, bpp, bpp)
                 .context("Cannot get framebuffer")?;
-            device
-                .page_flip(crtc.handle(), next_fb, PageFlipFlags::EVENT, None)
+            drm_device
+                .card
+                .page_flip(
+                    drm_device.crtc.handle(),
+                    next_fb,
+                    PageFlipFlags::EVENT,
+                    None,
+                )
                 .context("Cannot request pageflip")?;
 
             'outer: loop {
-                let mut events = device
+                let mut events = drm_device
+                    .card
                     .receive_events()
                     .context("Cannot read DRM device events")?;
                 for event in &mut events {
                     if let control::Event::PageFlip(event) = event {
-                        if event.crtc == crtc.handle() {
+                        if event.crtc == drm_device.crtc.handle() {
                             break 'outer;
                         }
                     }
@@ -231,16 +175,22 @@ where
             }
             drop(bo);
             bo = next_bo;
-            device
+            drm_device
+                .card
                 .destroy_framebuffer(fb)
                 .context("Cannot free old framebuffer")?;
             fb = next_fb;
-        } else if let Some(dpms_prop) = &dpms_prop {
+        } else if let Some(dpms_prop) = &drm_device.dpms_prop {
             if let ValueType::Enum(value) = dpms_prop.value_type() {
                 for value in value.values().1 {
                     if value.name() == c"Standby" {
-                        device
-                            .set_property(connector.handle(), dpms_prop.handle(), value.value())
+                        drm_device
+                            .card
+                            .set_property(
+                                drm_device.connector.handle(),
+                                dpms_prop.handle(),
+                                value.value(),
+                            )
                             .context("Cannot set DPMS property")?;
                         break;
                     }
