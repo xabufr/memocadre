@@ -69,6 +69,7 @@ where
     let mut app = T::new(app_config, Rc::clone(&gl), bg_gl).context("Cannot create application")?;
     let enabled = false;
     loop {
+        // TODO implement switching
         if enabled {
             app.draw_frame().context("Error while drawing a frame")?;
 

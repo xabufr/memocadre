@@ -162,6 +162,7 @@ impl DrmDevice {
         Ok(())
     }
 
+    // TODO write a wrapper for possible values & a getter
     pub fn set_dpms_property(&self, value: &CStr) -> Result<()> {
         if let Some(dpms_prop) = &self.dpms_prop {
             if let ValueType::Enum(enum_value) = dpms_prop.value_type() {
