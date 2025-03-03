@@ -4,9 +4,7 @@ mod gbm_data;
 use std::{rc::Rc, sync::Arc, thread::sleep, time::Duration};
 
 use anyhow::{Context as _, Result};
-use drm::{
-    control::{self, property::ValueType, Device as ControlDevice, PageFlipFlags},
-};
+use drm::control::{self, property::ValueType, Device as ControlDevice, PageFlipFlags};
 use glutin::{context::ContextAttributesBuilder, display::GetGlDisplay, prelude::GlDisplay};
 
 use self::{drm_device::DrmDevice, gbm_data::GbmData};
@@ -62,7 +60,8 @@ where
     let mut bo =
         unsafe { gbm_data.gbm_surface.lock_front_buffer() }.context("Cannot lock front buffer")?;
     let bpp = bo.bpp();
-    let mut fb = gbm_data.device
+    let mut fb = gbm_data
+        .device
         .add_framebuffer(&bo, bpp, bpp)
         .context("Cannot get framebuffer")?;
     gbm_data
@@ -88,7 +87,8 @@ where
                 .device
                 .add_framebuffer(&next_bo, bpp, bpp)
                 .context("Cannot get framebuffer")?;
-            gbm_data.device
+            gbm_data
+                .device
                 .page_flip(
                     gbm_data.device.crtc.handle(),
                     next_fb,
@@ -98,7 +98,8 @@ where
                 .context("Cannot request pageflip")?;
 
             'outer: loop {
-                let mut events = gbm_data.device
+                let mut events = gbm_data
+                    .device
                     .receive_events()
                     .context("Cannot read DRM device events")?;
                 for event in &mut events {
@@ -111,7 +112,8 @@ where
             }
             drop(bo);
             bo = next_bo;
-            gbm_data.device
+            gbm_data
+                .device
                 .destroy_framebuffer(fb)
                 .context("Cannot free old framebuffer")?;
             fb = next_fb;
@@ -119,7 +121,8 @@ where
             if let ValueType::Enum(value) = dpms_prop.value_type() {
                 for value in value.values().1 {
                     if value.name() == c"Standby" {
-                        gbm_data.device
+                        gbm_data
+                            .device
                             .set_property(
                                 gbm_data.device.connector.handle(),
                                 dpms_prop.handle(),

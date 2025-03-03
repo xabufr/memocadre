@@ -1,8 +1,9 @@
+use std::time::Duration;
+
 use better_default::Default;
 use chrono::Locale;
 use serde::{Deserialize, Deserializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use std::time::Duration;
 
 #[derive(Deserialize, Default, Debug)]
 #[serde(deny_unknown_fields)]
