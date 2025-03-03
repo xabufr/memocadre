@@ -6,11 +6,14 @@ use std::{
     ptr::NonNull,
     rc::Rc,
     sync::Arc,
+    thread::sleep, time::Duration,
 };
 
 use anyhow::{Context as _, Result};
 use drm::{
-    control::{self, connector, Device as ControlDevice, ModeTypeFlags, PageFlipFlags},
+    control::{
+        self, connector, property::ValueType, Device as ControlDevice, ModeTypeFlags, PageFlipFlags,
+    },
     Device as DrmDevice,
 };
 use gbm::{AsRaw, BufferObjectFlags};
@@ -20,7 +23,7 @@ use glutin::{
     display::{GetGlDisplay as _, GlDisplay},
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
-use log::debug;
+use log::{debug, warn};
 use raw_window_handle::{GbmDisplayHandle, GbmWindowHandle, RawDisplayHandle, RawWindowHandle};
 
 use super::ApplicationContext;
@@ -86,6 +89,18 @@ where
         .flat_map(|c| drm_device.get_crtc(c))
         .next()
         .context("Cannot get CRTC")?;
+
+    let connector_props = drm_device
+        .get_properties(connector.handle())
+        .context("Cannot get connector properties")?;
+
+    let connector_props = connector_props
+        .as_hashmap(&drm_device)
+        .context("Cannot convert connector properties")?;
+    let dpms_prop = connector_props.get("DPMS").clone();
+    if dpms_prop.is_none() {
+        warn!("Connector does not support DPMS, screen will not turn off");
+    }
 
     let (width, height) = mode.size();
     debug!(
@@ -188,35 +203,50 @@ where
         .context("Cannot setup DRM device CRTC")?;
 
     let mut app = T::new(app_config, Rc::clone(&gl), bg_gl).context("Cannot create application")?;
+    let enabled = false;
     loop {
-        app.draw_frame().context("Error while drawing a frame")?;
+        if enabled {
+            app.draw_frame().context("Error while drawing a frame")?;
 
-        let next_bo =
-            unsafe { gbm_surface.lock_front_buffer() }.context("Cannot lock front buffer")?;
-        let next_fb = device
-            .add_framebuffer(&next_bo, bpp, bpp)
-            .context("Cannot get framebuffer")?;
-        device
-            .page_flip(crtc.handle(), next_fb, PageFlipFlags::EVENT, None)
-            .context("Cannot request pageflip")?;
+            let next_bo =
+                unsafe { gbm_surface.lock_front_buffer() }.context("Cannot lock front buffer")?;
+            let next_fb = device
+                .add_framebuffer(&next_bo, bpp, bpp)
+                .context("Cannot get framebuffer")?;
+            device
+                .page_flip(crtc.handle(), next_fb, PageFlipFlags::EVENT, None)
+                .context("Cannot request pageflip")?;
 
-        'outer: loop {
-            let mut events = device
-                .receive_events()
-                .context("Cannot read DRM device events")?;
-            for event in &mut events {
-                if let control::Event::PageFlip(event) = event {
-                    if event.crtc == crtc.handle() {
-                        break 'outer;
+            'outer: loop {
+                let mut events = device
+                    .receive_events()
+                    .context("Cannot read DRM device events")?;
+                for event in &mut events {
+                    if let control::Event::PageFlip(event) = event {
+                        if event.crtc == crtc.handle() {
+                            break 'outer;
+                        }
                     }
                 }
             }
+            drop(bo);
+            bo = next_bo;
+            device
+                .destroy_framebuffer(fb)
+                .context("Cannot free old framebuffer")?;
+            fb = next_fb;
+        } else if let Some(dpms_prop) = &dpms_prop {
+            if let ValueType::Enum(value) = dpms_prop.value_type() {
+                for value in value.values().1 {
+                    if value.name() == c"Standby" {
+                        device
+                            .set_property(connector.handle(), dpms_prop.handle(), value.value())
+                            .context("Cannot set DPMS property")?;
+                        break;
+                    }
+                }
+            }
+            sleep(Duration::from_secs(60));
         }
-        drop(bo);
-        bo = next_bo;
-        device
-            .destroy_framebuffer(fb)
-            .context("Cannot free old framebuffer")?;
-        fb = next_fb;
     }
 }
