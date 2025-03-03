@@ -7,8 +7,11 @@ use std::{
 use anyhow::{Context as _, Result};
 use drm::control::{
     self, connector, crtc, property::ValueType, Device as ControlDevice, ModeTypeFlags,
+    PageFlipFlags,
 };
 use log::warn;
+
+pub type FbHandle = drm::control::framebuffer::Handle;
 
 #[derive(Debug)]
 /// A simple wrapper for a device node.
@@ -129,6 +132,34 @@ impl DrmDevice {
             warn!("Connector does not support DPMS, screen will not turn off");
         }
         Ok(dpms_prop)
+    }
+
+    pub fn init_crtc(&self, framebuffer: FbHandle) -> Result<()> {
+        self.set_crtc(
+            self.crtc.handle(),
+            Some(framebuffer),
+            (0, 0),
+            &[self.connector.handle()],
+            Some(self.mode),
+        )?;
+        Ok(())
+    }
+
+    pub fn flip_and_wait(&self, fb: FbHandle) -> Result<()> {
+        self.card
+            .page_flip(self.crtc.handle(), fb, PageFlipFlags::EVENT, None)?;
+
+        'outer: loop {
+            let mut events = self.card.receive_events()?;
+            for event in &mut events {
+                if let control::Event::PageFlip(event) = event {
+                    if event.crtc == self.crtc.handle() {
+                        break 'outer;
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     pub fn set_dpms_property(&self, value: &CStr) -> Result<()> {
