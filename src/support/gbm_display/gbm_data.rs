@@ -20,7 +20,6 @@ pub struct GbmData {
 
 pub struct GbmWindow {
     pub surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
-    pub window: RawWindowHandle,
     pub gbm_surface: gbm::Surface<()>,
 }
 
@@ -71,7 +70,7 @@ impl GbmData {
     pub fn create_gbm_window(&self) -> Result<GbmWindow> {
         let (width, height) = self.device.mode.size();
         debug!("Using gl config: {:?}", self.gl_config);
-        let (surface, window, gbm_surface) = unsafe {
+        let (surface, gbm_surface) = unsafe {
             let gbm_surface = self
                 .device
                 .create_surface::<()>(
@@ -95,11 +94,10 @@ impl GbmData {
                     ),
                 )
                 .context("Cannot create window surface")?;
-            (surface, window_handle, gbm_surface)
+            (surface, gbm_surface)
         };
         Ok(GbmWindow {
             surface,
-            window,
             gbm_surface,
         })
     }
