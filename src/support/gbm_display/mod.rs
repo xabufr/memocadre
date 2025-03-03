@@ -1,109 +1,15 @@
 mod drm_device;
+mod gbm_data;
 
-use std::{
-    ffi::c_void,
-    num::NonZeroU32,
-    ptr::NonNull,
-    rc::Rc,
-    sync::Arc,
-    thread::sleep,
-    time::Duration,
-};
+use std::{rc::Rc, sync::Arc, thread::sleep, time::Duration};
 
 use anyhow::{Context as _, Result};
-use drm::{
-    control::{self, property::ValueType, Device as ControlDevice, PageFlipFlags},
-};
-use drm_device::Card;
-use gbm::{AsRaw, BufferObjectFlags};
-use glutin::{
-    config::{Api, ConfigTemplateBuilder},
-    context::ContextAttributesBuilder,
-    display::{GetGlDisplay as _, GlDisplay},
-    surface::{SurfaceAttributesBuilder, WindowSurface},
-};
-use log::debug;
-use raw_window_handle::{GbmDisplayHandle, GbmWindowHandle, RawDisplayHandle, RawWindowHandle};
+use drm::control::{self, property::ValueType, Device as ControlDevice, PageFlipFlags};
+use glutin::{context::ContextAttributesBuilder, display::GetGlDisplay, prelude::GlDisplay};
 
+use self::{drm_device::DrmDevice, gbm_data::GbmData};
 use super::ApplicationContext;
 use crate::{configuration::AppConfiguration, gl::FutureGlThreadContext};
-use self::drm_device::DrmDevice;
-
-struct GbmData {
-    device: gbm::Device<Card>,
-    display: glutin::display::Display,
-    gl_config: glutin::config::Config,
-    surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
-    window: RawWindowHandle,
-    gbm_surface: gbm::Surface<()>,
-}
-
-impl GbmData {
-    fn new(drm_device: &DrmDevice) -> Result<Self> {
-        let (width, height) = drm_device.mode.size();
-        debug!(
-            "Will start DRM rendering with {width}x{height}@{} resolution",
-            drm_device.mode.vrefresh()
-        );
-
-        let device =
-            gbm::Device::new(drm_device.card.clone()).context("Cannot open GBM device")?;
-        let display = unsafe {
-            let ptr: NonNull<c_void> =
-                NonNull::new(device.as_raw() as *mut c_void).context("device pointer is null")?;
-            let display = RawDisplayHandle::Gbm(GbmDisplayHandle::new(ptr));
-            glutin::display::Display::new(display, glutin::display::DisplayApiPreference::Egl)
-                .context("Cannot initialize glutin display")?
-        };
-        let gl_config = unsafe {
-            display
-                .find_configs(
-                    ConfigTemplateBuilder::new()
-                        .prefer_hardware_accelerated(Some(true))
-                        .with_api(Api::GLES2)
-                        .build(),
-                )
-                .context("Cannot find config")?
-                .next()
-                .context("No available config found")?
-        };
-
-        debug!("Using gl config: {gl_config:?}");
-        let (surface, window, gbm_surface) = unsafe {
-            let gbm_surface = device
-                .create_surface::<()>(
-                    width as _,
-                    height as _,
-                    gbm::Format::Xrgb8888,
-                    BufferObjectFlags::SCANOUT | BufferObjectFlags::RENDERING,
-                )
-                .context("Cannot create GBM surface")?;
-            let window_handle = RawWindowHandle::Gbm(GbmWindowHandle::new(
-                NonNull::new(gbm_surface.as_raw() as *mut c_void).context("GBM surface is null")?,
-            ));
-            let surface = display
-                .create_window_surface(
-                    &gl_config,
-                    &SurfaceAttributesBuilder::<WindowSurface>::new().build(
-                        window_handle,
-                        NonZeroU32::new(width as _).unwrap(),
-                        NonZeroU32::new(height as _).unwrap(),
-                    ),
-                )
-                .context("Cannot create window surface")?;
-            (surface, window_handle, gbm_surface)
-        };
-
-        Ok(Self {
-            device,
-            display,
-            gl_config,
-            surface,
-            window,
-            gbm_surface,
-        })
-    }
-}
 
 pub fn start_gbm<T>(app_config: Arc<AppConfiguration>) -> Result<()>
 where
@@ -151,7 +57,8 @@ where
 
     gl.swap_buffers().context("Cannot swap buffers")?;
 
-    let mut bo = unsafe { gbm_data.gbm_surface.lock_front_buffer() }.context("Cannot lock front buffer")?;
+    let mut bo =
+        unsafe { gbm_data.gbm_surface.lock_front_buffer() }.context("Cannot lock front buffer")?;
     let bpp = bo.bpp();
     let mut fb = drm_device
         .card
