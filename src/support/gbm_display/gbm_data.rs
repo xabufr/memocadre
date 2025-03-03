@@ -18,10 +18,10 @@ pub struct GbmData {
     pub gl_config: glutin::config::Config,
 }
 
-pub struct GbmWindow {
-    pub surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
-    pub gbm_surface: gbm::Surface<()>,
-}
+pub type GbmWindow = (
+    glutin::surface::Surface<glutin::surface::WindowSurface>,
+    gbm::Surface<()>,
+);
 
 impl AsFd for GbmData {
     fn as_fd(&self) -> std::os::fd::BorrowedFd<'_> {
@@ -70,7 +70,7 @@ impl GbmData {
     pub fn create_gbm_window(&self) -> Result<GbmWindow> {
         let (width, height) = self.device.mode.size();
         debug!("Using gl config: {:?}", self.gl_config);
-        let (surface, gbm_surface) = unsafe {
+        let (window_surface, gbm_surface) = unsafe {
             let gbm_surface = self
                 .device
                 .create_surface::<()>(
@@ -96,9 +96,6 @@ impl GbmData {
                 .context("Cannot create window surface")?;
             (surface, gbm_surface)
         };
-        Ok(GbmWindow {
-            surface,
-            gbm_surface,
-        })
+        Ok((window_surface, gbm_surface))
     }
 }

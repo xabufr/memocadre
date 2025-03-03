@@ -42,12 +42,12 @@ where
 {
     let drm_device = DrmDevice::new().context("While creating DrmDevice")?;
     let gbm_data = GbmData::new(drm_device)?;
-    let gbm_window = gbm_data.create_gbm_window()?;
+    let (window_surface, surface) = gbm_data.create_gbm_window()?;
 
     let not_current_gl_context = create_gl_context(&gbm_data, None, Priority::Medium)?;
 
     let gl = FutureGlThreadContext::new(
-        Some(gbm_window.surface),
+        Some(window_surface),
         not_current_gl_context,
         gbm_data.gl_config.display(),
     );
@@ -61,7 +61,7 @@ where
 
     gl.swap_buffers().context("Cannot swap buffers")?;
 
-    let mut bo = unsafe { gbm_window.gbm_surface.lock_front_buffer() }
+    let mut bo = unsafe { surface.lock_front_buffer() }
         .context("Cannot lock front buffer")?;
     let bpp = bo.bpp();
     let mut fb = gbm_data
@@ -83,7 +83,7 @@ where
         if enabled {
             app.draw_frame().context("Error while drawing a frame")?;
 
-            let next_bo = unsafe { gbm_window.gbm_surface.lock_front_buffer() }
+            let next_bo = unsafe { surface.lock_front_buffer() }
                 .context("Cannot lock front buffer")?;
             let next_fb = gbm_data
                 .add_framebuffer(&next_bo, bpp, bpp)
