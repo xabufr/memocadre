@@ -62,10 +62,8 @@ where
 
     gl.swap_buffers().context("Cannot swap buffers")?;
 
-    let mut page_flipper = PageFlipper::new(&gbm_data.device, &surface);
-    let (mut bo, mut fb) = page_flipper.initial_flip()?;
-    // Drop mutability
-    let page_flipper = page_flipper;
+    let mut page_flipper =
+        PageFlipper::init(&gbm_data.device, &surface).context("Cannot create page flipper")?;
 
     let mut app = T::new(app_config, Rc::clone(&gl), bg_gl).context("Cannot create application")?;
     // let enabled = false;
@@ -74,7 +72,7 @@ where
         // if enabled {
         app.draw_frame().context("Error while drawing a frame")?;
 
-        page_flipper.flip(&mut bo, &mut fb)?;
+        page_flipper.flip()?;
         // } else {
         //     gbm_data.device.set_dpms_property(DpmsValue::Standby)?;
         //     sleep(Duration::from_secs(60));

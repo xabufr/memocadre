@@ -8,37 +8,55 @@ type FbHandle = drm::control::framebuffer::Handle;
 pub struct PageFlipper<'a> {
     device: &'a DrmDevice,
     surface: &'a gbm::Surface<()>,
+    bo: gbm::BufferObject<()>,
+    fb: FbWrapper<'a>,
     bpp: u32,
 }
 
-impl<'a> PageFlipper<'a> {
-    pub fn new(device: &'a DrmDevice, surface: &'a gbm::Surface<()>) -> Self {
-        Self {
-            device,
-            surface,
-            bpp: 0,
+struct FbWrapper<'a> {
+    handle: FbHandle,
+    device: &'a DrmDevice,
+}
+
+impl Drop for FbWrapper<'_> {
+    fn drop(&mut self) {
+        if let Err(err) = self.device.destroy_framebuffer(self.handle) {
+            log::error!("Failed to destroy framebuffer: {}", err);
         }
     }
+}
 
-    pub fn initial_flip(&mut self) -> Result<(gbm::BufferObject<()>, FbHandle)> {
-        let bo = unsafe { self.surface.lock_front_buffer()? };
-        self.bpp = bo.bpp();
+impl<'a> PageFlipper<'a> {
+    pub fn init(device: &'a DrmDevice, surface: &'a gbm::Surface<()>) -> Result<Self> {
+        let bo = unsafe { surface.lock_front_buffer()? };
+        let bpp = bo.bpp();
 
-        let fb = self.device.add_framebuffer(&bo, self.bpp, self.bpp)?;
-        self.device.init_crtc(fb)?;
+        let fb = FbWrapper {
+            handle: device.add_framebuffer(&bo, bpp, bpp)?,
+            device,
+        };
+        device.init_crtc(fb.handle)?;
 
-        Ok((bo, fb))
+        Ok(Self {
+            device,
+            surface,
+            fb,
+            bo,
+            bpp,
+        })
     }
 
-    pub fn flip(&self, bo: &mut gbm::BufferObject<()>, fb: &mut FbHandle) -> Result<()> {
+    pub fn flip(&mut self) -> Result<()> {
         let next_bo = unsafe { self.surface.lock_front_buffer()? };
-        let next_fb = self.device.add_framebuffer(&next_bo, self.bpp, self.bpp)?;
+        let next_fb = FbWrapper {
+            handle: self.device.add_framebuffer(&next_bo, self.bpp, self.bpp)?,
+            device: self.device,
+        };
 
-        self.device.flip_and_wait(next_fb)?;
+        self.device.flip_and_wait(next_fb.handle)?;
 
-        drop(std::mem::replace(bo, next_bo));
-        self.device
-            .destroy_framebuffer(std::mem::replace(fb, next_fb))?;
+        drop(std::mem::replace(&mut self.bo, next_bo));
+        drop(std::mem::replace(&mut self.fb, next_fb));
         Ok(())
     }
 }
