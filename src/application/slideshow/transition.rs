@@ -50,11 +50,6 @@ impl Transition for EaseInOutTransition {
         duration: Duration,
         properties: &mut AnimatedSlideProperties,
     ) {
-        properties.ease_global_opacity(
-            0.0,
-            time ,
-            duration / 2,
-            Easing::QuadraticInOut,
-        );
+        properties.ease_global_opacity(0.0, time, duration / 2, Easing::QuadraticInOut);
     }
 }
