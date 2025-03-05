@@ -64,6 +64,25 @@ impl AsFd for DrmDevice {
 impl drm::Device for DrmDevice {}
 impl ControlDevice for DrmDevice {}
 
+#[derive(Debug, Clone, Copy)]
+pub enum DpmsValue {
+    On,
+    Standby,
+    Suspend,
+    Off,
+}
+
+impl DpmsValue {
+    pub fn as_cstr(&self) -> &'static CStr {
+        match self {
+            DpmsValue::On => c"On",
+            DpmsValue::Standby => c"Standby",
+            DpmsValue::Suspend => c"Suspend",
+            DpmsValue::Off => c"Off",
+        }
+    }
+}
+
 impl DrmDevice {
     pub fn new() -> Result<Self> {
         let drm_device = Card::open().context("While opening DRM device")?;
@@ -163,11 +182,11 @@ impl DrmDevice {
     }
 
     // TODO write a wrapper for possible values & a getter
-    pub fn set_dpms_property(&self, value: &CStr) -> Result<()> {
+    pub fn set_dpms_property(&self, value: DpmsValue) -> Result<()> {
         if let Some(dpms_prop) = &self.dpms_prop {
             if let ValueType::Enum(enum_value) = dpms_prop.value_type() {
                 for possible_value in enum_value.values().1 {
-                    if possible_value.name() == value {
+                    if possible_value.name() == value.as_cstr() {
                         self.set_property(
                             self.connector.handle(),
                             dpms_prop.handle(),

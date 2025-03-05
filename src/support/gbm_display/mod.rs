@@ -5,6 +5,7 @@ mod page_flip;
 use std::{rc::Rc, sync::Arc, thread::sleep, time::Duration};
 
 use anyhow::{Context as _, Result};
+use drm_device::DpmsValue;
 use glutin::{
     context::{ContextAttributesBuilder, NotCurrentContext, Priority},
     display::GetGlDisplay,
@@ -75,7 +76,7 @@ where
 
             page_flipper.flip(&mut bo, &mut fb)?;
         } else {
-            gbm_data.device.set_dpms_property(c"Standby")?;
+            gbm_data.device.set_dpms_property(DpmsValue::Standby)?;
             sleep(Duration::from_secs(60));
         }
     }
