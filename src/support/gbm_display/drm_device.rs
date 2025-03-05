@@ -127,7 +127,7 @@ impl DrmDevice {
         let connector_props = connector_props
             .as_hashmap(drm_device)
             .context("Cannot convert connector properties")?;
-        let dpms_prop = connector_props.get("DPMS").cloned();
+        let dpms_prop = connector_props.get("DPMS").cloned().filter(|p| p.mutable());
         if dpms_prop.is_none() {
             warn!("Connector does not support DPMS, screen will not turn off");
         }
