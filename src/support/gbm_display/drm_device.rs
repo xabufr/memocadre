@@ -9,7 +9,7 @@ use drm::control::{
     self, connector, crtc, property::ValueType, Device as ControlDevice, ModeTypeFlags,
     PageFlipFlags,
 };
-use log::warn;
+use log::{error, warn};
 
 pub type FbHandle = drm::control::framebuffer::Handle;
 
@@ -52,7 +52,7 @@ pub struct DrmDevice {
     pub connector: connector::Info,
     pub mode: control::Mode,
     pub crtc: crtc::Info,
-    pub dpms_prop: Option<control::property::Info>,
+    dpms_prop: Option<DpmsProperty>,
 }
 
 impl AsFd for DrmDevice {
@@ -64,7 +64,7 @@ impl AsFd for DrmDevice {
 impl drm::Device for DrmDevice {}
 impl ControlDevice for DrmDevice {}
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DpmsValue {
     On,
     Standby,
@@ -72,13 +72,28 @@ pub enum DpmsValue {
     Off,
 }
 
+struct DpmsProperty {
+    handle: control::property::Handle,
+    values: Vec<(DpmsValue, control::property::EnumValue)>,
+}
+
+impl DpmsProperty {
+    fn get_raw_value(&self, value: DpmsValue) -> Option<u64> {
+        self.values
+            .iter()
+            .find(|(v, _)| *v == value)
+            .map(|(_, v)| v.value())
+    }
+}
+
 impl DpmsValue {
-    pub fn as_cstr(&self) -> &'static CStr {
-        match self {
-            DpmsValue::On => c"On",
-            DpmsValue::Standby => c"Standby",
-            DpmsValue::Suspend => c"Suspend",
-            DpmsValue::Off => c"Off",
+    fn from_cstr(cstr: &CStr) -> Option<Self> {
+        match cstr.to_str().ok()? {
+            "On" => Some(DpmsValue::On),
+            "Standby" => Some(DpmsValue::Standby),
+            "Suspend" => Some(DpmsValue::Suspend),
+            "Off" => Some(DpmsValue::Off),
+            _ => None,
         }
     }
 }
@@ -138,7 +153,7 @@ impl DrmDevice {
     fn get_dpms_property(
         drm_device: &Card,
         connector: &connector::Info,
-    ) -> Result<Option<control::property::Info>> {
+    ) -> Result<Option<DpmsProperty>> {
         let connector_props = drm_device
             .get_properties(connector.handle())
             .context("Cannot get connector properties")?;
@@ -146,10 +161,34 @@ impl DrmDevice {
         let connector_props = connector_props
             .as_hashmap(drm_device)
             .context("Cannot convert connector properties")?;
-        let dpms_prop = connector_props.get("DPMS").cloned().filter(|p| p.mutable());
-        if dpms_prop.is_none() {
-            warn!("Connector does not support DPMS, screen will not turn off");
-        }
+        let dpms_prop = connector_props
+            .get("DPMS")
+            .cloned()
+            .filter(|p| {
+                if !p.mutable() {
+                    warn!("DPMS property is not mutable, screen will not turn off");
+                    false
+                } else {
+                    true
+                }
+            })
+            .and_then(|p| {
+                if let ValueType::Enum(enum_value) = p.value_type() {
+                    let values = enum_value
+                        .values()
+                        .1
+                        .iter()
+                        .filter_map(|v| DpmsValue::from_cstr(v.name()).map(|value| (value, *v)))
+                        .collect();
+                    Some(DpmsProperty {
+                        handle: p.handle(),
+                        values,
+                    })
+                } else {
+                    warn!("DPMS property is not an enum, screen will not turn off");
+                    None
+                }
+            });
         Ok(dpms_prop)
     }
 
@@ -181,27 +220,19 @@ impl DrmDevice {
         Ok(())
     }
 
-    // TODO write a wrapper for possible values & a getter
-    pub fn set_dpms_property(&self, value: DpmsValue) -> Result<()> {
+    pub fn set_dpms_property(&self, value: DpmsValue) -> Result<bool> {
         if let Some(dpms_prop) = &self.dpms_prop {
-            if let ValueType::Enum(enum_value) = dpms_prop.value_type() {
-                for possible_value in enum_value.values().1 {
-                    if possible_value.name() == value.as_cstr() {
-                        self.set_property(
-                            self.connector.handle(),
-                            dpms_prop.handle(),
-                            possible_value.value(),
-                        )
-                        .context(format!("Cannot set DPMS property to {value:?}"))?;
-                        return Ok(());
-                    }
-                }
-                anyhow::bail!("Invalid DPMS value: {value:?}");
+            if let Some(value) = dpms_prop.get_raw_value(value) {
+                self.set_property(self.connector.handle(), dpms_prop.handle, value)
+                    .context(format!("Cannot set DPMS property to {value:?}"))?;
+                Ok(true)
             } else {
-                anyhow::bail!("DPMS property is not an enum");
+                error!("DPMS value {value:?} not supported, skipping setting DPMS property");
+                Ok(false)
             }
         } else {
-            anyhow::bail!("DPMS property not found");
+            error!("No DPMS property found, skipping setting DPMS property");
+            Ok(false)
         }
     }
 }
