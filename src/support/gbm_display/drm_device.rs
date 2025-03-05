@@ -173,12 +173,18 @@ impl DrmDevice {
                 }
             })
             .and_then(|p| {
-                if let ValueType::Enum(enum_value) = p.value_type() {
-                    let values = enum_value
+                if let ValueType::Enum(enum_values) = p.value_type() {
+                    let values = enum_values
                         .values()
                         .1
                         .iter()
-                        .filter_map(|v| DpmsValue::from_cstr(v.name()).map(|value| (value, *v)))
+                        .filter_map(|enum_value| {
+                            let dpms_value = DpmsValue::from_cstr(enum_value.name());
+                            if dpms_value.is_none() {
+                                warn!("Unmapped DPMS value {:?}", enum_value.name());
+                            }
+                            dpms_value.map(|value| (value, *enum_value))
+                        })
                         .collect();
                     Some(DpmsProperty {
                         handle: p.handle(),
