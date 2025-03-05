@@ -207,17 +207,16 @@ impl DrmDevice {
         self.card
             .page_flip(self.crtc.handle(), fb, PageFlipFlags::EVENT, None)?;
 
-        'outer: loop {
+        loop {
             let mut events = self.card.receive_events()?;
             for event in &mut events {
                 if let control::Event::PageFlip(event) = event {
                     if event.crtc == self.crtc.handle() {
-                        break 'outer;
+                        return Ok(());
                     }
                 }
             }
         }
-        Ok(())
     }
 
     pub fn set_dpms_property(&self, value: DpmsValue) -> Result<bool> {
