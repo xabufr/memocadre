@@ -239,6 +239,8 @@ impl ImmichClient {
     fn request(&self, method: Method, path: impl AsRef<str>) -> Request {
         let url = format!("{}/api/{}", self.base_url, path.as_ref());
         trace!("Requesting Immich with {} {}", method, url);
-        Request::new(method, url).with_header("x-api-key", &self.api_key)
+        Request::new(method, url)
+            .with_header("x-api-key", &self.api_key)
+            .with_timeout(60)
     }
 }
