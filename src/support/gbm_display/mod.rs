@@ -68,16 +68,16 @@ where
     let page_flipper = page_flipper;
 
     let mut app = T::new(app_config, Rc::clone(&gl), bg_gl).context("Cannot create application")?;
-    let enabled = false;
+    // let enabled = false;
     loop {
-        // TODO implement switching
-        if enabled {
-            app.draw_frame().context("Error while drawing a frame")?;
+        // // TODO implement switching
+        // if enabled {
+        app.draw_frame().context("Error while drawing a frame")?;
 
-            page_flipper.flip(&mut bo, &mut fb)?;
-        } else {
-            gbm_data.device.set_dpms_property(DpmsValue::Standby)?;
-            sleep(Duration::from_secs(60));
-        }
+        page_flipper.flip(&mut bo, &mut fb)?;
+        // } else {
+        //     gbm_data.device.set_dpms_property(DpmsValue::Standby)?;
+        //     sleep(Duration::from_secs(60));
+        // }
     }
 }
