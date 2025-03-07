@@ -5,7 +5,7 @@ use chrono::Locale;
 use serde::{Deserialize, Deserializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-#[derive(Deserialize, Default, Debug)]
+#[derive(Deserialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct AppConfiguration {
     pub sources: Vec<Source>,
@@ -89,13 +89,13 @@ pub enum ImageFilter {
     Lanczos3,
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug, Default, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct DebugSettings {
     pub show_fps: bool,
 }
 
-#[derive(Deserialize, Default, Debug)]
+#[derive(Deserialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct CaptionOptions {
     /// Whether the caption is enabled.
@@ -110,7 +110,7 @@ pub struct CaptionOptions {
     pub font_size: f32,
 }
 
-#[derive(Deserialize, Default, Debug)]
+#[derive(Deserialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct DateFormat {
     /// The format of the date in the caption.
@@ -134,7 +134,7 @@ where
     s.parse()
         .map_err(|e| serde::de::Error::custom(format!("Invalid locale: {:?}", e)))
 }
-#[derive(Deserialize, Default, Debug)]
+#[derive(Deserialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
 pub enum Background {
     Black,
@@ -142,20 +142,20 @@ pub enum Background {
     Blur(BlurBackground),
 }
 
-#[derive(Deserialize, Default, Debug)]
+#[derive(Deserialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct BlurBackground {
     #[default(50)]
     pub min_free_space: u16,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
 pub enum Source {
     Immich(ImmichSource),
 }
 
-#[derive(Deserialize, Default, Debug)]
+#[derive(Deserialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct ImmichSource {
     pub instance: Option<ImmichInstance>,
@@ -163,14 +163,14 @@ pub struct ImmichSource {
     pub specs: Vec<ImmichSpec>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ImmichInstance {
     pub url: String,
     pub api_key: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
 pub enum ImmichSpec {
     RandomSearch(ImmichSearchQuery),
@@ -179,19 +179,19 @@ pub enum ImmichSpec {
     MemoryLane,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct PrivateAlbum {
     pub id: String,
 }
 
-#[derive(Deserialize, Default, Debug)]
+#[derive(Deserialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ImmichSearchQuery {
     pub persons: Option<Vec<ImmichPerson>>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ImmichSmartSearchQuery {
     pub persons: Option<Vec<ImmichPerson>>,
@@ -199,14 +199,14 @@ pub struct ImmichSmartSearchQuery {
     pub city: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub enum ImmichPerson {
     Id(String),
     Name(String),
 }
 
-#[derive(Deserialize, Default, Debug)]
+#[derive(Deserialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
 pub enum InitSlideOptions {
     Empty,
@@ -214,7 +214,7 @@ pub enum InitSlideOptions {
     LoadingCircle(LoadingCircleOptions),
 }
 
-#[derive(Deserialize, Default, Debug)]
+#[derive(Deserialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct LoadingCircleOptions {
     /// Number of rotations per second for the circle.
