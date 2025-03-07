@@ -1,4 +1,4 @@
-use std::{num::NonZeroU32, rc::Rc, sync::Arc};
+use std::{num::NonZeroU32, rc::Rc};
 
 use anyhow::{Context, Result};
 use glutin::{
@@ -7,6 +7,7 @@ use glutin::{
     surface::WindowSurface,
 };
 use raw_window_handle::HasWindowHandle;
+use tokio::sync::watch;
 use vek::Rect;
 use winit::{
     application::ApplicationHandler, event::WindowEvent, event_loop::ActiveEventLoop,
@@ -26,7 +27,7 @@ pub struct State<T> {
 }
 
 struct App<T> {
-    config: Arc<AppConfiguration>,
+    config: watch::Sender<AppConfiguration>,
     state: Option<State<T>>,
     visible: bool,
     close_promptly: bool,
@@ -103,7 +104,7 @@ impl<T: ApplicationContext + 'static> State<T> {
     pub fn new(
         event_loop: &winit::event_loop::ActiveEventLoop,
         visible: bool,
-        config: Arc<AppConfiguration>,
+        config: watch::Sender<AppConfiguration>,
     ) -> Self {
         let window_attributes = winit::window::Window::default_attributes()
             .with_title(T::WINDOW_TITLE)
@@ -181,7 +182,7 @@ impl<T: ApplicationContext + 'static> State<T> {
     pub fn from_display_window(
         gl: FutureGlThreadContext,
         window: winit::window::Window,
-        config: Arc<AppConfiguration>,
+        config: watch::Sender<AppConfiguration>,
         bg_gl: FutureGlThreadContext,
     ) -> Self {
         let gl = gl.activate().expect("Cannot make context current");
@@ -194,7 +195,7 @@ impl<T: ApplicationContext + 'static> State<T> {
     }
 
     /// Start the event_loop and keep rendering frames until the program is closed
-    pub fn run_loop(config: Arc<AppConfiguration>) -> Result<()> {
+    pub fn run_loop(config: watch::Sender<AppConfiguration>) -> Result<()> {
         let event_loop = winit::event_loop::EventLoop::builder()
             .build()
             .context("event loop building")?;

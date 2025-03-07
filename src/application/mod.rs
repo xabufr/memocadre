@@ -1,13 +1,10 @@
 mod fps;
 mod slideshow;
 
-use std::{
-    rc::Rc,
-    sync::{mpsc::TryRecvError, Arc},
-    time::Instant,
-};
+use std::{rc::Rc, sync::mpsc::TryRecvError, time::Instant};
 
 use anyhow::{Context, Result};
+use tokio::sync::watch;
 use vek::Extent2;
 
 use self::{fps::FPSCounter, slideshow::Slideshow};
@@ -24,7 +21,8 @@ pub struct Application {
     worker: Worker,
     gl: Rc<GlContext>,
     graphics: Graphics,
-    config: Arc<AppConfiguration>,
+    config_watch: watch::Receiver<AppConfiguration>,
+    config: AppConfiguration,
     fps: Option<FPSCounter>,
 }
 
@@ -32,14 +30,17 @@ impl ApplicationContext for Application {
     const WINDOW_TITLE: &'static str = "test";
 
     fn new(
-        config: Arc<AppConfiguration>,
+        config_sender: watch::Sender<AppConfiguration>,
         gl: Rc<GlContext>,
         bg_gl: FutureGlThreadContext,
     ) -> Result<Self> {
+        let mut config_watch = config_sender.subscribe();
+        let config = config_watch.borrow_and_update().clone();
+
         let mut graphics = Graphics::new(Rc::clone(&gl), config.slideshow.rotation)
             .context("Cannot create Graphics")?;
         let worker = Worker::new(
-            Arc::clone(&config),
+            config_sender.subscribe(),
             Self::get_ideal_image_size(&gl, &graphics),
             bg_gl,
         );
@@ -54,12 +55,16 @@ impl ApplicationContext for Application {
             gl,
             slides,
             worker,
+            config_watch,
             config,
             fps,
         })
     }
 
     fn draw_frame(&mut self) -> Result<()> {
+        if let Ok(true) = self.config_watch.has_changed() {
+            self.config = self.config_watch.borrow_and_update().clone();
+        }
         self.gl.clear();
         let time = Instant::now();
         self.graphics.begin_frame();

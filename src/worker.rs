@@ -1,9 +1,6 @@
 use std::{
     rc::Rc,
-    sync::{
-        mpsc::{Receiver, SyncSender},
-        Arc, RwLock, Weak,
-    },
+    sync::mpsc::{Receiver, SyncSender},
     time::Duration,
 };
 
@@ -12,6 +9,7 @@ use backon::{BlockingRetryable, ExponentialBuilder};
 use image::{imageops::FilterType, DynamicImage, GenericImageView};
 use log::error;
 use thread_priority::{set_current_thread_priority, ThreadPriority};
+use tokio::sync::watch;
 use vek::Extent2;
 
 use crate::{
@@ -33,31 +31,32 @@ pub struct PreloadedSlide {
 }
 
 pub struct Worker {
-    worker_impl: Weak<WorkerImpl>,
+    ideal_max_size_sender: watch::Sender<Extent2<u32>>,
     recv: Receiver<Message>,
 }
 
 struct WorkerImpl {
     send: SyncSender<Message>,
-    ideal_max_size: RwLock<Extent2<u32>>,
-    config: Arc<AppConfiguration>,
+    ideal_max_size: watch::Receiver<Extent2<u32>>,
+    config: AppConfiguration,
+    config_watch: watch::Receiver<AppConfiguration>,
 }
 
 impl Worker {
     pub fn new(
-        config: Arc<AppConfiguration>,
+        mut config_watch: watch::Receiver<AppConfiguration>,
         ideal_max_size: Extent2<u32>,
         gl: FutureGlThreadContext,
     ) -> Self {
         let (send, recv) = std::sync::mpsc::sync_channel(1);
-        let worker_impl = Arc::new({
-            WorkerImpl {
-                send,
-                ideal_max_size: RwLock::new(ideal_max_size),
-                config,
-            }
-        });
-        let worker_impl_weak = Arc::downgrade(&worker_impl);
+        let config = config_watch.borrow_and_update().clone();
+        let (ideal_max_size_sender, ideal_max_size_receiver) = watch::channel(ideal_max_size);
+        let mut worker_impl = WorkerImpl {
+            send,
+            ideal_max_size: ideal_max_size_receiver,
+            config,
+            config_watch,
+        };
         std::thread::spawn(move || {
             let gl = gl
                 .activate()
@@ -69,19 +68,13 @@ impl Worker {
                 .expect("Worker encountered an error, abort");
         });
         Worker {
-            worker_impl: worker_impl_weak,
+            ideal_max_size_sender,
             recv,
         }
     }
 
     pub fn set_ideal_max_size(&self, size: Extent2<u32>) {
-        if let Some(worker_impl) = self.worker_impl.upgrade() {
-            let mut w = worker_impl
-                .ideal_max_size
-                .write()
-                .expect("Cannot lock worker ideal_max_size");
-            *w = size;
-        }
+        self.ideal_max_size_sender.send_replace(size);
     }
 
     pub fn recv(&self) -> &Receiver<Message> {
@@ -89,12 +82,15 @@ impl Worker {
     }
 }
 impl WorkerImpl {
-    fn work(&self, gl: &Rc<GlContext>, blurr: &ImageBlurr) -> Result<()> {
+    fn work(&mut self, gl: &Rc<GlContext>, blurr: &ImageBlurr) -> Result<()> {
         if let Err(err) = set_current_thread_priority(ThreadPriority::Min) {
             error!("Cannot change worker thread priority to minimal: {:?}", err);
         }
         let mut source = build_sources(&self.config.sources).context("Cannot build source")?;
         loop {
+            if let Ok(true) = self.config_watch.has_changed() {
+                self.config = self.config_watch.borrow_and_update().clone();
+            }
             let msg = (|| self.get_next(&mut *source, gl, blurr))
                 .retry(
                     ExponentialBuilder::default()
@@ -131,13 +127,7 @@ impl WorkerImpl {
 
     fn resize_image_if_necessay(&self, image: DynamicImage) -> DynamicImage {
         let image_dims: Extent2<u32> = image.dimensions().into();
-        let ideal_size = {
-            let r = self
-                .ideal_max_size
-                .read()
-                .expect("Cannot read ideal_max_size");
-            *r
-        };
+        let ideal_size = self.ideal_max_size.borrow().clone();
         let should_resize = image_dims.cmpgt(&ideal_size).reduce_or();
         if should_resize {
             let filter = self.config.slideshow.downscaled_image_filter;

@@ -2,7 +2,7 @@ mod drm_device;
 mod gbm_data;
 mod page_flip;
 
-use std::{rc::Rc, sync::Arc, thread::sleep, time::Duration};
+use std::rc::Rc;
 
 use anyhow::{Context as _, Result};
 use drm_device::DpmsValue;
@@ -11,6 +11,7 @@ use glutin::{
     display::GetGlDisplay,
     prelude::GlDisplay,
 };
+use tokio::sync::watch;
 
 use self::{drm_device::DrmDevice, gbm_data::GbmData, page_flip::PageFlipper};
 use super::ApplicationContext;
@@ -37,7 +38,7 @@ fn create_gl_context(
     }
 }
 
-pub fn start_gbm<T>(app_config: Arc<AppConfiguration>) -> Result<()>
+pub fn start_gbm<T>(app_config: watch::Sender<AppConfiguration>) -> Result<()>
 where
     T: ApplicationContext + 'static,
 {

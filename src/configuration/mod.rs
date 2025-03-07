@@ -35,7 +35,7 @@ pub struct BlurConfig {
     pub passes: u8,
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug, Default, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct Slideshow {
     /// The minimum amount of time that photos are displayed before switching to the next.

@@ -3,9 +3,10 @@ mod gbm_display;
 #[cfg(feature = "winit")]
 mod window_display;
 
-use std::{rc::Rc, sync::Arc};
+use std::rc::Rc;
 
 use anyhow::{Context, Result};
+use tokio::sync::watch;
 
 #[cfg(feature = "drm")]
 use self::gbm_display::start_gbm;
@@ -21,7 +22,7 @@ pub trait ApplicationContext: Sized {
         Ok(())
     }
     fn new(
-        config: Arc<AppConfiguration>,
+        config: watch::Sender<AppConfiguration>,
         gl: Rc<GlContext>,
         bg_gl: FutureGlThreadContext,
     ) -> Result<Self>;
@@ -38,7 +39,7 @@ pub trait ApplicationContext: Sized {
 }
 
 pub fn start<T: ApplicationContext + 'static>(config: AppConfiguration) -> Result<()> {
-    let config = Arc::new(config);
+    let config = watch::Sender::new(config);
 
     #[cfg(feature = "winit")]
     {
