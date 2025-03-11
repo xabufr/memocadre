@@ -1,7 +1,7 @@
 use anyhow::Result;
 use axum::{
     http::{Response, StatusCode},
-    routing::get,
+    routing::{get, put},
     Json, Router,
 };
 use tokio::sync::watch;
@@ -45,6 +45,15 @@ impl Interface for HttpInterface {
                 get({
                     let settings = settings.borrow().clone();
                     move || async { Json::from(settings) }
+                }),
+            )
+            .route(
+                "/settings",
+                put({
+                    let settings = settings.clone();
+                    |new_settings: Json<Settings>| async move {
+                        settings.send_replace(new_settings.0);
+                    }
                 }),
             )
             .fallback(|| async { StatusCode::NOT_FOUND });
