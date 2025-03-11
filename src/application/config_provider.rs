@@ -4,7 +4,7 @@ use crate::configuration::{AppSources, Settings};
 use anyhow::{Context, Result};
 use config::Config;
 use directories::ProjectDirs;
-use log::warn;
+use log::{debug, warn};
 
 pub struct ConfigProvider {
     settings_path: Option<PathBuf>,
@@ -29,6 +29,7 @@ impl ConfigProvider {
         let mut builder = Config::builder().add_source(::config::File::with_name(&config_path));
 
         if let Some(settings_path) = &self.settings_path {
+            debug!("Loading settings from {:?}", settings_path);
             let source = ::config::File::from(settings_path.as_path()).required(false);
             builder = builder.add_source(source);
         }
