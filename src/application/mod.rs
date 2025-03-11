@@ -1,5 +1,6 @@
 mod config_provider;
 mod fps;
+mod interfaces;
 mod slideshow;
 
 use std::{rc::Rc, sync::mpsc::TryRecvError, time::Instant};
@@ -36,6 +37,7 @@ impl ApplicationContext for Application {
         let sources = provider.load_sources()?;
         let settings = provider.load_settings()?;
         let config_sender = watch::Sender::new(settings);
+        interfaces::InterfaceManager::new().start(config_sender.clone());
 
         let mut config_watch = config_sender.subscribe();
         let config = config_watch.borrow_and_update().clone();

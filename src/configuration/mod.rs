@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use better_default::Default;
 use chrono::Locale;
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 #[derive(Deserialize, Default, Debug, Clone)]
@@ -11,7 +11,7 @@ pub struct AppSources {
     pub sources: Vec<Source>,
 }
 
-#[derive(Deserialize, Debug, Clone, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
 #[serde(deny_unknown_fields, default)]
 pub struct BlurConfig {
     #[default(6.0)]
@@ -20,7 +20,7 @@ pub struct BlurConfig {
     pub passes: u8,
 }
 
-#[derive(Deserialize, Debug, Default, Clone)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct Settings {
     /// The minimum amount of time that photos are displayed before switching to the next.
@@ -66,7 +66,7 @@ pub struct Settings {
     pub debug: DebugSettings,
 }
 
-#[derive(Deserialize, Debug, Copy, Clone, Default)]
+#[derive(Deserialize, Serialize, Debug, Copy, Clone, Default)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub enum ImageFilter {
     Nearest,
@@ -77,13 +77,13 @@ pub enum ImageFilter {
     Lanczos3,
 }
 
-#[derive(Deserialize, Debug, Default, Clone)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct DebugSettings {
     pub show_fps: bool,
 }
 
-#[derive(Deserialize, Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct CaptionOptions {
     /// Whether the caption is enabled.
@@ -98,7 +98,7 @@ pub struct CaptionOptions {
     pub font_size: f32,
 }
 
-#[derive(Deserialize, Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct DateFormat {
     /// The format of the date in the caption.
@@ -110,7 +110,7 @@ pub struct DateFormat {
     /// The locale to use for the date.
     /// Defaults to "en_US".
     #[default(Locale::en_US)]
-    #[serde(deserialize_with = "deser_locale")]
+    #[serde(deserialize_with = "deser_locale", serialize_with = "ser_locale")]
     pub locale: Locale,
 }
 
@@ -122,7 +122,15 @@ where
     s.parse()
         .map_err(|e| serde::de::Error::custom(format!("Invalid locale: {:?}", e)))
 }
-#[derive(Deserialize, Default, Debug, Clone)]
+
+fn ser_locale<S>(locale: &Locale, ser: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    locale.to_string().serialize(ser)
+}
+
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
 pub enum Background {
     Black,
@@ -130,7 +138,7 @@ pub enum Background {
     Blur(BlurBackground),
 }
 
-#[derive(Deserialize, Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct BlurBackground {
     #[default(50)]
@@ -194,7 +202,7 @@ pub enum ImmichPerson {
     Name(String),
 }
 
-#[derive(Deserialize, Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
 pub enum InitSlideOptions {
     Empty,
@@ -202,7 +210,7 @@ pub enum InitSlideOptions {
     LoadingCircle(LoadingCircleOptions),
 }
 
-#[derive(Deserialize, Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct LoadingCircleOptions {
     /// Number of rotations per second for the circle.
