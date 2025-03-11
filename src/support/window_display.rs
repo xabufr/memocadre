@@ -7,7 +7,6 @@ use glutin::{
     surface::WindowSurface,
 };
 use raw_window_handle::HasWindowHandle;
-use tokio::sync::watch;
 use vek::Rect;
 use winit::{
     application::ApplicationHandler, event::WindowEvent, event_loop::ActiveEventLoop,
@@ -15,10 +14,7 @@ use winit::{
 };
 
 use super::ApplicationContext;
-use crate::{
-    configuration::AppConfiguration,
-    gl::{FutureGlThreadContext, GlContext},
-};
+use crate::gl::{FutureGlThreadContext, GlContext};
 
 pub struct State<T> {
     pub gl: Rc<GlContext>,
@@ -27,7 +23,6 @@ pub struct State<T> {
 }
 
 struct App<T> {
-    config: watch::Sender<AppConfiguration>,
     state: Option<State<T>>,
     visible: bool,
     close_promptly: bool,
@@ -37,7 +32,7 @@ impl<T: ApplicationContext + 'static> ApplicationHandler<()> for App<T> {
     // The resumed/suspended handlers are mostly for Android compatiblity since the context can get lost there at any point.
     // For convenience's sake, the resumed handler is also called on other platforms on program startup.
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        self.state = Some(State::new(event_loop, self.visible, self.config.clone()));
+        self.state = Some(State::new(event_loop, self.visible));
         if !self.visible && self.close_promptly {
             event_loop.exit();
         }
@@ -101,11 +96,7 @@ impl<T: ApplicationContext + 'static> ApplicationHandler<()> for App<T> {
     }
 }
 impl<T: ApplicationContext + 'static> State<T> {
-    pub fn new(
-        event_loop: &winit::event_loop::ActiveEventLoop,
-        visible: bool,
-        config: watch::Sender<AppConfiguration>,
-    ) -> Self {
+    pub fn new(event_loop: &winit::event_loop::ActiveEventLoop, visible: bool) -> Self {
         let window_attributes = winit::window::Window::default_attributes()
             .with_title(T::WINDOW_TITLE)
             .with_visible(visible);
@@ -176,17 +167,16 @@ impl<T: ApplicationContext + 'static> State<T> {
 
         let bg_gl = FutureGlThreadContext::new(None, bg_context, gl_config.display());
 
-        Self::from_display_window(gl, window, config, bg_gl)
+        Self::from_display_window(gl, window, bg_gl)
     }
 
     pub fn from_display_window(
         gl: FutureGlThreadContext,
         window: winit::window::Window,
-        config: watch::Sender<AppConfiguration>,
         bg_gl: FutureGlThreadContext,
     ) -> Self {
         let gl = gl.activate().expect("Cannot make context current");
-        let context = T::new(config, Rc::clone(&gl), bg_gl).expect("Cannot create application");
+        let context = T::new(Rc::clone(&gl), bg_gl).expect("Cannot create application");
         Self {
             gl,
             window,
@@ -195,12 +185,11 @@ impl<T: ApplicationContext + 'static> State<T> {
     }
 
     /// Start the event_loop and keep rendering frames until the program is closed
-    pub fn run_loop(config: watch::Sender<AppConfiguration>) -> Result<()> {
+    pub fn run_loop() -> Result<()> {
         let event_loop = winit::event_loop::EventLoop::builder()
             .build()
             .context("event loop building")?;
         let mut app = App::<T> {
-            config,
             state: None,
             visible: true,
             close_promptly: false,

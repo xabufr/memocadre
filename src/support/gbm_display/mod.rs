@@ -11,11 +11,10 @@ use glutin::{
     display::GetGlDisplay,
     prelude::GlDisplay,
 };
-use tokio::sync::watch;
 
 use self::{drm_device::DrmDevice, gbm_data::GbmData, page_flip::PageFlipper};
 use super::ApplicationContext;
-use crate::{configuration::AppConfiguration, gl::FutureGlThreadContext};
+use crate::gl::FutureGlThreadContext;
 
 fn create_gl_context(
     gbm_data: &GbmData,
@@ -38,7 +37,7 @@ fn create_gl_context(
     }
 }
 
-pub fn start_gbm<T>(app_config: watch::Sender<AppConfiguration>) -> Result<()>
+pub fn start_gbm<T>() -> Result<()>
 where
     T: ApplicationContext + 'static,
 {
@@ -66,7 +65,7 @@ where
     let mut page_flipper =
         PageFlipper::init(&gbm_data.device, &surface).context("Cannot create page flipper")?;
 
-    let mut app = T::new(app_config, Rc::clone(&gl), bg_gl).context("Cannot create application")?;
+    let mut app = T::new(Rc::clone(&gl), bg_gl).context("Cannot create application")?;
     // let enabled = false;
     loop {
         // // TODO implement switching

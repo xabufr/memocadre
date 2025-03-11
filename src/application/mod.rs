@@ -5,12 +5,13 @@ mod slideshow;
 use std::{rc::Rc, sync::mpsc::TryRecvError, time::Instant};
 
 use anyhow::{Context, Result};
+use config_provider::ConfigProvider;
 use tokio::sync::watch;
 use vek::Extent2;
 
 use self::{fps::FPSCounter, slideshow::Slideshow};
 use crate::{
-    configuration::AppConfiguration,
+    configuration::Settings,
     gl::{FutureGlThreadContext, GlContext},
     graphics::{Drawable, Graphics},
     support::ApplicationContext,
@@ -22,30 +23,32 @@ pub struct Application {
     worker: Worker,
     gl: Rc<GlContext>,
     graphics: Graphics,
-    config_watch: watch::Receiver<AppConfiguration>,
-    config: AppConfiguration,
+    config_watch: watch::Receiver<Settings>,
+    config: Settings,
     fps: Option<FPSCounter>,
 }
 
 impl ApplicationContext for Application {
     const WINDOW_TITLE: &'static str = "test";
 
-    fn new(
-        config_sender: watch::Sender<AppConfiguration>,
-        gl: Rc<GlContext>,
-        bg_gl: FutureGlThreadContext,
-    ) -> Result<Self> {
+    fn new(gl: Rc<GlContext>, bg_gl: FutureGlThreadContext) -> Result<Self> {
+        let provider = ConfigProvider::new();
+        let sources = provider.load_sources()?;
+        let settings = provider.load_settings()?;
+        let config_sender = watch::Sender::new(settings);
+
         let mut config_watch = config_sender.subscribe();
         let config = config_watch.borrow_and_update().clone();
 
-        let mut graphics = Graphics::new(Rc::clone(&gl), config.slideshow.rotation)
-            .context("Cannot create Graphics")?;
+        let mut graphics =
+            Graphics::new(Rc::clone(&gl), config.rotation).context("Cannot create Graphics")?;
         let worker = Worker::new(
             config_sender.subscribe(),
             Self::get_ideal_image_size(&gl, &graphics),
             bg_gl,
+            sources.sources,
         );
-        let fps = if config.slideshow.debug.show_fps {
+        let fps = if config.debug.show_fps {
             Some(FPSCounter::new(&mut graphics)?)
         } else {
             None

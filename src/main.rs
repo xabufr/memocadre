@@ -6,25 +6,12 @@ mod graphics;
 mod support;
 mod worker;
 
-use anyhow::{Context, Result};
-use config::Config;
-use log::debug;
+use anyhow::Result;
 
-use self::{application::Application, configuration::AppConfiguration};
+use self::application::Application;
 
 fn main() -> Result<()> {
-    let config_path = std::env::var("CONFIG_PATH").unwrap_or("config.yaml".to_string());
-
     env_logger::init();
-    let settings = Config::builder()
-        .add_source(::config::File::with_name(&config_path))
-        .build()
-        .context("Cannot parse configuration")?;
-    let config: AppConfiguration = settings
-        .try_deserialize()
-        .context("Cannot deserialize configuration")?;
-
-    debug!("Configuration: {:#?}", config);
-    support::start::<Application>(config)?;
+    support::start::<Application>()?;
     Ok(())
 }

@@ -7,20 +7,8 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 #[derive(Deserialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields)]
-pub struct AppConfiguration {
+pub struct AppSources {
     pub sources: Vec<Source>,
-    #[serde(default)]
-    pub slideshow: Slideshow,
-}
-
-#[cfg(test)]
-impl AppConfiguration {
-    pub fn mock() -> Self {
-        Self {
-            sources: Default::default(),
-            slideshow: Default::default(),
-        }
-    }
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -34,7 +22,7 @@ pub struct BlurConfig {
 
 #[derive(Deserialize, Debug, Default, Clone)]
 #[serde(deny_unknown_fields, default)]
-pub struct Slideshow {
+pub struct Settings {
     /// The minimum amount of time that photos are displayed before switching to the next.
     ///
     /// Please note that on low-power devices, photos may be displayed for longer

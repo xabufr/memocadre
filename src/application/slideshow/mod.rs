@@ -16,7 +16,7 @@ use self::{
     transition::{DissolveTransition, Transition},
 };
 use crate::{
-    configuration::{AppConfiguration, InitSlideOptions},
+    configuration::{InitSlideOptions, Settings},
     graphics::{Drawable, Graphics},
     worker::PreloadedSlide,
 };
@@ -34,8 +34,8 @@ pub struct TransitioningSlide {
 }
 
 impl Slideshow {
-    pub fn create(graphics: &mut Graphics, config: &AppConfiguration) -> Result<Self> {
-        match &config.slideshow.init_slide {
+    pub fn create(graphics: &mut Graphics, config: &Settings) -> Result<Self> {
+        match &config.init_slide {
             InitSlideOptions::Empty => Ok(Slideshow::None),
             InitSlideOptions::LoadingCircle(loading_circle_options) => {
                 let loading_slide = LoadingSlide::create(graphics, loading_circle_options)?;
@@ -57,7 +57,7 @@ impl Slideshow {
         &mut self,
         graphics: &mut Graphics,
         slide: PreloadedSlide,
-        config: &AppConfiguration,
+        config: &Settings,
         time: Instant,
     ) -> Result<()> {
         let slide = Slide::create(slide, graphics, config)?;
@@ -82,7 +82,7 @@ impl Slideshow {
                 next: mut old,
             }) => {
                 let transition = get_random_transition();
-                let transition_duration = config.slideshow.transition_duration;
+                let transition_duration = config.transition_duration;
                 transition.ease_out(time, transition_duration, &mut old.animation);
                 let mut animation = transition.ease_in(time, transition_duration);
                 animation.set_zoom_no_ease(0.9);
@@ -99,7 +99,7 @@ impl Slideshow {
     }
 
     // TODO: Test me !
-    pub fn update(&mut self, graphics: &Graphics, config: &AppConfiguration, time: Instant) {
+    pub fn update(&mut self, graphics: &Graphics, config: &Settings, time: Instant) {
         let mut old_self = Self::None;
         std::mem::swap(self, &mut old_self);
         *self = match old_self {
@@ -133,16 +133,11 @@ impl Slideshow {
         graphics: &Graphics,
         slide: Slide,
         current_properties: SlideProperties,
-        config: &AppConfiguration,
+        config: &Settings,
         start: Instant,
     ) -> Self {
         let mut animation = AnimatedSlideProperties::from(current_properties);
-        animation.ease_zoom(
-            1.0,
-            start,
-            config.slideshow.display_duration,
-            Easing::CubicInOut,
-        );
+        animation.ease_zoom(1.0, start, config.display_duration, Easing::CubicInOut);
         if let Some(text) = slide.get_text() {
             let size = text.size().as_::<f32>();
             let screen = graphics.get_dimensions().as_::<f32>();

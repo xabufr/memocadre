@@ -13,7 +13,7 @@ use tokio::sync::watch;
 use vek::Extent2;
 
 use crate::{
-    configuration::{AppConfiguration, ImageFilter},
+    configuration::{ImageFilter, Settings, Source},
     gallery::{build_sources, Gallery, ImageDetails},
     gl::{
         texture::{DetachedTexture, Texture},
@@ -38,15 +38,17 @@ pub struct Worker {
 struct WorkerImpl {
     send: SyncSender<Message>,
     ideal_max_size: watch::Receiver<Extent2<u32>>,
-    config: AppConfiguration,
-    config_watch: watch::Receiver<AppConfiguration>,
+    config: Settings,
+    config_watch: watch::Receiver<Settings>,
+    sources: Vec<Source>,
 }
 
 impl Worker {
     pub fn new(
-        mut config_watch: watch::Receiver<AppConfiguration>,
+        mut config_watch: watch::Receiver<Settings>,
         ideal_max_size: Extent2<u32>,
         gl: FutureGlThreadContext,
+        sources: Vec<Source>,
     ) -> Self {
         let (send, recv) = std::sync::mpsc::sync_channel(1);
         let config = config_watch.borrow_and_update().clone();
@@ -56,6 +58,7 @@ impl Worker {
             ideal_max_size: ideal_max_size_receiver,
             config,
             config_watch,
+            sources,
         };
         std::thread::spawn(move || {
             let gl = gl
@@ -86,7 +89,7 @@ impl WorkerImpl {
         if let Err(err) = set_current_thread_priority(ThreadPriority::Min) {
             error!("Cannot change worker thread priority to minimal: {:?}", err);
         }
-        let mut source = build_sources(&self.config.sources).context("Cannot build source")?;
+        let mut source = build_sources(&self.sources).context("Cannot build source")?;
         loop {
             if let Ok(true) = self.config_watch.has_changed() {
                 self.config = self.config_watch.borrow_and_update().clone();
@@ -114,7 +117,7 @@ impl WorkerImpl {
         img_with_details.image = self.resize_image_if_necessay(img_with_details.image);
         let texture = Texture::new_from_image(gl.clone(), &img_with_details.image).unwrap();
         let blurred_texture = blurr
-            .blur(self.config.slideshow.blur_options.clone().into(), &texture)
+            .blur(self.config.blur_options.clone().into(), &texture)
             .unwrap();
         unsafe { gl.finish() };
         let msg = PreloadedSlide {
@@ -130,7 +133,7 @@ impl WorkerImpl {
         let ideal_size = self.ideal_max_size.borrow().clone();
         let should_resize = image_dims.cmpgt(&ideal_size).reduce_or();
         if should_resize {
-            let filter = self.config.slideshow.downscaled_image_filter;
+            let filter = self.config.downscaled_image_filter;
             image.resize(ideal_size.w, ideal_size.h, filter.into())
         } else {
             image

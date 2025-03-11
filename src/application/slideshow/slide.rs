@@ -9,7 +9,7 @@ use vek::{Extent2, Rect, Vec2};
 
 use crate::{
     application::slideshow::animated_properties::animated_properties,
-    configuration::{AppConfiguration, Background, BlurBackground},
+    configuration::{Background, BlurBackground, Settings},
     gallery::ImageDetails,
     gl::texture::DetachedTexture,
     graphics::{Drawable, Graphics, ShapeContainer, SharedTexture2d, Sprite, TextContainer},
@@ -54,7 +54,7 @@ impl Slide {
     pub fn create(
         preloaded_slide: PreloadedSlide,
         graphics: &mut Graphics,
-        config: &AppConfiguration,
+        config: &Settings,
     ) -> Result<Self> {
         let texture = SharedTexture2d::new(graphics.texture_from_detached(preloaded_slide.texture));
         let main_sprite = Self::create_main_sprite(graphics, &texture)?;
@@ -88,10 +88,10 @@ impl Slide {
     fn create_blurred_background(
         graphics: &mut Graphics,
         blurred_texture: DetachedTexture,
-        config: &AppConfiguration,
+        config: &Settings,
         main_sprite: &Sprite,
     ) -> Result<Option<[Sprite; 2]>> {
-        if let Background::Blur(BlurBackground { min_free_space }) = config.slideshow.background {
+        if let Background::Blur(BlurBackground { min_free_space }) = config.background {
             let display_size = graphics.get_dimensions();
             let free_space = display_size.as_::<f32>() - main_sprite.size;
             if free_space.reduce_partial_max() > min_free_space as f32 {
@@ -153,17 +153,17 @@ impl Slide {
     fn create_text(
         graphics: &mut Graphics,
         details: &ImageDetails,
-        config: &AppConfiguration,
+        config: &Settings,
     ) -> Result<Option<TextWithBackground>> {
-        if !config.slideshow.caption.enabled {
+        if !config.caption.enabled {
             return Ok(None);
         }
 
         let date = details.date.map(|date| {
             date.date_naive()
                 .format_localized(
-                    &config.slideshow.caption.date_format.format,
-                    config.slideshow.caption.date_format.locale,
+                    &config.caption.date_format.format,
+                    config.caption.date_format.locale,
                 )
                 .to_string()
         });
@@ -177,7 +177,7 @@ impl Slide {
         }
 
         let text = text.join("\n");
-        TextWithBackground::create(graphics, text, config.slideshow.caption.font_size)
+        TextWithBackground::create(graphics, text, config.caption.font_size)
             .map(Some)
             .context("Failed to create text for slide")
     }
@@ -301,7 +301,7 @@ mod test {
     };
     use vek::{Extent2, Vec2};
 
-    use super::{AppConfiguration, Background, PreloadedSlide, Slide};
+    use super::{Background, PreloadedSlide, Settings, Slide};
     use crate::{
         configuration::{BlurBackground, OrientationName},
         gallery::ImageDetails,
@@ -327,8 +327,8 @@ mod test {
         let gl = Rc::new(GlContext::mocked(gl));
         let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
 
-        let mut config = AppConfiguration::mock();
-        config.slideshow.background = Background::Black;
+        let mut config = Settings::default();
+        config.background = Background::Black;
         let preloaded_slide = preloaded_slide((100, 100).into());
 
         let slide = Slide::create(preloaded_slide, &mut graphics, &config).unwrap();
@@ -356,8 +356,8 @@ mod test {
         let gl = Rc::new(GlContext::mocked(gl));
         let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
 
-        let mut config = AppConfiguration::mock();
-        config.slideshow.background = Background::Blur(BlurBackground { min_free_space: 50 });
+        let mut config = Settings::default();
+        config.background = Background::Blur(BlurBackground { min_free_space: 50 });
         let preloaded_slide = preloaded_slide((400, 600).into());
 
         let slide = Slide::create(preloaded_slide, &mut graphics, &config).unwrap();
@@ -435,8 +435,8 @@ mod test {
         let gl = mocked_gl();
         let gl = Rc::new(GlContext::mocked(gl));
         let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
-        let mut config = AppConfiguration::mock();
-        config.slideshow.background = Background::Blur(BlurBackground { min_free_space: 50 });
+        let mut config = Settings::default();
+        config.background = Background::Blur(BlurBackground { min_free_space: 50 });
         let preloaded_slide = preloaded_slide((800, 400).into());
 
         let slide = Slide::create(preloaded_slide, &mut graphics, &config).unwrap();
@@ -515,7 +515,7 @@ mod test {
         let gl = Rc::new(GlContext::mocked(gl));
         let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
 
-        let config = AppConfiguration::mock();
+        let config = Settings::default();
         let mut preloaded_slide = preloaded_slide((800, 600).into());
         preloaded_slide.details.city = Some("A wonderfull city".into());
 
@@ -532,9 +532,9 @@ mod test {
         let gl = Rc::new(GlContext::mocked(gl));
         let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
 
-        let mut config = AppConfiguration::mock();
-        config.slideshow.caption.date_format.locale = Locale::fr_FR;
-        config.slideshow.caption.date_format.format = "%A %e %B %Y".into();
+        let mut config = Settings::default();
+        config.caption.date_format.locale = Locale::fr_FR;
+        config.caption.date_format.format = "%A %e %B %Y".into();
         let mut preloaded_slide = preloaded_slide((800, 600).into());
         let date = NaiveDate::from_ymd_opt(2025, 01, 25)
             .unwrap()
