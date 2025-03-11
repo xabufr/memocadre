@@ -11,8 +11,6 @@ pub struct AppConfiguration {
     pub sources: Vec<Source>,
     #[serde(default)]
     pub slideshow: Slideshow,
-    #[serde(default)]
-    pub debug: DebugSettings,
 }
 
 #[cfg(test)]
@@ -21,7 +19,6 @@ impl AppConfiguration {
         Self {
             sources: Default::default(),
             slideshow: Default::default(),
-            debug: Default::default(),
         }
     }
 }
@@ -76,6 +73,9 @@ pub struct Slideshow {
 
     /// Photos larger than the display are downscaled using this filter.
     pub downscaled_image_filter: ImageFilter,
+
+    /// The options for the debug overlay.
+    pub debug: DebugSettings,
 }
 
 #[derive(Deserialize, Debug, Copy, Clone, Default)]

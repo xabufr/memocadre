@@ -1,5 +1,5 @@
-mod fps;
 mod config_provider;
+mod fps;
 mod slideshow;
 
 use std::{rc::Rc, sync::mpsc::TryRecvError, time::Instant};
@@ -45,7 +45,7 @@ impl ApplicationContext for Application {
             Self::get_ideal_image_size(&gl, &graphics),
             bg_gl,
         );
-        let fps = if config.debug.show_fps {
+        let fps = if config.slideshow.debug.show_fps {
             Some(FPSCounter::new(&mut graphics)?)
         } else {
             None
