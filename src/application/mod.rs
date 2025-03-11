@@ -1,4 +1,5 @@
 mod fps;
+mod config_provider;
 mod slideshow;
 
 use std::{rc::Rc, sync::mpsc::TryRecvError, time::Instant};
