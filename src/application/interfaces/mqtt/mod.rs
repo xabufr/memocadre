@@ -1,6 +1,8 @@
+use std::time::Duration;
+
 use anyhow::Result;
-use rumqttc::v5::{mqttbytes::QoS, AsyncClient, MqttOptions};
-use serde::Serialize;
+use rumqttc::v5::{mqttbytes::QoS, AsyncClient, Incoming, MqttOptions, Event};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::watch;
 
@@ -12,6 +14,12 @@ pub struct MqttInterface;
 #[derive(Debug, Serialize)]
 struct MqttState {
     display_duration: u64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", content = "value", rename_all = "snake_case")]
+enum MqttMessage {
+    DisplayDuration(u64),
 }
 
 impl From<&Settings> for MqttState {
@@ -31,6 +39,7 @@ impl Interface for MqttInterface {
         mqttOptions.set_credentials(user, password);
         let (mut client, mut connection) = AsyncClient::new(mqttOptions, 10);
 
+        let command_topic = format!("homeassistant/device/{id}/set");
         let payload = json!({
             "device": {
                 "name": "PhotoKiosk",
@@ -45,16 +54,18 @@ impl Interface for MqttInterface {
                     "p": "number",
                     "device_class": "duration",
                     "unit_of_measurement": "s",
-                    "min": 30,
+                    "min": 1,
                     "max": 60 * 60 * 24,
                     "name": "Display Duration",
                     "value_template": "{{ value_json.display_duration }}",
+                    "command_template": r#"{ "type": "display_duration", "value": {{ value }} }"#,
                     "unique_id": format!("{id}_display_time"),
                 }
             },
-            "command_topic": format!("homeassistant/device/{id}/set"),
+            "command_topic": &command_topic,
             "state_topic": format!("homeassistant/device/{id}/state"),
         });
+        client.subscribe(&command_topic, QoS::AtMostOnce).await?;
 
         tokio::spawn({
             let id = id.clone();
@@ -76,8 +87,8 @@ impl Interface for MqttInterface {
         tokio::spawn({
             let id = id.clone();
             let client = client.clone();
+            let mut settings = settings.subscribe();
             async move {
-                let mut settings = settings.subscribe();
                 loop {
                     let state = {
                         let settings = settings.borrow();
@@ -99,6 +110,24 @@ impl Interface for MqttInterface {
         loop {
             let n = connection.poll().await?;
             println!("Polling: {n:?}");
+            if let Event::Incoming(Incoming::Publish(publish)) = n {
+                if publish.topic !=command_topic {
+                    continue;
+                }
+                println!("Received command");
+
+                // FIXME ignore errors
+                let message: MqttMessage = serde_json::from_slice(&publish.payload)?;
+                println!("Message: {:?}", message);
+                match message {
+                    MqttMessage::DisplayDuration(duration) => {
+                        let duration = Duration::from_secs(duration);
+                        settings.send_modify(|s| {
+                            s.display_duration = duration;
+                        });
+                    }
+                }
+            }
         }
 
         // Ok(())

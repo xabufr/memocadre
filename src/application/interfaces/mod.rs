@@ -50,8 +50,11 @@ impl Interface for HttpInterface {
             .route(
                 "/settings",
                 get({
-                    let settings = settings.borrow().clone();
-                    move || async { Json::from(settings) }
+                    let settings = settings.clone();
+                    || async move {
+                        let settings = settings.borrow().clone();
+                        Json::from(settings)
+                    }
                 }),
             )
             .route(
