@@ -1,10 +1,13 @@
+mod mqtt;
+
 use anyhow::Result;
 use axum::{
-    http::{Response, StatusCode},
+    http::StatusCode,
     routing::{get, put},
     Json, Router,
 };
-use tokio::sync::watch;
+use mqtt::MqttInterface;
+use tokio::{sync::watch, try_join};
 
 use crate::configuration::Settings;
 
@@ -29,9 +32,13 @@ impl InterfaceManager {
                 .enable_io()
                 .build()
                 .unwrap();
-            runtime.block_on(async move {
-                interface.start(settings).await.unwrap();
-            });
+            runtime
+                .block_on(async move {
+                    let http = interface.start(settings.clone());
+                    let mqtt = MqttInterface.start(settings.clone());
+                    try_join!(http, mqtt)
+                })
+                .unwrap();
         });
         Ok(())
     }
