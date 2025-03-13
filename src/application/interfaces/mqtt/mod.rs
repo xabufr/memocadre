@@ -176,8 +176,9 @@ impl Interface for MqttInterface {
         try_join!(
             self.state_send(&client, settings.subscribe()),
             self.config_send(&client),
-            self.command_receive(connection, settings.clone()),
-        )?;
+            self.command_receive(connection, settings),
+        )
+        .context("in MQTT interface")?;
         Ok(())
     }
 }
