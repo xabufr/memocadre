@@ -33,11 +33,11 @@ impl From<&Settings> for MqttState {
 impl Interface for MqttInterface {
     async fn start(&self, settings: watch::Sender<Settings>) -> Result<()> {
         let id = std::env::var("MQTT_ID").unwrap_or("photokiosk".to_string());
-        let mut mqttOptions = MqttOptions::new("rumqtt", "192.168.1.18", 1883);
+        let mut mqtt_options = MqttOptions::new("rumqtt", "192.168.1.18", 1883);
         let user = std::env::var("MQTT_USER")?;
         let password = std::env::var("MQTT_PASSWORD")?;
-        mqttOptions.set_credentials(user, password);
-        let (mut client, mut connection) = AsyncClient::new(mqttOptions, 10);
+        mqtt_options.set_credentials(user, password);
+        let (client, mut connection) = AsyncClient::new(mqtt_options, 10);
 
         let command_topic = format!("homeassistant/device/{id}/set");
         let payload = json!({
