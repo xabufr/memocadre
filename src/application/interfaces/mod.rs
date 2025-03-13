@@ -35,7 +35,8 @@ impl InterfaceManager {
             runtime
                 .block_on(async move {
                     let http = interface.start(settings.clone());
-                    let mqtt = MqttInterface.start(settings.clone());
+                    let mqtt = MqttInterface::new();
+                    let mqtt = mqtt.start(settings.clone());
                     try_join!(http, mqtt)
                 })
                 .unwrap();

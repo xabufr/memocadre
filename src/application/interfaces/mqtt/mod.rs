@@ -1,15 +1,150 @@
-use std::time::Duration;
+use std::{ops::Deref, time::Duration};
 
-use anyhow::Result;
-use rumqttc::v5::{mqttbytes::QoS, AsyncClient, Incoming, MqttOptions, Event};
+use anyhow::{Context, Result};
+use log::error;
+use rumqttc::v5::{mqttbytes::QoS, AsyncClient, Event, EventLoop, Incoming, MqttOptions};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tokio::sync::watch;
+use tokio::{sync::watch, try_join};
 
 use super::Interface;
 use crate::configuration::Settings;
 
-pub struct MqttInterface;
+pub struct MqttInterface {
+    id: String,
+}
+
+impl MqttInterface {
+    pub fn new() -> Self {
+        let id = std::env::var("MQTT_ID").unwrap_or("photokiosk".to_string());
+        Self { id }
+    }
+
+    fn topic(&self, kind: &str) -> String {
+        format!("homeassistant/device/{}/{}", self.id, kind)
+    }
+
+    fn command_topic(&self) -> String {
+        self.topic("set")
+    }
+
+    fn state_topic(&self) -> String {
+        self.topic("state")
+    }
+
+    fn config_topic(&self) -> String {
+        self.topic("config")
+    }
+
+    fn component_id(&self, component: &str) -> String {
+        format!("{}_{}", self.id, component)
+    }
+
+    fn config_payload(&self) -> serde_json::Value {
+        let c = |c| self.component_id(c);
+        json!({
+            "device": {
+                "name": "PhotoKiosk",
+                "identifiers": [self.id],
+            },
+            "origin": {
+                "name": "PhotoKiosk",
+                "sw_version": "0.1.0",
+            },
+            "components": {
+                c("display_duration"): {
+                    "p": "number",
+                    "device_class": "duration",
+                    "unit_of_measurement": "s",
+                    "min": 1,
+                    "max": 60 * 60 * 24,
+                    "name": "Display Duration",
+                    "value_template": "{{ value_json.display_duration }}",
+                    "command_template": r#"{ "type": "display_duration", "value": {{ value }} }"#,
+                    "unique_id": c("display_duration"),
+                }
+            },
+            "command_topic": self.command_topic(),
+            "state_topic": self.state_topic(),
+        })
+    }
+
+    async fn config_send(&self, client: &AsyncClient) -> Result<()> {
+        let topic = self.config_topic();
+        let payload = self.config_payload();
+        client
+            .publish(
+                &topic,
+                QoS::AtLeastOnce,
+                true,
+                serde_json::to_string(&payload).context("Failed to serialize config payload")?,
+            )
+            .await
+            .context("Failed to publish config")?;
+        client
+            .subscribe(self.command_topic(), QoS::AtLeastOnce)
+            .await
+            .context("Failed to subscribe to command topic")?;
+        Ok(())
+    }
+
+    async fn state_send(
+        &self,
+        client: &AsyncClient,
+        settings: watch::Receiver<Settings>,
+    ) -> Result<()> {
+        let topic = self.state_topic();
+        loop {
+            let state = {
+                let settings = settings.borrow();
+                MqttState::from(settings.deref())
+            };
+            client
+                .publish(
+                    &topic,
+                    QoS::AtLeastOnce,
+                    true,
+                    serde_json::to_string(&state).context("Failed to serialize state payload")?,
+                )
+                .await
+                .context("Failed to publish state")?;
+        }
+    }
+
+    async fn command_receive(
+        &self,
+        mut connection: EventLoop,
+        settings: watch::Sender<Settings>,
+    ) -> Result<()> {
+        let command_topic = self.command_topic();
+        loop {
+            let n = connection.poll().await.context("Failed to poll mqtt")?;
+            if let Event::Incoming(Incoming::Publish(publish)) = n {
+                if publish.topic != command_topic {
+                    continue;
+                }
+                println!("Received command");
+
+                let message: MqttMessage = match serde_json::from_slice(&publish.payload) {
+                    Ok(m) => m,
+                    Err(err) => {
+                        error!("Failed to parse incoming message: {}", err);
+                        continue;
+                    }
+                };
+                println!("Message: {:?}", message);
+                match message {
+                    MqttMessage::DisplayDuration(duration) => {
+                        let duration = Duration::from_secs(duration);
+                        settings.send_modify(|s| {
+                            s.display_duration = duration;
+                        });
+                    }
+                }
+            }
+        }
+    }
+}
 
 #[derive(Debug, Serialize)]
 struct MqttState {
@@ -32,104 +167,17 @@ impl From<&Settings> for MqttState {
 
 impl Interface for MqttInterface {
     async fn start(&self, settings: watch::Sender<Settings>) -> Result<()> {
-        let id = std::env::var("MQTT_ID").unwrap_or("photokiosk".to_string());
         let mut mqtt_options = MqttOptions::new("rumqtt", "192.168.1.18", 1883);
         let user = std::env::var("MQTT_USER")?;
         let password = std::env::var("MQTT_PASSWORD")?;
         mqtt_options.set_credentials(user, password);
-        let (client, mut connection) = AsyncClient::new(mqtt_options, 10);
+        let (client, connection) = AsyncClient::new(mqtt_options, 10);
 
-        let command_topic = format!("homeassistant/device/{id}/set");
-        let payload = json!({
-            "device": {
-                "name": "PhotoKiosk",
-                "identifiers": [id],
-            },
-            "origin": {
-                "name": "PhotoKiosk",
-                "sw_version": "0.1.0",
-            },
-            "components": {
-                format!("{id}_display_time"): {
-                    "p": "number",
-                    "device_class": "duration",
-                    "unit_of_measurement": "s",
-                    "min": 1,
-                    "max": 60 * 60 * 24,
-                    "name": "Display Duration",
-                    "value_template": "{{ value_json.display_duration }}",
-                    "command_template": r#"{ "type": "display_duration", "value": {{ value }} }"#,
-                    "unique_id": format!("{id}_display_time"),
-                }
-            },
-            "command_topic": &command_topic,
-            "state_topic": format!("homeassistant/device/{id}/state"),
-        });
-        client.subscribe(&command_topic, QoS::AtMostOnce).await?;
-
-        tokio::spawn({
-            let id = id.clone();
-            let client = client.clone();
-            async move {
-                println!("Sending...");
-                client
-                    .publish(
-                        format!("homeassistant/device/{id}/config"),
-                        QoS::AtLeastOnce,
-                        true,
-                        serde_json::to_string(&payload).unwrap(),
-                    )
-                    .await
-                    .unwrap();
-                println!("Sent!");
-            }
-        });
-        tokio::spawn({
-            let id = id.clone();
-            let client = client.clone();
-            let mut settings = settings.subscribe();
-            async move {
-                loop {
-                    let state = {
-                        let settings = settings.borrow();
-                        MqttState::from(&*settings)
-                    };
-                    client
-                        .publish(
-                            format!("homeassistant/device/{id}/state"),
-                            QoS::AtLeastOnce,
-                            true,
-                            serde_json::to_string(&state).unwrap(),
-                        )
-                        .await
-                        .unwrap();
-                    settings.changed().await.unwrap();
-                }
-            }
-        });
-        loop {
-            let n = connection.poll().await?;
-            println!("Polling: {n:?}");
-            if let Event::Incoming(Incoming::Publish(publish)) = n {
-                if publish.topic !=command_topic {
-                    continue;
-                }
-                println!("Received command");
-
-                // FIXME ignore errors
-                let message: MqttMessage = serde_json::from_slice(&publish.payload)?;
-                println!("Message: {:?}", message);
-                match message {
-                    MqttMessage::DisplayDuration(duration) => {
-                        let duration = Duration::from_secs(duration);
-                        settings.send_modify(|s| {
-                            s.display_duration = duration;
-                        });
-                    }
-                }
-            }
-        }
-
-        // Ok(())
+        try_join!(
+            self.state_send(&client, settings.subscribe()),
+            self.config_send(&client),
+            self.command_receive(connection, settings.clone()),
+        )?;
+        Ok(())
     }
 }
