@@ -1,8 +1,12 @@
-use std::{ops::Deref, time::Duration};
+use std::{cell::RefCell, ops::Deref, time::Duration};
 
 use anyhow::{Context, Result};
+use backon::{ExponentialBuilder, Retryable};
 use log::error;
-use rumqttc::v5::{mqttbytes::QoS, AsyncClient, Event, EventLoop, Incoming, MqttOptions};
+use rumqttc::v5::{
+    mqttbytes::{v5::ConnectReturnCode, QoS},
+    AsyncClient, ConnectionError, Event, EventLoop, Incoming, MqttOptions,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::{sync::watch, try_join};
@@ -113,12 +117,13 @@ impl MqttInterface {
 
     async fn command_receive(
         &self,
-        mut connection: EventLoop,
+        connection: EventLoop,
         settings: watch::Sender<Settings>,
     ) -> Result<()> {
         let command_topic = self.command_topic();
+        let poller = RetryPoller::new(connection);
         loop {
-            let n = connection.poll().await.context("Failed to poll mqtt")?;
+            let n = poller.poll().await.context("Failed to poll mqtt")?;
             if let Event::Incoming(Incoming::Publish(publish)) = n {
                 if publish.topic != command_topic {
                     continue;
@@ -142,6 +147,45 @@ impl MqttInterface {
                     }
                 }
             }
+        }
+    }
+}
+
+struct RetryPoller {
+    connection: RefCell<EventLoop>,
+}
+
+impl RetryPoller {
+    fn new(connection: EventLoop) -> Self {
+        Self {
+            connection: RefCell::new(connection),
+        }
+    }
+
+    async fn poll(&self) -> Result<Event> {
+        let event = (|| async { self.connection.borrow_mut().poll().await })
+            .retry(ExponentialBuilder::default())
+            .sleep(tokio::time::sleep)
+            .when(Self::is_recoverable)
+            .await
+            .context("Unrecoverable MQTT error")?;
+        Ok(event)
+    }
+
+    fn is_recoverable(err: &ConnectionError) -> bool {
+        match err {
+            ConnectionError::ConnectionRefused(
+                ConnectReturnCode::ProtocolError
+                | ConnectReturnCode::UnsupportedProtocolVersion
+                | ConnectReturnCode::ClientIdentifierNotValid
+                | ConnectReturnCode::BadUserNamePassword
+                | ConnectReturnCode::NotAuthorized
+                | ConnectReturnCode::Banned
+                | ConnectReturnCode::BadAuthenticationMethod
+                | ConnectReturnCode::UseAnotherServer
+                | ConnectReturnCode::ServerMoved,
+            ) => false,
+            _ => true,
         }
     }
 }
