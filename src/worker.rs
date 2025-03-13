@@ -130,7 +130,7 @@ impl WorkerImpl {
 
     fn resize_image_if_necessay(&self, image: DynamicImage) -> DynamicImage {
         let image_dims: Extent2<u32> = image.dimensions().into();
-        let ideal_size = self.ideal_max_size.borrow().clone();
+        let ideal_size = *self.ideal_max_size.borrow();
         let should_resize = image_dims.cmpgt(&ideal_size).reduce_or();
         if should_resize {
             let filter = self.config.downscaled_image_filter;
