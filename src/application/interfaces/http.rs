@@ -1,3 +1,5 @@
+use std::sync::mpsc;
+
 use anyhow::Result;
 use axum::{
     http::StatusCode,
@@ -7,12 +9,20 @@ use axum::{
 use tokio::sync::watch;
 
 use super::Interface;
-use crate::configuration::Settings;
+use crate::{
+    application::{ApplicationState, ControlCommand},
+    configuration::Settings,
+};
 
 pub struct HttpInterface;
 
 impl Interface for HttpInterface {
-    async fn start(&self, settings: watch::Sender<Settings>) -> Result<()> {
+    async fn start(
+        &self,
+        control: mpsc::Sender<ControlCommand>,
+        state: watch::Sender<ApplicationState>,
+        settings: watch::Sender<Settings>,
+    ) -> Result<()> {
         let app = Router::new()
             .route(
                 "/settings",

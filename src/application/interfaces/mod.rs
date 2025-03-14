@@ -1,16 +1,24 @@
 mod http;
 mod mqtt;
 
+use std::sync::mpsc;
+
 use anyhow::Result;
 use tokio::{sync::watch, try_join};
 
 use self::{http::HttpInterface, mqtt::MqttInterface};
+use super::{ApplicationState, ControlCommand};
 use crate::configuration::Settings;
 
 pub struct InterfaceManager {}
 
 pub trait Interface {
-    async fn start(&self, settings: watch::Sender<Settings>) -> Result<()>;
+    async fn start(
+        &self,
+        control: mpsc::Sender<ControlCommand>,
+        state: watch::Sender<ApplicationState>,
+        settings: watch::Sender<Settings>,
+    ) -> Result<()>;
 }
 
 impl InterfaceManager {
@@ -18,7 +26,12 @@ impl InterfaceManager {
         Self {}
     }
 
-    pub fn start(&self, settings: watch::Sender<Settings>) -> Result<()> {
+    pub fn start(
+        &self,
+        control: mpsc::Sender<ControlCommand>,
+        state: watch::Sender<ApplicationState>,
+        settings: watch::Sender<Settings>,
+    ) -> Result<()> {
         let interface = HttpInterface;
         std::thread::spawn(move || {
             let runtime = tokio::runtime::Builder::new_current_thread()
@@ -28,9 +41,9 @@ impl InterfaceManager {
                 .unwrap();
             runtime
                 .block_on(async move {
-                    let http = interface.start(settings.clone());
+                    let http = interface.start(control.clone(), state.clone(), settings.clone());
                     let mqtt = MqttInterface::new();
-                    let mqtt = mqtt.start(settings.clone());
+                    let mqtt = mqtt.start(control.clone(), state.clone(), settings.clone());
                     try_join!(http, mqtt)
                 })
                 .unwrap();

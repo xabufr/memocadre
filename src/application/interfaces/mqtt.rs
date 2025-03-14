@@ -1,4 +1,4 @@
-use std::{cell::RefCell, ops::Deref, time::Duration};
+use std::{cell::RefCell, ops::Deref, sync::mpsc, time::Duration};
 
 use anyhow::{Context, Result};
 use backon::{ExponentialBuilder, Retryable};
@@ -12,7 +12,7 @@ use serde_json::json;
 use tokio::{sync::watch, try_join};
 
 use super::Interface;
-use crate::configuration::Settings;
+use crate::{application::{ApplicationState, ControlCommand}, configuration::Settings};
 
 pub struct MqttInterface {
     id: String,
@@ -210,7 +210,12 @@ impl From<&Settings> for MqttState {
 }
 
 impl Interface for MqttInterface {
-    async fn start(&self, settings: watch::Sender<Settings>) -> Result<()> {
+    async fn start(
+        &self,
+        control: mpsc::Sender<ControlCommand>,
+        state: watch::Sender<ApplicationState>,
+        settings: watch::Sender<Settings>,
+    ) -> Result<()> {
         let mut mqtt_options = MqttOptions::new("rumqtt", "192.168.1.18", 1883);
         let user = std::env::var("MQTT_USER")?;
         let password = std::env::var("MQTT_PASSWORD")?;

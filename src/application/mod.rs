@@ -3,7 +3,11 @@ mod fps;
 mod interfaces;
 mod slideshow;
 
-use std::{rc::Rc, sync::mpsc::TryRecvError, time::Instant};
+use std::{
+    rc::Rc,
+    sync::mpsc::{self, Receiver, TryRecvError},
+    time::Instant,
+};
 
 use anyhow::{Context, Result};
 use config_provider::ConfigProvider;
@@ -19,6 +23,28 @@ use crate::{
     worker::Worker,
 };
 
+pub enum ControlCommand {
+    NextSlide,
+    DisplayOn,
+    DisplayOff,
+    // PreviousSlide,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ApplicationState {
+    pub display: bool,
+    pub force_load_next: bool,
+}
+
+impl Default for ApplicationState {
+    fn default() -> Self {
+        Self {
+            display: true,
+            force_load_next: false,
+        }
+    }
+}
+
 pub struct Application {
     slides: Slideshow,
     worker: Worker,
@@ -27,6 +53,9 @@ pub struct Application {
     config_watch: watch::Receiver<Settings>,
     config: Settings,
     fps: Option<FPSCounter>,
+    state: ApplicationState,
+    state_notifier: watch::Sender<ApplicationState>,
+    control: Receiver<ControlCommand>,
 }
 
 impl ApplicationContext for Application {
@@ -37,8 +66,15 @@ impl ApplicationContext for Application {
         let sources = provider.load_sources()?;
         let settings = provider.load_settings()?;
         let config_sender = watch::Sender::new(settings);
+        let (control_sender, control) = mpsc::channel();
+        let state_notifier = watch::Sender::new(ApplicationState::default());
+
         interfaces::InterfaceManager::new()
-            .start(config_sender.clone())
+            .start(
+                control_sender,
+                state_notifier.clone(),
+                config_sender.clone(),
+            )
             .unwrap();
 
         let mut config_watch = config_sender.subscribe();
@@ -66,6 +102,9 @@ impl ApplicationContext for Application {
             config_watch,
             config,
             fps,
+            control,
+            state: state_notifier.clone().borrow().clone(),
+            state_notifier,
         })
     }
 
