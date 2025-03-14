@@ -24,7 +24,7 @@ use crate::{
 };
 
 pub enum ControlCommand {
-    // NextSlide,
+    NextSlide,
     DisplayOn,
     DisplayOff,
     // PreviousSlide,
@@ -131,7 +131,7 @@ impl ApplicationContext for Application {
         self.worker
             .set_ideal_max_size(Self::get_ideal_image_size(&self.gl, &self.graphics));
 
-        if self.slides.should_load_next(time) {
+        if self.slides.should_load_next(time) || self.state.force_load_next {
             match self.worker.recv().try_recv() {
                 Err(TryRecvError::Empty) => {}
                 Err(error) => Err(error).context("Cannot get next image")?,
@@ -139,6 +139,7 @@ impl ApplicationContext for Application {
                     self.slides
                         .load_next(&mut self.graphics, preloaded_slide, &self.config, time)
                         .context("Cannot load next frame")?;
+                    self.state.force_load_next = false;
                 }
             }
         }
@@ -171,9 +172,10 @@ impl Application {
     }
     fn handle_command(&mut self, command: ControlCommand) -> Option<DrawResult> {
         match command {
-            // ControlCommand::NextSlide => {
-            //     self.state.force_load_next = true;
-            // }
+            ControlCommand::NextSlide => {
+                self.state.force_load_next = true;
+                self.state_notifier.send_replace(self.state.clone());
+            }
             ControlCommand::DisplayOn => {
                 if !self.state.display {
                     self.state.display = true;
