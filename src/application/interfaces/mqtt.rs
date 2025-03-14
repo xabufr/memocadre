@@ -12,7 +12,10 @@ use serde_json::json;
 use tokio::{sync::watch, try_join};
 
 use super::Interface;
-use crate::{application::{ApplicationState, ControlCommand}, configuration::Settings};
+use crate::{
+    application::{ApplicationState, ControlCommand},
+    configuration::Settings,
+};
 
 pub struct MqttInterface {
     id: String,
@@ -74,6 +77,12 @@ impl MqttInterface {
                     "command_template": r#"{ "type": "display_enabled", "value": {{ "true" if value == "ON" else "false" }} }"#,
                     "unique_id": c("display_enabled"),
                 },
+                c("next"): {
+                    "p": "button",
+                    "name": "Next photo",
+                    "command_template": r#"{ "type": "next_slide" }"#,
+                    "unique_id": c("next"),
+                },
             },
             "command_topic": self.command_topic(),
             "state_topic": self.state_topic(),
@@ -117,7 +126,8 @@ impl MqttInterface {
                     &topic,
                     QoS::AtLeastOnce,
                     true,
-                    serde_json::to_string(&mqtt_state).context("Failed to serialize state payload")?,
+                    serde_json::to_string(&mqtt_state)
+                        .context("Failed to serialize state payload")?,
                 )
                 .await
                 .context("Failed to publish state")?;
@@ -158,13 +168,22 @@ impl MqttInterface {
                         settings.send_modify(|s| {
                             s.display_duration = duration;
                         });
-                    },
+                    }
                     MqttMessage::DisplayEnabled(false) => {
-                        control.send(ControlCommand::DisplayOff).context("Failed to send control command")?;
-                    },
+                        control
+                            .send(ControlCommand::DisplayOff)
+                            .context("Failed to send control command")?;
+                    }
                     MqttMessage::DisplayEnabled(true) => {
-                        control.send(ControlCommand::DisplayOn).context("Failed to send control command")?;
-                    },
+                        control
+                            .send(ControlCommand::DisplayOn)
+                            .context("Failed to send control command")?;
+                    }
+                    MqttMessage::NextSlide => {
+                        control
+                            .send(ControlCommand::NextSlide)
+                            .context("Failed to send control command")?;
+                    }
                 }
             }
         }
@@ -221,6 +240,7 @@ struct MqttState {
 enum MqttMessage {
     DisplayDuration(u64),
     DisplayEnabled(bool),
+    NextSlide,
 }
 
 impl From<(&Settings, &ApplicationState)> for MqttState {
