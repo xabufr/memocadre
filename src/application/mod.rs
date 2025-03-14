@@ -19,12 +19,12 @@ use crate::{
     configuration::Settings,
     gl::{FutureGlThreadContext, GlContext},
     graphics::{Drawable, Graphics},
-    support::ApplicationContext,
+    support::{ApplicationContext, DrawResult},
     worker::Worker,
 };
 
 pub enum ControlCommand {
-    NextSlide,
+    // NextSlide,
     DisplayOn,
     DisplayOff,
     // PreviousSlide,
@@ -108,10 +108,23 @@ impl ApplicationContext for Application {
         })
     }
 
-    fn draw_frame(&mut self) -> Result<()> {
+    fn draw_frame(&mut self) -> Result<DrawResult> {
         if let Ok(true) = self.config_watch.has_changed() {
             self.config = self.config_watch.borrow_and_update().clone();
         }
+        while let Ok(command) = self.control.try_recv() {
+            if let Some(res) = self.handle_command(command) {
+                return Ok(res);
+            }
+        }
+        if !self.state.display {
+            while let Ok(command) = self.control.recv() {
+                if let Some(res) = self.handle_command(command) {
+                    return Ok(res);
+                }
+            }
+        }
+
         self.gl.clear();
         let time = Instant::now();
         self.graphics.begin_frame();
@@ -143,7 +156,7 @@ impl ApplicationContext for Application {
             fps.draw(&self.graphics)?;
         }
         self.gl.swap_buffers()?;
-        Ok(())
+        Ok(DrawResult::FrameDrawn)
     }
 }
 
@@ -155,5 +168,27 @@ impl Application {
         let fb_dims = graphics.get_dimensions();
 
         Extent2::min(fb_dims, hw_max)
+    }
+    fn handle_command(&mut self, command: ControlCommand) -> Option<DrawResult> {
+        match command {
+            // ControlCommand::NextSlide => {
+            //     self.state.force_load_next = true;
+            // }
+            ControlCommand::DisplayOn => {
+                if !self.state.display {
+                    self.state.display = true;
+                    self.state_notifier.send_replace(self.state.clone());
+                    return Some(DrawResult::TurnDisplayOn);
+                }
+            }
+            ControlCommand::DisplayOff => {
+                if self.state.display {
+                    self.state.display = false;
+                    self.state_notifier.send_replace(self.state.clone());
+                    return Some(DrawResult::TurnDisplayOff);
+                }
+            }
+        }
+        None
     }
 }

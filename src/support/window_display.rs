@@ -6,6 +6,7 @@ use glutin::{
     display::{GetGlDisplay, GlDisplay},
     surface::WindowSurface,
 };
+use log::warn;
 use raw_window_handle::HasWindowHandle;
 use vek::Rect;
 use winit::{
@@ -13,7 +14,7 @@ use winit::{
     window::WindowId,
 };
 
-use super::ApplicationContext;
+use super::{ApplicationContext, DrawResult};
 use crate::gl::{FutureGlThreadContext, GlContext};
 
 pub struct State<T> {
@@ -62,7 +63,10 @@ impl<T: ApplicationContext + 'static> ApplicationHandler<()> for App<T> {
             }
             winit::event::WindowEvent::RedrawRequested => {
                 if let Some(state) = &mut self.state {
-                    state.context.draw_frame().expect("Cannot draw frame");
+                    let result = state.context.draw_frame().expect("Cannot draw frame");
+                    if result == DrawResult::TurnDisplayOff || result == DrawResult::TurnDisplayOn {
+                        warn!("Turning display off/on is not supported on desktop platforms");
+                    }
                     if self.close_promptly {
                         event_loop.exit();
                     }

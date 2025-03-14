@@ -66,16 +66,23 @@ where
         PageFlipper::init(&gbm_data.device, &surface).context("Cannot create page flipper")?;
 
     let mut app = T::new(Rc::clone(&gl), bg_gl).context("Cannot create application")?;
-    // let enabled = false;
     loop {
-        // // TODO implement switching
-        // if enabled {
-        app.draw_frame().context("Error while drawing a frame")?;
+        let result = app.draw_frame().context("Error while drawing a frame")?;
 
-        page_flipper.flip()?;
-        // } else {
-        //     gbm_data.device.set_dpms_property(DpmsValue::Standby)?;
-        //     sleep(Duration::from_secs(60));
-        // }
+        match result {
+            super::DrawResult::FrameDrawn => page_flipper.flip()?,
+            super::DrawResult::TurnDisplayOff => {
+                gbm_data
+                    .device
+                    .set_dpms_property(DpmsValue::Off)
+                    .context("Cannot turn off display")?;
+            }
+            super::DrawResult::TurnDisplayOn => {
+                gbm_data
+                    .device
+                    .set_dpms_property(DpmsValue::On)
+                    .context("Cannot turn on display")?;
+            }
+        }
     }
 }

@@ -13,9 +13,16 @@ use self::gbm_display::start_gbm;
 use self::window_display::State;
 use crate::gl::{FutureGlThreadContext, GlContext};
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum DrawResult {
+    FrameDrawn,
+    TurnDisplayOff,
+    TurnDisplayOn,
+}
+
 pub trait ApplicationContext: Sized {
-    fn draw_frame(&mut self) -> Result<()> {
-        Ok(())
+    fn draw_frame(&mut self) -> Result<DrawResult> {
+        Ok(DrawResult::FrameDrawn)
     }
     fn new(gl: Rc<GlContext>, bg_gl: FutureGlThreadContext) -> Result<Self>;
     #[cfg(feature = "winit")]
