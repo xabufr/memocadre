@@ -66,7 +66,14 @@ impl MqttInterface {
                     "value_template": "{{ value_json.display_duration }}",
                     "command_template": r#"{ "type": "display_duration", "value": {{ value }} }"#,
                     "unique_id": c("display_duration"),
-                }
+                },
+                c("display_enabled"): {
+                    "p": "switch",
+                    "name": "Display Enabled",
+                    "value_template": r#"{{ "ON" if value_json.display_enabled else "OFF" }}"#,
+                    "command_template": r#"{ "type": "display_enabled", "value": {{ "true" if value == "ON" else "false" }} }"#,
+                    "unique_id": c("display_enabled"),
+                },
             },
             "command_topic": self.command_topic(),
             "state_topic": self.state_topic(),
@@ -95,28 +102,35 @@ impl MqttInterface {
     async fn state_send(
         &self,
         client: &AsyncClient,
-        settings: watch::Receiver<Settings>,
+        mut state: watch::Receiver<ApplicationState>,
+        mut settings: watch::Receiver<Settings>,
     ) -> Result<()> {
         let topic = self.state_topic();
         loop {
-            let state = {
-                let settings = settings.borrow();
-                MqttState::from(settings.deref())
+            let mqtt_state = {
+                let settings = settings.borrow_and_update();
+                let state = state.borrow_and_update();
+                MqttState::from((settings.deref(), state.deref()))
             };
             client
                 .publish(
                     &topic,
                     QoS::AtLeastOnce,
                     true,
-                    serde_json::to_string(&state).context("Failed to serialize state payload")?,
+                    serde_json::to_string(&mqtt_state).context("Failed to serialize state payload")?,
                 )
                 .await
                 .context("Failed to publish state")?;
+            tokio::select! {
+                _ = state.changed() => {},
+                _ = settings.changed() => {},
+            }
         }
     }
 
     async fn command_receive(
         &self,
+        control: mpsc::Sender<ControlCommand>,
         connection: EventLoop,
         settings: watch::Sender<Settings>,
     ) -> Result<()> {
@@ -144,7 +158,13 @@ impl MqttInterface {
                         settings.send_modify(|s| {
                             s.display_duration = duration;
                         });
-                    }
+                    },
+                    MqttMessage::DisplayEnabled(false) => {
+                        control.send(ControlCommand::DisplayOff).context("Failed to send control command")?;
+                    },
+                    MqttMessage::DisplayEnabled(true) => {
+                        control.send(ControlCommand::DisplayOn).context("Failed to send control command")?;
+                    },
                 }
             }
         }
@@ -193,18 +213,21 @@ impl RetryPoller {
 #[derive(Debug, Serialize)]
 struct MqttState {
     display_duration: u64,
+    display_enabled: bool,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
 enum MqttMessage {
     DisplayDuration(u64),
+    DisplayEnabled(bool),
 }
 
-impl From<&Settings> for MqttState {
-    fn from(settings: &Settings) -> Self {
+impl From<(&Settings, &ApplicationState)> for MqttState {
+    fn from(state: (&Settings, &ApplicationState)) -> Self {
         MqttState {
-            display_duration: settings.display_duration.as_secs(),
+            display_duration: state.0.display_duration.as_secs(),
+            display_enabled: state.1.display,
         }
     }
 }
@@ -223,9 +246,9 @@ impl Interface for MqttInterface {
         let (client, connection) = AsyncClient::new(mqtt_options, 10);
 
         try_join!(
-            self.state_send(&client, settings.subscribe()),
+            self.state_send(&client, state.subscribe(), settings.subscribe()),
             self.config_send(&client),
-            self.command_receive(connection, settings),
+            self.command_receive(control, connection, settings),
         )
         .context("in MQTT interface")?;
         Ok(())
