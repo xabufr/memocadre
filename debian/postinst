@@ -6,6 +6,6 @@ if ! id -u $USER &>/dev/null; then
     adduser --system --no-create-home --disabled-password $USER
 fi
 
-chown $USER /etc/photo-kiosk.yaml
+chown -R $USER /etc/photo-kiosk
 
 #DEBHELPER#
