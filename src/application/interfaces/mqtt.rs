@@ -2,7 +2,7 @@ use std::{cell::RefCell, ops::Deref, sync::mpsc, time::Duration};
 
 use anyhow::{Context, Result};
 use backon::{ExponentialBuilder, Retryable};
-use log::error;
+use log::{error, warn};
 use rumqttc::v5::{
     mqttbytes::{v5::ConnectReturnCode, QoS},
     AsyncClient, ConnectionError, Event, EventLoop, Incoming, MqttOptions,
@@ -23,7 +23,14 @@ pub struct MqttInterface {
 
 impl MqttInterface {
     pub fn new() -> Self {
-        let id = std::env::var("MQTT_ID").unwrap_or("photokiosk".to_string());
+        let id = std::env::var("MQTT_ID").unwrap_or_else(|_| match machine_uid::get() {
+            Ok(id) => id,
+            Err(err) => {
+                let def = "photokiosk".to_string();
+                warn!("Failed to get machine id: {}, defaulting to {}", err, def);
+                def
+            }
+        });
         Self { id }
     }
 

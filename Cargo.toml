@@ -35,6 +35,7 @@ humantime-serde = "1.1.1"
 image = { version = "0.25.5", features = ["default-formats"], default-features = false }
 itertools = "0.14.0"
 log = "0.4.22"
+machine-uid = "0.5.3"
 memoffset = "0.9.1"
 micromap = "0.0.15"
 minreq = { version = "2.13.0", features = ["https-rustls", "punycode", "json-using-serde"] }
