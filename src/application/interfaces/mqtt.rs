@@ -266,7 +266,8 @@ impl Interface for MqttInterface {
         state: watch::Sender<ApplicationState>,
         settings: watch::Sender<Settings>,
     ) -> Result<()> {
-        let mut mqtt_options = MqttOptions::new("rumqtt", "192.168.1.18", 1883);
+        let mut mqtt_options =
+            MqttOptions::new(format!("photokiosk_{}", self.id), "192.168.1.18", 1883);
         let user = std::env::var("MQTT_USER")?;
         let password = std::env::var("MQTT_PASSWORD")?;
         mqtt_options.set_credentials(user, password);
