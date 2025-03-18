@@ -73,7 +73,7 @@ pub struct MqttConfig {
 #[derive(Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct MqttCredentials {
-    pub user: String,
+    pub username: String,
     pub password: String,
 }
 

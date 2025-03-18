@@ -5,12 +5,14 @@ mod slideshow;
 
 use std::{
     rc::Rc,
-    sync::mpsc::{self, Receiver, TryRecvError},
-    time::Instant,
+    sync::mpsc::{self, Receiver, RecvTimeoutError, TryRecvError},
+    thread,
+    time::{Duration, Instant},
 };
 
 use anyhow::{Context, Result};
 use config_provider::ConfigProvider;
+use log::debug;
 use tokio::sync::watch;
 use vek::Extent2;
 
@@ -56,6 +58,7 @@ pub struct Application {
     state: ApplicationState,
     state_notifier: watch::Sender<ApplicationState>,
     control: Receiver<ControlCommand>,
+    bg_interfaces_thread: Option<thread::JoinHandle<Result<()>>>,
 }
 
 impl ApplicationContext for Application {
@@ -69,14 +72,14 @@ impl ApplicationContext for Application {
         let (control_sender, control) = mpsc::channel();
         let state_notifier = watch::Sender::new(ApplicationState::default());
 
-        interfaces::InterfaceManager::new()
+        let bg_interfaces_thread = interfaces::InterfaceManager::new()
             .start(
                 &app_config,
                 control_sender,
                 state_notifier.clone(),
                 config_sender.clone(),
             )
-            .unwrap();
+            .context("Cannot start interface")?;
 
         let mut config_watch = config_sender.subscribe();
         let config = config_watch.borrow_and_update().clone();
@@ -106,10 +109,12 @@ impl ApplicationContext for Application {
             control,
             state: state_notifier.clone().borrow().clone(),
             state_notifier,
+            bg_interfaces_thread: Some(bg_interfaces_thread),
         })
     }
 
     fn draw_frame(&mut self) -> Result<DrawResult> {
+        self.check_bg_thread()?;
         if let Ok(true) = self.config_watch.has_changed() {
             self.config = self.config_watch.borrow_and_update().clone();
         }
@@ -119,45 +124,21 @@ impl ApplicationContext for Application {
             }
         }
         if !self.state.display {
-            while let Ok(command) = self.control.recv() {
-                if let Some(res) = self.handle_command(command) {
-                    return Ok(res);
+            loop {
+                match self.control.recv_timeout(Duration::from_secs(1)) {
+                    Ok(command) => {
+                        if let Some(res) = self.handle_command(command) {
+                            return Ok(res);
+                        }
+                    }
+                    Err(RecvTimeoutError::Timeout) => return Ok(DrawResult::Noop),
+                    Err(err) => {
+                        Err(err).context("Cannot receive command")?;
+                    }
                 }
             }
         }
-
-        self.gl.clear();
-        let time = Instant::now();
-        self.graphics.begin_frame();
-        self.worker
-            .set_ideal_max_size(Self::get_ideal_image_size(&self.gl, &self.graphics));
-
-        if self.slides.should_load_next(time) || self.state.force_load_next {
-            match self.worker.recv().try_recv() {
-                Err(TryRecvError::Empty) => {}
-                Err(error) => Err(error).context("Cannot get next image")?,
-                Ok(preloaded_slide) => {
-                    self.slides
-                        .load_next(&mut self.graphics, preloaded_slide, &self.config, time)
-                        .context("Cannot load next frame")?;
-                    self.state.force_load_next = false;
-                }
-            }
-        }
-
-        self.slides.update(&self.graphics, &self.config, time);
-
-        if let Some(fps) = &mut self.fps {
-            fps.count_frame(time);
-        }
-
-        self.graphics.update();
-
-        self.slides.draw(&self.graphics)?;
-        if let Some(fps) = &self.fps {
-            fps.draw(&self.graphics)?;
-        }
-        self.gl.swap_buffers()?;
+        self.draw()?;
         Ok(DrawResult::FrameDrawn)
     }
 }
@@ -194,5 +175,55 @@ impl Application {
             }
         }
         None
+    }
+
+    fn check_bg_thread(&mut self) -> Result<()> {
+        if let Some(bg) = &self.bg_interfaces_thread {
+            if bg.is_finished() {
+                let bg = self
+                    .bg_interfaces_thread
+                    .take()
+                    .expect("bg thread is finished");
+                match bg.join() {
+                    Err(err) => anyhow::bail!("Panic in bg thread: {:?}", err),
+                    Ok(Err(err)) => Err(err).context("Error in bg thread: {}")?,
+                    Ok(Ok(())) => {
+                        debug!("bg interfaces thread finished");
+                    }
+                };
+            }
+        }
+        Ok(())
+    }
+
+    fn draw(&mut self) -> Result<(), anyhow::Error> {
+        self.gl.clear();
+        let time = Instant::now();
+        self.graphics.begin_frame();
+        self.worker
+            .set_ideal_max_size(Self::get_ideal_image_size(&self.gl, &self.graphics));
+        if self.slides.should_load_next(time) || self.state.force_load_next {
+            match self.worker.recv().try_recv() {
+                Err(TryRecvError::Empty) => {}
+                Err(error) => Err(error).context("Cannot get next image")?,
+                Ok(preloaded_slide) => {
+                    self.slides
+                        .load_next(&mut self.graphics, preloaded_slide, &self.config, time)
+                        .context("Cannot load next frame")?;
+                    self.state.force_load_next = false;
+                }
+            }
+        }
+        self.slides.update(&self.graphics, &self.config, time);
+        if let Some(fps) = &mut self.fps {
+            fps.count_frame(time);
+        }
+        self.graphics.update();
+        self.slides.draw(&self.graphics)?;
+        if let Some(fps) = &self.fps {
+            fps.draw(&self.graphics)?;
+        }
+        self.gl.swap_buffers()?;
+        Ok(())
     }
 }

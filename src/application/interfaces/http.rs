@@ -1,6 +1,6 @@
 use std::sync::mpsc;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use axum::{
     http::StatusCode,
     routing::{get, put},
@@ -57,8 +57,10 @@ impl Interface for HttpInterface {
 
         let listener = tokio::net::TcpListener::bind(&self.config.bind_address)
             .await
-            .unwrap();
-        axum::serve(listener, app).await.unwrap();
+            .context("Failed to bind to address")?;
+        axum::serve(listener, app)
+            .await
+            .context("Failed to start HTTP server")?;
         Ok(())
     }
 }

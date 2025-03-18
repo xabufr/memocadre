@@ -15,6 +15,7 @@ use crate::gl::{FutureGlThreadContext, GlContext};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum DrawResult {
+    Noop,
     FrameDrawn,
     TurnDisplayOff,
     TurnDisplayOn,

@@ -1,9 +1,9 @@
 mod http;
 mod mqtt;
 
-use std::sync::mpsc;
+use std::{sync::mpsc, thread};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use tokio::{sync::watch, try_join};
 
 use self::{http::HttpInterface, mqtt::MqttInterface};
@@ -32,16 +32,17 @@ impl InterfaceManager {
         control: mpsc::Sender<ControlCommand>,
         state: watch::Sender<ApplicationState>,
         settings: watch::Sender<Settings>,
-    ) -> Result<()> {
+    ) -> Result<thread::JoinHandle<Result<()>>> {
         let config = config.clone();
-        std::thread::spawn(move || {
-            let runtime = tokio::runtime::Builder::new_current_thread()
-                .enable_time()
-                .enable_io()
-                .build()
-                .unwrap();
-            runtime
-                .block_on(async move {
+        let bg_thread = std::thread::Builder::new()
+            .name("interfaces".to_string())
+            .spawn(move || -> Result<()> {
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .enable_time()
+                    .enable_io()
+                    .build()
+                    .context("Failed to create tokio runtime")?;
+                runtime.block_on(async move {
                     let http = async {
                         if let Some(http_config @ HttpConfig { enabled: true, .. }) = config.http {
                             let interface = HttpInterface::new(http_config);
@@ -60,9 +61,9 @@ impl InterfaceManager {
                         Ok::<(), anyhow::Error>(())
                     };
                     try_join!(http, mqtt)
-                })
-                .unwrap();
-        });
-        Ok(())
+                })?;
+                Ok(())
+            })?;
+        Ok(bg_thread)
     }
 }

@@ -70,6 +70,7 @@ where
         let result = app.draw_frame().context("Error while drawing a frame")?;
 
         match result {
+            super::DrawResult::Noop => continue,
             super::DrawResult::FrameDrawn => page_flipper.flip()?,
             super::DrawResult::TurnDisplayOff => {
                 gbm_data

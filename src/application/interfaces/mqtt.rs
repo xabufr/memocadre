@@ -274,7 +274,7 @@ impl Interface for MqttInterface {
             self.config.port,
         );
         if let Some(creds) = &self.config.credentials {
-            mqtt_options.set_credentials(&creds.user, &creds.password);
+            mqtt_options.set_credentials(&creds.username, &creds.password);
         }
         let (client, connection) = AsyncClient::new(mqtt_options, 10);
 
