@@ -36,7 +36,7 @@ impl MqttInterface {
     }
 
     fn topic(&self, kind: &str) -> String {
-        format!("homeassistant/device/{}/{}", self.id, kind)
+        format!("homeassistant/device/photokiosk_{}/{}", self.id, kind)
     }
 
     fn command_topic(&self) -> String {
