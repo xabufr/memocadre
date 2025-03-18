@@ -41,7 +41,13 @@ impl MqttInterface {
                 def
             }
         });
-        Self { id, config, control, state, settings }
+        Self {
+            id,
+            config,
+            control,
+            state,
+            settings,
+        }
     }
 
     fn topic(&self, kind: &str) -> String {
@@ -125,10 +131,7 @@ impl MqttInterface {
         Ok(())
     }
 
-    async fn state_send(
-        &self,
-        client: &AsyncClient,
-    ) -> Result<()> {
+    async fn state_send(&self, client: &AsyncClient) -> Result<()> {
         let mut state = self.state.subscribe();
         let mut settings = self.settings.subscribe();
         let topic = self.state_topic();
@@ -155,10 +158,7 @@ impl MqttInterface {
         }
     }
 
-    async fn command_receive(
-        &self,
-        connection: EventLoop,
-    ) -> Result<()> {
+    async fn command_receive(&self, connection: EventLoop) -> Result<()> {
         let command_topic = self.command_topic();
         let poller = RetryPoller::new(connection);
         loop {
@@ -217,6 +217,9 @@ impl RetryPoller {
     }
 
     async fn poll(&self) -> Result<Event> {
+        // This is safe because the connection is only borrowed for the duration of the poll
+        // and the poll method is not called again until the connection is returned
+        #[allow(clippy::await_holding_refcell_ref)]
         let event = (|| async { self.connection.borrow_mut().poll().await })
             .retry(ExponentialBuilder::default())
             .sleep(tokio::time::sleep)
@@ -227,20 +230,20 @@ impl RetryPoller {
     }
 
     fn is_recoverable(err: &ConnectionError) -> bool {
-        match err {
+        !matches!(
+            err,
             ConnectionError::ConnectionRefused(
                 ConnectReturnCode::ProtocolError
-                | ConnectReturnCode::UnsupportedProtocolVersion
-                | ConnectReturnCode::ClientIdentifierNotValid
-                | ConnectReturnCode::BadUserNamePassword
-                | ConnectReturnCode::NotAuthorized
-                | ConnectReturnCode::Banned
-                | ConnectReturnCode::BadAuthenticationMethod
-                | ConnectReturnCode::UseAnotherServer
-                | ConnectReturnCode::ServerMoved,
-            ) => false,
-            _ => true,
-        }
+                    | ConnectReturnCode::UnsupportedProtocolVersion
+                    | ConnectReturnCode::ClientIdentifierNotValid
+                    | ConnectReturnCode::BadUserNamePassword
+                    | ConnectReturnCode::NotAuthorized
+                    | ConnectReturnCode::Banned
+                    | ConnectReturnCode::BadAuthenticationMethod
+                    | ConnectReturnCode::UseAnotherServer
+                    | ConnectReturnCode::ServerMoved,
+            )
+        )
     }
 }
 
@@ -268,9 +271,7 @@ impl From<(&Settings, &ApplicationState)> for MqttState {
 }
 
 impl Interface for MqttInterface {
-    async fn start(
-        &self,
-    ) -> Result<()> {
+    async fn start(&self) -> Result<()> {
         info!("Starting MQTT interface");
         let mut mqtt_options = MqttOptions::new(
             format!("photokiosk_{}", self.id),
