@@ -1,5 +1,3 @@
-use std::sync::mpsc;
-
 use anyhow::{Context, Result};
 use axum::{
     http::StatusCode,
@@ -10,34 +8,28 @@ use log::info;
 use tokio::sync::watch;
 
 use super::Interface;
-use crate::{
-    application::{ApplicationState, ControlCommand},
-    configuration::{HttpConfig, Settings},
-};
+use crate::configuration::{HttpConfig, Settings};
 
 pub struct HttpInterface {
     config: HttpConfig,
+
+    settings: watch::Sender<Settings>,
 }
 
 impl HttpInterface {
-    pub fn new(config: HttpConfig) -> Self {
-        Self { config }
+    pub fn new(config: HttpConfig, settings: watch::Sender<Settings>) -> Self {
+        Self { config, settings }
     }
 }
 
 impl Interface for HttpInterface {
-    async fn start(
-        &self,
-        _control: mpsc::Sender<ControlCommand>,
-        _state: watch::Sender<ApplicationState>,
-        settings: watch::Sender<Settings>,
-    ) -> Result<()> {
+    async fn start(&self) -> Result<()> {
         info!("Starting HTTP interface");
         let app = Router::new()
             .route(
                 "/settings",
                 get({
-                    let settings = settings.clone();
+                    let settings = self.settings.clone();
                     || async move {
                         let settings = settings.borrow().clone();
                         Json::from(settings)
@@ -47,7 +39,7 @@ impl Interface for HttpInterface {
             .route(
                 "/settings",
                 put({
-                    let settings = settings.clone();
+                    let settings = self.settings.clone();
                     |new_settings: Json<Settings>| async move {
                         settings.send_replace(new_settings.0);
                     }

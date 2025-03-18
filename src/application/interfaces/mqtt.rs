@@ -20,10 +20,19 @@ use crate::{
 pub struct MqttInterface {
     id: String,
     config: MqttConfig,
+
+    control: mpsc::Sender<ControlCommand>,
+    state: watch::Sender<ApplicationState>,
+    settings: watch::Sender<Settings>,
 }
 
 impl MqttInterface {
-    pub fn new(config: MqttConfig) -> Self {
+    pub fn new(
+        config: MqttConfig,
+        control: mpsc::Sender<ControlCommand>,
+        state: watch::Sender<ApplicationState>,
+        settings: watch::Sender<Settings>,
+    ) -> Self {
         let id = std::env::var("MQTT_ID").unwrap_or_else(|_| match machine_uid::get() {
             Ok(id) => id,
             Err(err) => {
@@ -32,7 +41,7 @@ impl MqttInterface {
                 def
             }
         });
-        Self { id, config }
+        Self { id, config, control, state, settings }
     }
 
     fn topic(&self, kind: &str) -> String {
@@ -119,9 +128,9 @@ impl MqttInterface {
     async fn state_send(
         &self,
         client: &AsyncClient,
-        mut state: watch::Receiver<ApplicationState>,
-        mut settings: watch::Receiver<Settings>,
     ) -> Result<()> {
+        let mut state = self.state.subscribe();
+        let mut settings = self.settings.subscribe();
         let topic = self.state_topic();
         loop {
             let mqtt_state = {
@@ -148,9 +157,7 @@ impl MqttInterface {
 
     async fn command_receive(
         &self,
-        control: mpsc::Sender<ControlCommand>,
         connection: EventLoop,
-        settings: watch::Sender<Settings>,
     ) -> Result<()> {
         let command_topic = self.command_topic();
         let poller = RetryPoller::new(connection);
@@ -173,22 +180,22 @@ impl MqttInterface {
                 match message {
                     MqttMessage::DisplayDuration(duration) => {
                         let duration = Duration::from_secs(duration);
-                        settings.send_modify(|s| {
+                        self.settings.send_modify(|s| {
                             s.display_duration = duration;
                         });
                     }
                     MqttMessage::DisplayEnabled(false) => {
-                        control
+                        self.control
                             .send(ControlCommand::DisplayOff)
                             .context("Failed to send control command")?;
                     }
                     MqttMessage::DisplayEnabled(true) => {
-                        control
+                        self.control
                             .send(ControlCommand::DisplayOn)
                             .context("Failed to send control command")?;
                     }
                     MqttMessage::NextSlide => {
-                        control
+                        self.control
                             .send(ControlCommand::NextSlide)
                             .context("Failed to send control command")?;
                     }
@@ -263,9 +270,6 @@ impl From<(&Settings, &ApplicationState)> for MqttState {
 impl Interface for MqttInterface {
     async fn start(
         &self,
-        control: mpsc::Sender<ControlCommand>,
-        state: watch::Sender<ApplicationState>,
-        settings: watch::Sender<Settings>,
     ) -> Result<()> {
         info!("Starting MQTT interface");
         let mut mqtt_options = MqttOptions::new(
@@ -279,9 +283,9 @@ impl Interface for MqttInterface {
         let (client, connection) = AsyncClient::new(mqtt_options, 10);
 
         try_join!(
-            self.state_send(&client, state.subscribe(), settings.subscribe()),
+            self.state_send(&client),
             self.config_send(&client),
-            self.command_receive(control, connection, settings),
+            self.command_receive(connection),
         )
         .context("in MQTT interface")?;
         Ok(())

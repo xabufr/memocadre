@@ -13,12 +13,7 @@ use crate::configuration::{AppConfig, HttpConfig, MqttConfig, Settings};
 pub struct InterfaceManager {}
 
 pub trait Interface {
-    async fn start(
-        &self,
-        control: mpsc::Sender<ControlCommand>,
-        state: watch::Sender<ApplicationState>,
-        settings: watch::Sender<Settings>,
-    ) -> Result<()>;
+    async fn start(&self) -> Result<()>;
 }
 
 impl InterfaceManager {
@@ -45,18 +40,20 @@ impl InterfaceManager {
                 runtime.block_on(async move {
                     let http = async {
                         if let Some(http_config @ HttpConfig { enabled: true, .. }) = config.http {
-                            let interface = HttpInterface::new(http_config);
-                            interface
-                                .start(control.clone(), state.clone(), settings.clone())
-                                .await?;
+                            let interface = HttpInterface::new(http_config, settings.clone());
+                            interface.start().await?;
                         }
                         Ok::<(), anyhow::Error>(())
                     };
                     let mqtt = async {
                         if let Some(mqtt_config @ MqttConfig { enabled: true, .. }) = config.mqtt {
-                            let mqtt = MqttInterface::new(mqtt_config);
-                            mqtt.start(control.clone(), state.clone(), settings.clone())
-                                .await?
+                            let mqtt = MqttInterface::new(
+                                mqtt_config,
+                                control.clone(),
+                                state.clone(),
+                                settings.clone(),
+                            );
+                            mqtt.start().await?
                         }
                         Ok::<(), anyhow::Error>(())
                     };
