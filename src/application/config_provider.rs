@@ -43,7 +43,7 @@ impl ConfigProvider {
     }
 
     pub fn load_config(&self) -> Result<AppConfig> {
-        let config_path = std::env::var("SOURCES_PATH").unwrap_or("sources".to_string());
+        let config_path = std::env::var("CONFIG_PATH").unwrap_or("config".to_string());
         let settings = Config::builder()
             .add_source(::config::File::with_name(&config_path))
             .build()
