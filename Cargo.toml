@@ -69,7 +69,8 @@ assets = [
   # binary
   ["target/release/photo-kiosk", "/usr/bin/", "755"],
   # config
-  ["debian/config.yaml", "etc/photo-kiosk.yaml", "600"],
+  ["debian/config.yaml", "etc/photo-kiosk/config.yaml", "600"],
+  ["debian/settings.yaml", "etc/photo-kiosk/settings.yaml", "600"],
 ]
 depends = [
     "libgbm1"
