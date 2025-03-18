@@ -7,7 +7,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 #[serde(deny_unknown_fields, default)]
-pub struct BlurConfig {
+pub struct BlurSettings {
     #[default(6.0)]
     pub radius: f32,
     #[default(3)]
@@ -38,7 +38,7 @@ pub struct Settings {
     pub init_slide: InitSlideOptions,
 
     /// The options for the blur effect.
-    pub blur_options: BlurConfig,
+    pub blur_options: BlurSettings,
 
     /// The options for the background, aka the area around the photos when they don't fill the screen.
     /// Defaults to a blurred version of the photo.

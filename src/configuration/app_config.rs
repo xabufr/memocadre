@@ -3,8 +3,9 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields)]
-pub struct AppSources {
+pub struct AppConfig {
     pub sources: Vec<Source>,
+    pub mqtt: Option<MqttConfig>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -55,6 +56,23 @@ pub struct ImmichSmartSearchQuery {
     pub persons: Option<Vec<ImmichPerson>>,
     pub query: String,
     pub city: Option<String>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct MqttConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    pub host: String,
+    pub port: u16,
+    pub credentials: Option<MqttCredentials>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct MqttCredentials {
+    pub user: String,
+    pub password: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]

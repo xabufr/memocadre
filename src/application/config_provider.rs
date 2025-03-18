@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::configuration::{AppSources, Settings};
+use crate::configuration::{AppConfig, Settings};
 use anyhow::{Context, Result};
 use config::Config;
 use directories::ProjectDirs;
@@ -41,13 +41,13 @@ impl ConfigProvider {
         Ok(config)
     }
 
-    pub fn load_sources(&self) -> Result<AppSources> {
+    pub fn load_sources(&self) -> Result<AppConfig> {
         let config_path = std::env::var("SOURCES_PATH").unwrap_or("sources".to_string());
         let settings = Config::builder()
             .add_source(::config::File::with_name(&config_path))
             .build()
             .context("Cannot parse configuration")?;
-        let config: AppSources = settings
+        let config: AppConfig = settings
             .try_deserialize()
             .context("Cannot deserialize sources")?;
         Ok(config)

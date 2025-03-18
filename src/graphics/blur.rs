@@ -5,7 +5,7 @@ use serde::Deserialize;
 
 use super::Vertex2dUv;
 use crate::{
-    configuration::BlurConfig,
+    configuration::BlurSettings,
     gl::{
         buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
         framebuffer::FramebufferObject,
@@ -29,8 +29,8 @@ pub struct BlurOptions {
     pub passes: u8,
 }
 
-impl From<BlurConfig> for BlurOptions {
-    fn from(options: BlurConfig) -> Self {
+impl From<BlurSettings> for BlurOptions {
+    fn from(options: BlurSettings) -> Self {
         Self {
             radius: options.radius,
             passes: options.passes,
