@@ -63,7 +63,7 @@ impl ApplicationContext for Application {
 
     fn new(gl: Rc<GlContext>, bg_gl: FutureGlThreadContext) -> Result<Self> {
         let provider = ConfigProvider::new();
-        let sources = provider.load_sources()?;
+        let app_config = provider.load_config()?;
         let settings = provider.load_settings()?;
         let config_sender = watch::Sender::new(settings);
         let (control_sender, control) = mpsc::channel();
@@ -71,6 +71,7 @@ impl ApplicationContext for Application {
 
         interfaces::InterfaceManager::new()
             .start(
+                &app_config,
                 control_sender,
                 state_notifier.clone(),
                 config_sender.clone(),
@@ -86,7 +87,7 @@ impl ApplicationContext for Application {
             config_sender.subscribe(),
             Self::get_ideal_image_size(&gl, &graphics),
             bg_gl,
-            sources.sources,
+            app_config.sources,
         );
         let fps = if config.debug.show_fps {
             Some(FPSCounter::new(&mut graphics)?)
@@ -170,6 +171,7 @@ impl Application {
 
         Extent2::min(fb_dims, hw_max)
     }
+
     fn handle_command(&mut self, command: ControlCommand) -> Option<DrawResult> {
         match command {
             ControlCommand::NextSlide => {

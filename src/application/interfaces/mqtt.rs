@@ -2,7 +2,7 @@ use std::{cell::RefCell, ops::Deref, sync::mpsc, time::Duration};
 
 use anyhow::{Context, Result};
 use backon::{ExponentialBuilder, Retryable};
-use log::{error, warn};
+use log::{error, info, warn};
 use rumqttc::v5::{
     mqttbytes::{v5::ConnectReturnCode, QoS},
     AsyncClient, ConnectionError, Event, EventLoop, Incoming, MqttOptions,
@@ -14,15 +14,16 @@ use tokio::{sync::watch, try_join};
 use super::Interface;
 use crate::{
     application::{ApplicationState, ControlCommand},
-    configuration::Settings,
+    configuration::{MqttConfig, Settings},
 };
 
 pub struct MqttInterface {
     id: String,
+    config: MqttConfig,
 }
 
 impl MqttInterface {
-    pub fn new() -> Self {
+    pub fn new(config: MqttConfig) -> Self {
         let id = std::env::var("MQTT_ID").unwrap_or_else(|_| match machine_uid::get() {
             Ok(id) => id,
             Err(err) => {
@@ -31,7 +32,7 @@ impl MqttInterface {
                 def
             }
         });
-        Self { id }
+        Self { id, config }
     }
 
     fn topic(&self, kind: &str) -> String {
@@ -266,11 +267,15 @@ impl Interface for MqttInterface {
         state: watch::Sender<ApplicationState>,
         settings: watch::Sender<Settings>,
     ) -> Result<()> {
-        let mut mqtt_options =
-            MqttOptions::new(format!("photokiosk_{}", self.id), "192.168.1.18", 1883);
-        let user = std::env::var("MQTT_USER")?;
-        let password = std::env::var("MQTT_PASSWORD")?;
-        mqtt_options.set_credentials(user, password);
+        info!("Starting MQTT interface");
+        let mut mqtt_options = MqttOptions::new(
+            format!("photokiosk_{}", self.id),
+            &self.config.host,
+            self.config.port,
+        );
+        if let Some(creds) = &self.config.credentials {
+            mqtt_options.set_credentials(&creds.user, &creds.password);
+        }
         let (client, connection) = AsyncClient::new(mqtt_options, 10);
 
         try_join!(

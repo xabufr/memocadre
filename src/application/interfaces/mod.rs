@@ -8,7 +8,7 @@ use tokio::{sync::watch, try_join};
 
 use self::{http::HttpInterface, mqtt::MqttInterface};
 use super::{ApplicationState, ControlCommand};
-use crate::configuration::Settings;
+use crate::configuration::{AppConfig, HttpConfig, MqttConfig, Settings};
 
 pub struct InterfaceManager {}
 
@@ -28,11 +28,12 @@ impl InterfaceManager {
 
     pub fn start(
         &self,
+        config: &AppConfig,
         control: mpsc::Sender<ControlCommand>,
         state: watch::Sender<ApplicationState>,
         settings: watch::Sender<Settings>,
     ) -> Result<()> {
-        let interface = HttpInterface;
+        let config = config.clone();
         std::thread::spawn(move || {
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_time()
@@ -41,9 +42,23 @@ impl InterfaceManager {
                 .unwrap();
             runtime
                 .block_on(async move {
-                    let http = interface.start(control.clone(), state.clone(), settings.clone());
-                    let mqtt = MqttInterface::new();
-                    let mqtt = mqtt.start(control.clone(), state.clone(), settings.clone());
+                    let http = async {
+                        if let Some(http_config @ HttpConfig { enabled: true, .. }) = config.http {
+                            let interface = HttpInterface::new(http_config);
+                            interface
+                                .start(control.clone(), state.clone(), settings.clone())
+                                .await?;
+                        }
+                        Ok::<(), anyhow::Error>(())
+                    };
+                    let mqtt = async {
+                        if let Some(mqtt_config @ MqttConfig { enabled: true, .. }) = config.mqtt {
+                            let mqtt = MqttInterface::new(mqtt_config);
+                            mqtt.start(control.clone(), state.clone(), settings.clone())
+                                .await?
+                        }
+                        Ok::<(), anyhow::Error>(())
+                    };
                     try_join!(http, mqtt)
                 })
                 .unwrap();

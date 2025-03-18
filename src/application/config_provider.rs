@@ -1,10 +1,11 @@
 use std::path::PathBuf;
 
-use crate::configuration::{AppConfig, Settings};
 use anyhow::{Context, Result};
 use config::Config;
 use directories::ProjectDirs;
 use log::{debug, warn};
+
+use crate::configuration::{AppConfig, Settings};
 
 pub struct ConfigProvider {
     settings_path: Option<PathBuf>,
@@ -41,7 +42,7 @@ impl ConfigProvider {
         Ok(config)
     }
 
-    pub fn load_sources(&self) -> Result<AppConfig> {
+    pub fn load_config(&self) -> Result<AppConfig> {
         let config_path = std::env::var("SOURCES_PATH").unwrap_or("sources".to_string());
         let settings = Config::builder()
             .add_source(::config::File::with_name(&config_path))

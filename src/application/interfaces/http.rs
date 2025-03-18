@@ -6,23 +6,33 @@ use axum::{
     routing::{get, put},
     Json, Router,
 };
+use log::info;
 use tokio::sync::watch;
 
 use super::Interface;
 use crate::{
     application::{ApplicationState, ControlCommand},
-    configuration::Settings,
+    configuration::{HttpConfig, Settings},
 };
 
-pub struct HttpInterface;
+pub struct HttpInterface {
+    config: HttpConfig,
+}
+
+impl HttpInterface {
+    pub fn new(config: HttpConfig) -> Self {
+        Self { config }
+    }
+}
 
 impl Interface for HttpInterface {
     async fn start(
         &self,
-        control: mpsc::Sender<ControlCommand>,
-        state: watch::Sender<ApplicationState>,
+        _control: mpsc::Sender<ControlCommand>,
+        _state: watch::Sender<ApplicationState>,
         settings: watch::Sender<Settings>,
     ) -> Result<()> {
+        info!("Starting HTTP interface");
         let app = Router::new()
             .route(
                 "/settings",
@@ -45,7 +55,9 @@ impl Interface for HttpInterface {
             )
             .fallback(|| async { StatusCode::NOT_FOUND });
 
-        let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+        let listener = tokio::net::TcpListener::bind(&self.config.bind_address)
+            .await
+            .unwrap();
         axum::serve(listener, app).await.unwrap();
         Ok(())
     }
