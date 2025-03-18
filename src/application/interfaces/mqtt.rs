@@ -74,7 +74,7 @@ impl MqttInterface {
         let c = |c| self.component_id(c);
         json!({
             "device": {
-                "name": "PhotoKiosk",
+                "name": format!("PhotoKiosk {}", self.id),
                 "identifiers": [self.id],
             },
             "origin": {
