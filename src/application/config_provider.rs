@@ -5,7 +5,7 @@ use config::Config;
 use directories::ProjectDirs;
 use log::{debug, warn};
 
-use crate::configuration::{AppConfig, Settings};
+use crate::configuration::{AppConfig, Settings, SettingsPatch};
 
 pub struct ConfigProvider {
     settings_path: Option<PathBuf>,
@@ -52,5 +52,10 @@ impl ConfigProvider {
             .try_deserialize()
             .context("Cannot deserialize sources")?;
         Ok(config)
+    }
+
+    pub fn save_settings_override(&self, settings: &SettingsPatch) -> Result<()> {
+        // TODO implement me!
+        anyhow::bail!("Not implemented");
     }
 }

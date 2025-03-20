@@ -170,6 +170,10 @@ impl Application {
                 }
             }
             ControlCommand::ConfigChanged(patch) => {
+                let provider = ConfigProvider::new();
+                if let Err(err) = provider.save_settings_override(&patch) {
+                    log::error!("Cannot save settings: {}", err);
+                }
                 self.settings.apply(patch);
                 self.config_sender.send_replace(self.settings.clone());
             }
