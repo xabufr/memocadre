@@ -13,12 +13,13 @@ use std::{
 use anyhow::{Context, Result};
 use config_provider::ConfigProvider;
 use log::debug;
+use struct_patch::Patch;
 use tokio::sync::watch;
 use vek::Extent2;
 
 use self::{fps::FPSCounter, slideshow::Slideshow};
 use crate::{
-    configuration::Settings,
+    configuration::{Settings, SettingsPatch},
     gl::{FutureGlThreadContext, GlContext},
     graphics::{Drawable, Graphics},
     support::{ApplicationContext, DrawResult},
@@ -29,6 +30,7 @@ pub enum ControlCommand {
     NextSlide,
     DisplayOn,
     DisplayOff,
+    ConfigChanged(SettingsPatch),
     // PreviousSlide,
 }
 
@@ -52,8 +54,8 @@ pub struct Application {
     worker: Worker,
     gl: Rc<GlContext>,
     graphics: Graphics,
-    config_watch: watch::Receiver<Settings>,
-    config: Settings,
+    config_sender: watch::Sender<Settings>,
+    settings: Settings,
     fps: Option<FPSCounter>,
     state: ApplicationState,
     state_notifier: watch::Sender<ApplicationState>,
@@ -68,7 +70,7 @@ impl ApplicationContext for Application {
         let provider = ConfigProvider::new();
         let app_config = provider.load_config()?;
         let settings = provider.load_settings()?;
-        let config_sender = watch::Sender::new(settings);
+        let config_sender = watch::Sender::new(settings.clone());
         let (control_sender, control) = mpsc::channel();
         let state_notifier = watch::Sender::new(ApplicationState::default());
 
@@ -77,34 +79,31 @@ impl ApplicationContext for Application {
                 &app_config,
                 control_sender,
                 state_notifier.clone(),
-                config_sender.clone(),
+                config_sender.subscribe(),
             )
             .context("Cannot start interface")?;
 
-        let mut config_watch = config_sender.subscribe();
-        let config = config_watch.borrow_and_update().clone();
-
         let mut graphics =
-            Graphics::new(Rc::clone(&gl), config.rotation).context("Cannot create Graphics")?;
+            Graphics::new(Rc::clone(&gl), settings.rotation).context("Cannot create Graphics")?;
         let worker = Worker::new(
             config_sender.subscribe(),
             Self::get_ideal_image_size(&gl, &graphics),
             bg_gl,
             app_config.sources,
         );
-        let fps = if config.debug.show_fps {
+        let fps = if settings.debug.show_fps {
             Some(FPSCounter::new(&mut graphics)?)
         } else {
             None
         };
-        let slides = Slideshow::create(&mut graphics, &config)?;
+        let slides = Slideshow::create(&mut graphics, &settings)?;
         Ok(Self {
             graphics,
             gl,
             slides,
             worker,
-            config_watch,
-            config,
+            config_sender,
+            settings,
             fps,
             control,
             state: state_notifier.clone().borrow().clone(),
@@ -115,9 +114,6 @@ impl ApplicationContext for Application {
 
     fn draw_frame(&mut self) -> Result<DrawResult> {
         self.check_bg_thread()?;
-        if let Ok(true) = self.config_watch.has_changed() {
-            self.config = self.config_watch.borrow_and_update().clone();
-        }
         while let Ok(command) = self.control.try_recv() {
             if let Some(res) = self.handle_command(command) {
                 return Ok(res);
@@ -173,6 +169,10 @@ impl Application {
                     return Some(DrawResult::TurnDisplayOff);
                 }
             }
+            ControlCommand::ConfigChanged(patch) => {
+                self.settings.apply(patch);
+                self.config_sender.send_replace(self.settings.clone());
+            }
         }
         None
     }
@@ -208,13 +208,13 @@ impl Application {
                 Err(error) => Err(error).context("Cannot get next image")?,
                 Ok(preloaded_slide) => {
                     self.slides
-                        .load_next(&mut self.graphics, preloaded_slide, &self.config, time)
+                        .load_next(&mut self.graphics, preloaded_slide, &self.settings, time)
                         .context("Cannot load next frame")?;
                     self.state.force_load_next = false;
                 }
             }
         }
-        self.slides.update(&self.graphics, &self.config, time);
+        self.slides.update(&self.graphics, &self.settings, time);
         if let Some(fps) = &mut self.fps {
             fps.count_frame(time);
         }

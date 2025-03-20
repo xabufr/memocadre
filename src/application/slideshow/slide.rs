@@ -163,7 +163,7 @@ impl Slide {
             date.date_naive()
                 .format_localized(
                     &config.caption.date_format.format,
-                    config.caption.date_format.locale,
+                    config.caption.date_format.locale.0,
                 )
                 .to_string()
         });
@@ -303,7 +303,7 @@ mod test {
 
     use super::{Background, PreloadedSlide, Settings, Slide};
     use crate::{
-        configuration::{BlurBackground, OrientationName},
+        configuration::{BlurBackground, ConfigLocale, OrientationName},
         gallery::ImageDetails,
         gl::{texture::DetachedTexture, wrapper::mocked_gl, GlContext},
         graphics::{Graphics, TextureRegion},
@@ -533,7 +533,7 @@ mod test {
         let mut graphics = Graphics::new(gl.clone(), OrientationName::Angle0).unwrap();
 
         let mut config = Settings::default();
-        config.caption.date_format.locale = Locale::fr_FR;
+        config.caption.date_format.locale = ConfigLocale(Locale::fr_FR);
         config.caption.date_format.format = "%A %e %B %Y".into();
         let mut preloaded_slide = preloaded_slide((800, 600).into());
         let date = NaiveDate::from_ymd_opt(2025, 01, 25)

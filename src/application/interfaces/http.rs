@@ -1,24 +1,37 @@
+use std::sync::mpsc;
+
 use anyhow::{Context, Result};
 use axum::{
     http::StatusCode,
-    routing::{get, put},
+    routing::{get, patch},
     Json, Router,
 };
 use log::info;
 use tokio::sync::watch;
 
 use super::Interface;
-use crate::configuration::{HttpConfig, Settings};
+use crate::{
+    application::ControlCommand,
+    configuration::{HttpConfig, Settings, SettingsPatch},
+};
 
 pub struct HttpInterface {
     config: HttpConfig,
-
-    settings: watch::Sender<Settings>,
+    control: mpsc::Sender<ControlCommand>,
+    settings: watch::Receiver<Settings>,
 }
 
 impl HttpInterface {
-    pub fn new(config: HttpConfig, settings: watch::Sender<Settings>) -> Self {
-        Self { config, settings }
+    pub fn new(
+        config: HttpConfig,
+        settings: watch::Receiver<Settings>,
+        control: mpsc::Sender<ControlCommand>,
+    ) -> Self {
+        Self {
+            config,
+            settings,
+            control,
+        }
     }
 }
 
@@ -38,10 +51,13 @@ impl Interface for HttpInterface {
             )
             .route(
                 "/settings",
-                put({
-                    let settings = self.settings.clone();
-                    |new_settings: Json<Settings>| async move {
-                        settings.send_replace(new_settings.0);
+                patch({
+                    let control = self.control.clone();
+                    async move |settings_patch: Json<SettingsPatch>| {
+                        control.send(ControlCommand::ConfigChanged(settings_patch.0)).map_err(|err| {
+                            log::error!("Failed to send control command: {}", err);
+                            StatusCode::INTERNAL_SERVER_ERROR
+                        })
                     }
                 }),
             )

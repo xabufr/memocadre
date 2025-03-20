@@ -26,7 +26,7 @@ impl InterfaceManager {
         config: &AppConfig,
         control: mpsc::Sender<ControlCommand>,
         state: watch::Sender<ApplicationState>,
-        settings: watch::Sender<Settings>,
+        settings: watch::Receiver<Settings>,
     ) -> Result<thread::JoinHandle<Result<()>>> {
         let config = config.clone();
         let bg_thread = std::thread::Builder::new()
@@ -40,7 +40,8 @@ impl InterfaceManager {
                 runtime.block_on(async move {
                     let http = async {
                         if let Some(http_config @ HttpConfig { enabled: true, .. }) = config.http {
-                            let interface = HttpInterface::new(http_config, settings.clone());
+                            let interface =
+                                HttpInterface::new(http_config, settings.clone(), control.clone());
                             interface.start().await?;
                         }
                         Ok::<(), anyhow::Error>(())

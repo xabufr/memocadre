@@ -14,7 +14,7 @@ use tokio::{sync::watch, try_join};
 use super::Interface;
 use crate::{
     application::{ApplicationState, ControlCommand},
-    configuration::{MqttConfig, Settings},
+    configuration::{MqttConfig, Settings, SettingsPatch},
 };
 
 pub struct MqttInterface {
@@ -23,7 +23,7 @@ pub struct MqttInterface {
 
     control: mpsc::Sender<ControlCommand>,
     state: watch::Sender<ApplicationState>,
-    settings: watch::Sender<Settings>,
+    settings: watch::Receiver<Settings>,
 }
 
 impl MqttInterface {
@@ -31,7 +31,7 @@ impl MqttInterface {
         config: MqttConfig,
         control: mpsc::Sender<ControlCommand>,
         state: watch::Sender<ApplicationState>,
-        settings: watch::Sender<Settings>,
+        settings: watch::Receiver<Settings>,
     ) -> Self {
         let id = std::env::var("MQTT_ID").unwrap_or_else(|_| match machine_uid::get() {
             Ok(id) => id,
@@ -133,7 +133,7 @@ impl MqttInterface {
 
     async fn state_send(&self, client: &AsyncClient) -> Result<()> {
         let mut state = self.state.subscribe();
-        let mut settings = self.settings.subscribe();
+        let mut settings = self.settings.clone();
         let topic = self.state_topic();
         loop {
             let mqtt_state = {
@@ -180,9 +180,10 @@ impl MqttInterface {
                 match message {
                     MqttMessage::DisplayDuration(duration) => {
                         let duration = Duration::from_secs(duration);
-                        self.settings.send_modify(|s| {
-                            s.display_duration = duration;
-                        });
+                        self.control.send(ControlCommand::ConfigChanged(SettingsPatch {
+                            display_duration: Some(duration),
+                            ..Default::default()
+                        })).context("Failed to send control command")?;
                     }
                     MqttMessage::DisplayEnabled(false) => {
                         self.control

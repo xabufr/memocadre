@@ -4,8 +4,11 @@ use better_default::Default;
 use chrono::Locale;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use struct_patch::Patch;
 
-#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone, Default, PartialEq, Patch)]
+#[patch(attribute(derive(Debug, Default, Deserialize, Serialize)))]
+#[patch(attribute(serde(default)))]
 #[serde(deny_unknown_fields, default)]
 pub struct BlurSettings {
     #[default(6.0)]
@@ -14,7 +17,9 @@ pub struct BlurSettings {
     pub passes: u8,
 }
 
-#[derive(Deserialize, Serialize, Debug, Default, Clone)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone, Patch)]
+#[patch(attribute(derive(Debug, Default, Deserialize, Serialize)))]
+#[patch(attribute(serde(default)))]
 #[serde(deny_unknown_fields, default)]
 pub struct Settings {
     /// The minimum amount of time that photos are displayed before switching to the next.
@@ -24,12 +29,14 @@ pub struct Settings {
     /// Defaults to 30 seconds ("30s").
     #[default(Duration::from_secs(30))]
     #[serde(with = "humantime_serde")]
+    #[patch(attribute(serde(with = "humantime_serde")))]
     pub display_duration: Duration,
 
     /// Duration of the transition between two photos.
     /// Defaults to 1 second ("500ms").
     #[default(Duration::from_millis(500))]
     #[serde(with = "humantime_serde")]
+    #[patch(attribute(serde(with = "humantime_serde")))]
     pub transition_duration: Duration,
 
     /// The options for the initial slide.
@@ -38,6 +45,7 @@ pub struct Settings {
     pub init_slide: InitSlideOptions,
 
     /// The options for the blur effect.
+    #[patch(name = "BlurSettingsPatch")]
     pub blur_options: BlurSettings,
 
     /// The options for the background, aka the area around the photos when they don't fill the screen.
@@ -51,16 +59,18 @@ pub struct Settings {
     pub rotation: OrientationName,
 
     /// The options for the caption (photo information displayed at the bottom of the screen).
+    #[patch(name = "CaptionOptionsPatch")]
     pub caption: CaptionOptions,
 
     /// Photos larger than the display are downscaled using this filter.
     pub downscaled_image_filter: ImageFilter,
 
     /// The options for the debug overlay.
+    #[patch(name = "DebugSettingsPatch")]
     pub debug: DebugSettings,
 }
 
-#[derive(Deserialize, Serialize, Debug, Copy, Clone, Default)]
+#[derive(Deserialize, Serialize, Debug, Copy, Clone, Default, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub enum ImageFilter {
     Nearest,
@@ -71,13 +81,17 @@ pub enum ImageFilter {
     Lanczos3,
 }
 
-#[derive(Deserialize, Serialize, Debug, Default, Clone)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq, Patch)]
+#[patch(attribute(derive(Debug, Default, Deserialize, Serialize)))]
+#[patch(attribute(serde(default)))]
 #[serde(deny_unknown_fields, default)]
 pub struct DebugSettings {
     pub show_fps: bool,
 }
 
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq, Patch)]
+#[patch(attribute(derive(Debug, Default, Deserialize, Serialize)))]
+#[patch(attribute(serde(default)))]
 #[serde(deny_unknown_fields, default)]
 pub struct CaptionOptions {
     /// Whether the caption is enabled.
@@ -85,6 +99,7 @@ pub struct CaptionOptions {
     pub enabled: bool,
 
     /// The format of the date in the caption.
+    #[patch(name = "DateFormatPatch")]
     pub date_format: DateFormat,
 
     /// The font size of the caption.
@@ -92,7 +107,9 @@ pub struct CaptionOptions {
     pub font_size: f32,
 }
 
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq, Patch)]
+#[patch(attribute(derive(Debug, Default, Deserialize, Serialize)))]
+#[patch(attribute(serde(default)))]
 #[serde(deny_unknown_fields, default)]
 pub struct DateFormat {
     /// The format of the date in the caption.
@@ -103,28 +120,40 @@ pub struct DateFormat {
 
     /// The locale to use for the date.
     /// Defaults to "en_US".
-    #[default(Locale::en_US)]
-    #[serde(deserialize_with = "deser_locale", serialize_with = "ser_locale")]
-    pub locale: Locale,
+    pub locale: ConfigLocale,
 }
 
-fn deser_locale<'de, D>(deser: D) -> Result<Locale, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s = String::deserialize(deser)?;
-    s.parse()
-        .map_err(|e| serde::de::Error::custom(format!("Invalid locale: {:?}", e)))
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConfigLocale(pub Locale);
+
+impl Default for ConfigLocale {
+    fn default() -> Self {
+        ConfigLocale(Locale::en_US)
+    }
 }
 
-fn ser_locale<S>(locale: &Locale, ser: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    locale.to_string().serialize(ser)
+impl Serialize for ConfigLocale {
+    fn serialize<S>(&self, ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        ser.serialize_str(&self.0.to_string())
+    }
 }
 
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+impl<'d> Deserialize<'d> for ConfigLocale {
+    fn deserialize<D>(deser: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'d>,
+    {
+        let s = String::deserialize(deser)?;
+        s.parse()
+            .map(ConfigLocale)
+            .map_err(|e| serde::de::Error::custom(format!("Invalid locale: {:?}", e)))
+    }
+}
+
+#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq)]
 #[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
 pub enum Background {
     Black,
@@ -132,14 +161,16 @@ pub enum Background {
     Blur(BlurBackground),
 }
 
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq, Patch)]
+#[patch(attribute(derive(Debug, Default, Deserialize, Serialize)))]
+#[patch(attribute(serde(default)))]
 #[serde(deny_unknown_fields, default)]
 pub struct BlurBackground {
     #[default(50)]
     pub min_free_space: u16,
 }
 
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq)]
 #[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
 pub enum InitSlideOptions {
     Empty,
@@ -147,7 +178,9 @@ pub enum InitSlideOptions {
     LoadingCircle(LoadingCircleOptions),
 }
 
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq, Patch)]
+#[patch(attribute(derive(Debug, Default, Deserialize, Serialize)))]
+#[patch(attribute(serde(default)))]
 #[serde(deny_unknown_fields, default)]
 pub struct LoadingCircleOptions {
     /// Number of rotations per second for the circle.
