@@ -180,10 +180,12 @@ impl MqttInterface {
                 match message {
                     MqttMessage::DisplayDuration(duration) => {
                         let duration = Duration::from_secs(duration);
-                        self.control.send(ControlCommand::ConfigChanged(SettingsPatch {
-                            display_duration: Some(duration),
-                            ..Default::default()
-                        })).context("Failed to send control command")?;
+                        self.control
+                            .send(ControlCommand::ConfigChanged(SettingsPatch {
+                                display_duration: Some(duration),
+                                ..Default::default()
+                            }))
+                            .context("Failed to send control command")?;
                     }
                     MqttMessage::DisplayEnabled(false) => {
                         self.control
@@ -222,7 +224,11 @@ impl RetryPoller {
         // and the poll method is not called again until the connection is returned
         #[allow(clippy::await_holding_refcell_ref)]
         let event = (|| async { self.connection.borrow_mut().poll().await })
-            .retry(ExponentialBuilder::default())
+            .retry(
+                ExponentialBuilder::default()
+                    .without_max_times()
+                    .with_max_delay(Duration::from_secs(10)),
+            )
             .sleep(tokio::time::sleep)
             .when(Self::is_recoverable)
             .await
@@ -245,6 +251,23 @@ impl RetryPoller {
                     | ConnectReturnCode::ServerMoved,
             )
         )
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_is_recoverable() {
+        let err = ConnectionError::ConnectionRefused(ConnectReturnCode::ServerMoved);
+        assert_eq!(false, RetryPoller::is_recoverable(&err));
+    }
+
+    #[test]
+    fn test_is_recoverable_io_error() {
+        let err = ConnectionError::Io(std::io::ErrorKind::HostUnreachable.into());
+        assert_eq!(true, RetryPoller::is_recoverable(&err));
     }
 }
 
