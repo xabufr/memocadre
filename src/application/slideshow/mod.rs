@@ -48,7 +48,7 @@ impl Slideshow {
         match self {
             Slideshow::None => true,
             Slideshow::Loading(_) => true,
-            Slideshow::Single(slide) => slide.animation.is_finished(time),
+            Slideshow::Single(slide) => slide.is_finished(time),
             Slideshow::Transitioning(_) => false,
         }
     }
@@ -87,7 +87,11 @@ impl Slideshow {
                 let mut animation = transition.ease_in(time, transition_duration);
                 animation.set_zoom_no_ease(0.9);
                 animation.set_text_position_no_ease([0., graphics.get_dimensions().h as f32]);
-                let new = AnimatedSlide { slide, animation };
+                let new = AnimatedSlide {
+                    slide,
+                    animation,
+                    finish_at: time,
+                };
 
                 *self = Slideshow::Transitioning(TransitioningSlide {
                     prev: old,
@@ -99,17 +103,34 @@ impl Slideshow {
     }
 
     // TODO: Test me !
-    pub fn update(&mut self, graphics: &Graphics, config: &Settings, time: Instant) {
+    // Returns the time during wich the application can safely sleep if there is no need to redraw
+    pub fn update_get_sleep(
+        &mut self,
+        graphics: &Graphics,
+        config: &Settings,
+        time: Instant,
+    ) -> Option<Duration> {
         let mut old_self = Self::None;
+        let mut max_sleep = None;
         std::mem::swap(self, &mut old_self);
         *self = match old_self {
-            Slideshow::None => old_self,
+            Slideshow::None => {
+                max_sleep = Some(Duration::MAX);
+                old_self
+            }
             Slideshow::Loading(ref mut loading) => {
                 loading.update(graphics, time);
                 old_self
             }
             Slideshow::Single(ref mut slide) => {
                 slide.update(time);
+                if slide.animation.is_finished(time) {
+                    max_sleep = Some(if slide.finish_at >= time {
+                        slide.finish_at - time
+                    } else {
+                        Duration::MAX
+                    });
+                }
                 old_self
             }
             Slideshow::Transitioning(mut t) => {
@@ -126,7 +147,8 @@ impl Slideshow {
                     Slideshow::Transitioning(t)
                 }
             }
-        }
+        };
+        max_sleep
     }
 
     fn to_single(
@@ -137,7 +159,11 @@ impl Slideshow {
         start: Instant,
     ) -> Self {
         let mut animation = AnimatedSlideProperties::from(current_properties);
-        animation.ease_zoom(1.0, start, config.display_duration, Easing::CubicInOut);
+        let display_animation_duration = config
+            .max_display_animation_duration
+            .unwrap_or(config.display_duration)
+            .min(config.display_duration);
+        animation.ease_zoom(1.0, start, display_animation_duration, Easing::CubicInOut);
         if let Some(text) = slide.get_text() {
             let size = text.size().as_::<f32>();
             let screen = graphics.get_dimensions().as_::<f32>();
@@ -153,7 +179,11 @@ impl Slideshow {
             );
         }
 
-        Self::Single(AnimatedSlide { slide, animation })
+        Self::Single(AnimatedSlide {
+            slide,
+            animation,
+            finish_at: start + config.display_duration,
+        })
     }
 }
 

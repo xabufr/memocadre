@@ -134,8 +134,7 @@ impl ApplicationContext for Application {
                 }
             }
         }
-        self.draw()?;
-        Ok(DrawResult::FrameDrawn)
+        self.draw()
     }
 }
 
@@ -200,10 +199,9 @@ impl Application {
         Ok(())
     }
 
-    fn draw(&mut self) -> Result<(), anyhow::Error> {
+    fn draw(&mut self) -> Result<DrawResult, anyhow::Error> {
         self.gl.clear();
         let time = Instant::now();
-        self.graphics.begin_frame();
         self.worker
             .set_ideal_max_size(Self::get_ideal_image_size(&self.gl, &self.graphics));
         if self.slides.should_load_next(time) || self.state.force_load_next {
@@ -218,16 +216,25 @@ impl Application {
                 }
             }
         }
-        self.slides.update(&self.graphics, &self.settings, time);
+        let sleep = self
+            .slides
+            .update_get_sleep(&self.graphics, &self.settings, time);
+        if let Some(sleep) = sleep {
+            thread::sleep(sleep.min(Duration::from_millis(250)));
+            return Ok(DrawResult::Noop);
+        }
+
         if let Some(fps) = &mut self.fps {
             fps.count_frame(time);
         }
+
+        self.graphics.begin_frame();
         self.graphics.update();
         self.slides.draw(&self.graphics)?;
         if let Some(fps) = &self.fps {
             fps.draw(&self.graphics)?;
         }
         self.gl.swap_buffers()?;
-        Ok(())
+        Ok(DrawResult::FrameDrawn)
     }
 }

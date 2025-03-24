@@ -32,6 +32,10 @@ pub struct Settings {
     #[patch(attribute(serde(with = "humantime_serde")))]
     pub display_duration: Duration,
 
+    #[serde(with = "humantime_serde::option")]
+    #[patch(attribute(serde(with = "humantime_serde::option")))]
+    pub max_display_animation_duration: Option<Duration>,
+
     /// Duration of the transition between two photos.
     /// Defaults to 1 second ("500ms").
     #[default(Duration::from_millis(500))]

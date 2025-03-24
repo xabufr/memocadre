@@ -25,6 +25,7 @@ pub struct Slide {
 pub struct AnimatedSlide {
     pub slide: Slide,
     pub animation: AnimatedSlideProperties,
+    pub finish_at: Instant,
 }
 
 pub struct TextWithBackground {
@@ -47,6 +48,10 @@ impl AnimatedSlide {
     pub fn update(&mut self, instant: Instant) {
         let properties = self.animation.to_slide_properties(instant);
         self.slide.apply(properties);
+    }
+
+    pub fn is_finished(&self, instant: Instant) -> bool {
+        instant >= self.finish_at && self.animation.is_finished(instant)
     }
 }
 
