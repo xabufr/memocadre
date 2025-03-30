@@ -231,6 +231,9 @@ impl RetryPoller {
             )
             .sleep(tokio::time::sleep)
             .when(Self::is_recoverable)
+            .notify(|error, sleep| {
+                warn!("Recoverable MQTT error: {error}, will retry in {sleep:?}");
+            })
             .await
             .context("Unrecoverable MQTT error")?;
         Ok(event)
