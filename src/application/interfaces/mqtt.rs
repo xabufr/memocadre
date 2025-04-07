@@ -305,6 +305,7 @@ impl Interface for MqttInterface {
             &self.config.host,
             self.config.port,
         );
+        mqtt_options.set_clean_start(false);
         if let Some(creds) = &self.config.credentials {
             mqtt_options.set_credentials(&creds.username, &creds.password);
         }
