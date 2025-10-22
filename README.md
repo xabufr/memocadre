@@ -203,6 +203,8 @@ slideshow:
       locale: "en_US"            # Date locale
   
   downscaled_image_filter: lanczos3  # Image scaling quality
+                                         # Options: "nearest", "triangle", "catmull-rom", "gaussian", "lanczos3"
+                                         # "lanczos3" provides best quality, "nearest" is fastest
   
   debug:
     show_fps: false              # Show FPS counter
@@ -289,6 +291,8 @@ curl -X POST http://localhost:8080/control/reload
 ```
 
 ### MQTT Integration
+
+Photo Kiosk supports MQTT with **Home Assistant auto-discovery**, allowing seamless integration into your smart home. The application automatically publishes discovery messages that Home Assistant will detect and configure.
 
 Enable in `settings.yaml`:
 ```yaml
@@ -409,16 +413,9 @@ sudo -u photo-kiosk CONFIG_PATH=/etc/photo-kiosk/config.yaml photo-kiosk
 - Review logs for network or authentication errors
 - Ensure Immich instance is accessible from the device
 
-**Poor performance on Raspberry Pi**
-- Reduce blur radius and passes in settings.yaml
-- Increase `display_duration` to reduce transitions
-- Use `black` background instead of `blur`
-- Disable caption if not needed
-
 **Screen rotation not working**
 - Set `rotation` in settings.yaml (0, 90, 180, or 270)
 - Restart the service after changes
-- Verify DRM/KMS is being used (check logs)
 
 ### Debug Mode
 
