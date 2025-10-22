@@ -55,7 +55,108 @@ impl ConfigProvider {
     }
 
     pub fn save_settings_override(&self, settings: &SettingsPatch) -> Result<()> {
-        // TODO implement me!
-        anyhow::bail!("Not implemented");
+        let settings_path = self
+            .settings_path
+            .as_ref()
+            .context("No settings path available")?;
+
+        // Create parent directories if they don't exist
+        if let Some(parent) = settings_path.parent() {
+            std::fs::create_dir_all(parent)
+                .context("Failed to create parent directories for settings file")?;
+        }
+
+        // Serialize the settings patch to YAML
+        let yaml = serde_yaml::to_string(settings).context("Failed to serialize settings")?;
+
+        // Write to file
+        std::fs::write(settings_path, yaml).context("Failed to write settings file")?;
+
+        debug!("Settings saved to {:?}", settings_path);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_save_and_load_settings_override() {
+        // Create a temporary directory for testing
+        let temp_dir = std::env::temp_dir().join("photokiosk_test");
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        let settings_path = temp_dir.join("test_settings.yaml");
+
+        // Set the environment variable to use our test path
+        std::env::set_var("DYNAMIC_SETTINGS_PATH", settings_path.to_str().unwrap());
+
+        let provider = ConfigProvider::new();
+
+        // Create a settings patch
+        let patch = SettingsPatch {
+            display_duration: Some(Duration::from_secs(60)),
+            transition_duration: Some(Duration::from_millis(1000)),
+            ..Default::default()
+        };
+
+        // Save the settings
+        let result = provider.save_settings_override(&patch);
+        assert!(result.is_ok(), "Failed to save settings: {:?}", result.err());
+
+        // Verify the file was created
+        assert!(settings_path.exists(), "Settings file was not created");
+
+        // Read the file and verify its contents
+        let content = std::fs::read_to_string(&settings_path).unwrap();
+        // Check that the file contains duration fields (format can vary)
+        assert!(
+            content.contains("display_duration") || content.contains("displayDuration"),
+            "File should contain display_duration field. Content: {}",
+            content
+        );
+
+        // Clean up
+        std::fs::remove_file(&settings_path).ok();
+        std::fs::remove_dir(&temp_dir).ok();
+        std::env::remove_var("DYNAMIC_SETTINGS_PATH");
+    }
+
+    #[test]
+    fn test_save_settings_creates_parent_dirs() {
+        // Create a temporary directory for testing
+        let temp_dir = std::env::temp_dir().join("photokiosk_test_nested");
+        let settings_path = temp_dir.join("nested").join("path").join("settings.yaml");
+
+        // Make sure the directories don't exist
+        std::fs::remove_dir_all(&temp_dir).ok();
+
+        // Set the environment variable to use our test path
+        std::env::set_var("DYNAMIC_SETTINGS_PATH", settings_path.to_str().unwrap());
+
+        let provider = ConfigProvider::new();
+
+        // Create a settings patch
+        let patch = SettingsPatch {
+            display_duration: Some(Duration::from_secs(45)),
+            ..Default::default()
+        };
+
+        // Save the settings
+        let result = provider.save_settings_override(&patch);
+        assert!(result.is_ok(), "Failed to save settings: {:?}", result.err());
+
+        // Verify the file and parent directories were created
+        assert!(settings_path.exists(), "Settings file was not created");
+        assert!(
+            settings_path.parent().unwrap().exists(),
+            "Parent directories were not created"
+        );
+
+        // Clean up
+        std::fs::remove_dir_all(&temp_dir).ok();
+        std::env::remove_var("DYNAMIC_SETTINGS_PATH");
     }
 }
