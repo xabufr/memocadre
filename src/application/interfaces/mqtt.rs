@@ -166,11 +166,16 @@ impl MqttInterface {
             match n {
                 Event::Incoming(Incoming::ConnAck(_)) => {
                     // Resubscribe after reconnection to ensure we receive commands
+                    // We must spawn a separate task to avoid deadlock: the event loop needs to be
+                    // polled to process the subscribe request, but we're currently blocking it
                     info!("MQTT connected/reconnected, resubscribing to command topic");
-                    client
-                        .subscribe(&command_topic, QoS::AtLeastOnce)
-                        .await
-                        .context("Failed to subscribe to command topic after reconnection")?;
+                    let client = client.clone();
+                    let topic = command_topic.clone();
+                    tokio::spawn(async move {
+                        if let Err(err) = client.subscribe(topic, QoS::AtLeastOnce).await {
+                            error!("Failed to subscribe to command topic after reconnection: {}", err);
+                        }
+                    });
                 }
                 Event::Incoming(Incoming::Publish(publish)) => {
                     if publish.topic != command_topic {
