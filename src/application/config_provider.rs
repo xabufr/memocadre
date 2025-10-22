@@ -54,6 +54,33 @@ impl ConfigProvider {
         Ok(config)
     }
 
+    /// Saves the settings patch to the dynamic settings file.
+    ///
+    /// This function serializes the provided `SettingsPatch` to YAML format and writes it to
+    /// the settings file. The file location is determined by:
+    /// 1. The `DYNAMIC_SETTINGS_PATH` environment variable, if set
+    /// 2. The platform-specific user config directory (e.g., `~/.config/photokiosk/settings.yaml` on Linux)
+    /// 3. Falls back to an error if no path can be determined
+    ///
+    /// The function will create parent directories as needed if they don't exist.
+    ///
+    /// # Usage with MQTT
+    /// Settings can be changed via MQTT by publishing to the command topic:
+    /// ```json
+    /// { "type": "display_duration", "value": 45 }
+    /// ```
+    ///
+    /// # Usage with HTTP
+    /// Settings can be changed via HTTP PATCH to `/settings`:
+    /// ```bash
+    /// curl -X PATCH http://localhost:3000/settings \
+    ///   -H "Content-Type: application/json" \
+    ///   -d '{"display_duration": "45s"}'
+    /// ```
+    ///
+    /// # Returns
+    /// - `Ok(())` if the settings were successfully saved
+    /// - `Err` if there was an error saving the settings (e.g., no settings path, I/O error)
     pub fn save_settings_override(&self, settings: &SettingsPatch) -> Result<()> {
         let settings_path = self
             .settings_path

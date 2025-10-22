@@ -54,10 +54,13 @@ impl Interface for HttpInterface {
                 patch({
                     let control = self.control.clone();
                     async move |settings_patch: Json<SettingsPatch>| {
-                        control.send(ControlCommand::ConfigChanged(settings_patch.0)).map_err(|err| {
-                            log::error!("Failed to send control command: {}", err);
-                            StatusCode::INTERNAL_SERVER_ERROR
-                        })
+                        control
+                            .send(ControlCommand::ConfigChanged(settings_patch.0))
+                            .map(|_| StatusCode::OK)
+                            .map_err(|err| {
+                                log::error!("Failed to send control command: {}", err);
+                                StatusCode::INTERNAL_SERVER_ERROR
+                            })
                     }
                 }),
             )
