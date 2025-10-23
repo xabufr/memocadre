@@ -206,10 +206,6 @@ debug:
                 ..Default::default()
             })
             .unwrap();
-        // print file contents for debugging
-        let saved_contents =
-            std::fs::read_to_string(overload_dir.path().join("settings.yaml")).unwrap();
-        println!("Saved contents: {}", saved_contents);
         let settings = provider.load_settings().unwrap();
         expect_that!(
             settings.debug.show_fps,
