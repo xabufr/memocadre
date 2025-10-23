@@ -13,6 +13,7 @@ in
       xorg.libXcursor
       libxkbcommon
       mesa
+      libgbm
       cargo-deb
       cargo-cross
       just
