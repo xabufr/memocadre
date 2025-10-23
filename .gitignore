@@ -2,3 +2,4 @@
 /config.toml
 /config.yaml
 deploy.sh
+.aider*
