@@ -61,8 +61,24 @@ impl ConfigProvider {
     }
 
     pub fn save_settings_override(&self, settings: &SettingsPatch) -> Result<()> {
-        // TODO implement me!
-        anyhow::bail!("Not implemented");
+        if let Some(dynamic_settings_path) = &self.dynamic_settings_path {
+            let existing_patch = if dynamic_settings_path.exists() {
+                let file = std::fs::File::open(dynamic_settings_path)
+                    .context("Cannot open existing dynamic settings file")?;
+                serde_json::from_reader(file)
+                    .context("Cannot parse existing dynamic settings file")?
+            } else {
+                SettingsPatch::default()
+            };
+            let merged_patch = existing_patch + settings.clone();
+            let writer = std::fs::File::create(dynamic_settings_path)
+                .context("Cannot create dynamic settings file to save settings override")?;
+            serde_json::to_writer(writer, &merged_patch)
+                .context("Cannot serialize settings override to dynamic settings file")?;
+        } else {
+            warn!("Dynamic settings path is not set; cannot save settings override");
+        }
+        Ok(())
     }
 }
 
@@ -72,6 +88,8 @@ mod tests {
 
     use googletest::{expect_that, gtest, prelude::eq};
     use temp_dir::TempDir;
+
+    use crate::configuration::SettingsPatch;
 
     use super::ConfigProvider;
 
@@ -157,6 +175,48 @@ debug:
         };
         let settings = provider.load_settings().unwrap();
         expect_that!(settings.debug.show_fps, eq(false));
+    }
+
+    #[gtest]
+    fn test_save_settings_overloaded() {
+        let settings = r#"---
+debug:
+  show_fps: true
+"#;
+        let settings_dir = gen_settings_from_str(settings).unwrap();
+        let settings = r#"{"display_duration":"51s"}"#;
+        let overload_dir = gen_settings_from_str(settings).unwrap();
+
+        let provider = ConfigProvider {
+            dynamic_settings_path: Some(overload_dir.path().join("settings.yaml")),
+            settings_path: settings_dir
+                .path()
+                .join("settings.yaml")
+                .to_str()
+                .unwrap()
+                .to_string(),
+        };
+        let settings = provider.load_settings().unwrap();
+        expect_that!(settings.debug.show_fps, eq(true));
+        provider
+            .save_settings_override(&SettingsPatch {
+                debug: Some(crate::configuration::DebugSettingsPatch {
+                    show_fps: Some(false),
+                }),
+                ..Default::default()
+            })
+            .unwrap();
+        // print file contents for debugging
+        let saved_contents =
+            std::fs::read_to_string(overload_dir.path().join("settings.yaml")).unwrap();
+        println!("Saved contents: {}", saved_contents);
+        let settings = provider.load_settings().unwrap();
+        expect_that!(
+            settings.debug.show_fps,
+            eq(false),
+            "Should retain saved override"
+        );
+        assert_eq!(settings.display_duration, Duration::from_secs(51));
     }
 
     fn gen_settings_from_str(s: &str) -> Result<TempDir, anyhow::Error> {

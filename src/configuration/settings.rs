@@ -7,18 +7,20 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use struct_patch::Patch;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default, PartialEq, Patch)]
-#[patch(attribute(derive(Debug, Default, Deserialize, Serialize)))]
+#[patch(attribute(derive(Debug, Default, Deserialize, Serialize, Clone)))]
 #[patch(attribute(serde(default)))]
 #[serde(deny_unknown_fields, default)]
 pub struct BlurSettings {
     #[default(6.0)]
+    #[patch(attribute(serde(skip_serializing_if = "Option::is_none")))]
     pub radius: f32,
     #[default(3)]
+    #[patch(attribute(serde(skip_serializing_if = "Option::is_none")))]
     pub passes: u8,
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone, Patch)]
-#[patch(attribute(derive(Debug, Default, Deserialize, Serialize)))]
+#[patch(attribute(derive(Debug, Default, Deserialize, Serialize, Clone)))]
 #[patch(attribute(serde(default)))]
 #[serde(deny_unknown_fields, default)]
 pub struct Settings {
@@ -29,48 +31,64 @@ pub struct Settings {
     /// Defaults to 30 seconds ("30s").
     #[default(Duration::from_secs(30))]
     #[serde(with = "humantime_serde")]
-    #[patch(attribute(serde(with = "humantime_serde")))]
+    #[patch(attribute(serde(with = "humantime_serde", skip_serializing_if = "Option::is_none")))]
     pub display_duration: Duration,
 
     #[serde(with = "humantime_serde::option")]
-    #[patch(attribute(serde(with = "humantime_serde::option")))]
+    #[patch(attribute(serde(
+        with = "humantime_serde::option",
+        skip_serializing_if = "Option::is_none"
+    )))]
     pub max_display_animation_duration: Option<Duration>,
 
     /// Duration of the transition between two photos.
     /// Defaults to 1 second ("500ms").
     #[default(Duration::from_millis(500))]
     #[serde(with = "humantime_serde")]
-    #[patch(attribute(serde(with = "humantime_serde")))]
+    #[patch(attribute(serde(with = "humantime_serde", skip_serializing_if = "Option::is_none")))]
     pub transition_duration: Duration,
 
     /// The options for the initial slide.
     /// Defaults to a loading circle.
     /// Possible values are "empty" and "loading-circle".
+    #[patch(attribute(serde(skip_serializing_if = "Option::is_none")))]
     pub init_slide: InitSlideOptions,
 
     /// The options for the blur effect.
-    #[patch(name = "BlurSettingsPatch")]
+    #[patch(
+        name = "BlurSettingsPatch",
+        attribute(serde(skip_serializing_if = "Option::is_none"))
+    )]
     pub blur_options: BlurSettings,
 
     /// The options for the background, aka the area around the photos when they don't fill the screen.
     /// Defaults to a blurred version of the photo.
     /// Possible values are "black" and "blur".
+    #[patch(attribute(serde(skip_serializing_if = "Option::is_none")))]
     pub background: Background,
 
     /// The orientation of the display.
     /// Defaults to 0 degrees.
     /// Possible values are 0, 90, 180, 270.
+    #[patch(attribute(serde(skip_serializing_if = "Option::is_none")))]
     pub rotation: OrientationName,
 
     /// The options for the caption (photo information displayed at the bottom of the screen).
-    #[patch(name = "CaptionOptionsPatch")]
+    #[patch(
+        name = "CaptionOptionsPatch",
+        attribute(serde(skip_serializing_if = "Option::is_none"))
+    )]
     pub caption: CaptionOptions,
 
     /// Photos larger than the display are downscaled using this filter.
+    #[patch(attribute(serde(skip_serializing_if = "Option::is_none")))]
     pub downscaled_image_filter: ImageFilter,
 
     /// The options for the debug overlay.
-    #[patch(name = "DebugSettingsPatch")]
+    #[patch(
+        name = "DebugSettingsPatch",
+        attribute(serde(skip_serializing_if = "Option::is_none"))
+    )]
     pub debug: DebugSettings,
 }
 
@@ -86,33 +104,39 @@ pub enum ImageFilter {
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq, Patch)]
-#[patch(attribute(derive(Debug, Default, Deserialize, Serialize)))]
+#[patch(attribute(derive(Debug, Default, Deserialize, Serialize, Clone)))]
 #[patch(attribute(serde(default)))]
 #[serde(deny_unknown_fields, default)]
 pub struct DebugSettings {
+    #[patch(attribute(serde(skip_serializing_if = "Option::is_none")))]
     pub show_fps: bool,
 }
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq, Patch)]
-#[patch(attribute(derive(Debug, Default, Deserialize, Serialize)))]
+#[patch(attribute(derive(Debug, Default, Deserialize, Serialize, Clone)))]
 #[patch(attribute(serde(default)))]
 #[serde(deny_unknown_fields, default)]
 pub struct CaptionOptions {
     /// Whether the caption is enabled.
     #[default(true)]
+    #[patch(attribute(serde(skip_serializing_if = "Option::is_none")))]
     pub enabled: bool,
 
     /// The format of the date in the caption.
-    #[patch(name = "DateFormatPatch")]
+    #[patch(
+        name = "DateFormatPatch",
+        attribute(serde(skip_serializing_if = "Option::is_none"))
+    )]
     pub date_format: DateFormat,
 
     /// The font size of the caption.
     #[default(28.)]
+    #[patch(attribute(serde(skip_serializing_if = "Option::is_none")))]
     pub font_size: f32,
 }
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq, Patch)]
-#[patch(attribute(derive(Debug, Default, Deserialize, Serialize)))]
+#[patch(attribute(derive(Debug, Default, Deserialize, Serialize, Clone)))]
 #[patch(attribute(serde(default)))]
 #[serde(deny_unknown_fields, default)]
 pub struct DateFormat {
@@ -120,10 +144,12 @@ pub struct DateFormat {
     /// Defaults to "%A, %e. %B %Y".
     /// See https://docs.rs/chrono/0.4.39/chrono/format/strftime/index.html for more information.
     #[default("%A, %e. %B %Y".into())]
+    #[patch(attribute(serde(skip_serializing_if = "Option::is_none")))]
     pub format: String,
 
     /// The locale to use for the date.
     /// Defaults to "en_US".
+    #[patch(attribute(serde(skip_serializing_if = "Option::is_none")))]
     pub locale: ConfigLocale,
 }
 
@@ -166,11 +192,12 @@ pub enum Background {
 }
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq, Patch)]
-#[patch(attribute(derive(Debug, Default, Deserialize, Serialize)))]
+#[patch(attribute(derive(Debug, Default, Deserialize, Serialize, Clone)))]
 #[patch(attribute(serde(default)))]
 #[serde(deny_unknown_fields, default)]
 pub struct BlurBackground {
     #[default(50)]
+    #[patch(attribute(serde(skip_serializing_if = "Option::is_none")))]
     pub min_free_space: u16,
 }
 
@@ -183,12 +210,13 @@ pub enum InitSlideOptions {
 }
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq, Patch)]
-#[patch(attribute(derive(Debug, Default, Deserialize, Serialize)))]
+#[patch(attribute(derive(Debug, Default, Deserialize, Serialize, Clone)))]
 #[patch(attribute(serde(default)))]
 #[serde(deny_unknown_fields, default)]
 pub struct LoadingCircleOptions {
     /// Number of rotations per second for the circle.
     #[default(1.5)]
+    #[patch(attribute(serde(skip_serializing_if = "Option::is_none")))]
     pub velocity: f32,
 }
 
