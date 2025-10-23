@@ -70,11 +70,7 @@ impl ConfigProvider {
 mod tests {
     use std::time::Duration;
 
-    use googletest::{
-        expect_that, gtest,
-        matchers::matches_pattern,
-        prelude::{approx_eq, eq},
-    };
+    use googletest::{expect_that, gtest, prelude::eq};
     use temp_dir::TempDir;
 
     use super::ConfigProvider;
