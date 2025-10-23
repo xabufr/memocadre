@@ -2,9 +2,12 @@ use std::{cell::RefCell, ops::Deref, sync::mpsc, time::Duration};
 
 use anyhow::{Context, Result};
 use backon::{ExponentialBuilder, Retryable};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use rumqttc::v5::{
-    mqttbytes::{v5::ConnectReturnCode, QoS},
+    mqttbytes::{
+        v5::{ConnAck, ConnectReturnCode, Publish},
+        QoS,
+    },
     AsyncClient, ConnectionError, Event, EventLoop, Incoming, MqttOptions,
 };
 use serde::{Deserialize, Serialize};
@@ -112,21 +115,19 @@ impl MqttInterface {
         })
     }
 
-    async fn config_send(&self, client: &AsyncClient) -> Result<()> {
+    fn try_send_config_and_subscribe(&self, client: &AsyncClient) -> Result<()> {
         let topic = self.config_topic();
         let payload = self.config_payload();
         client
-            .publish(
+            .try_publish(
                 &topic,
                 QoS::AtLeastOnce,
                 true,
                 serde_json::to_string(&payload).context("Failed to serialize config payload")?,
             )
-            .await
             .context("Failed to publish config")?;
         client
-            .subscribe(self.command_topic(), QoS::AtLeastOnce)
-            .await
+            .try_subscribe(self.command_topic(), QoS::AtLeastOnce)
             .context("Failed to subscribe to command topic")?;
         Ok(())
     }
@@ -158,53 +159,68 @@ impl MqttInterface {
         }
     }
 
-    async fn command_receive(&self, connection: EventLoop) -> Result<()> {
+    async fn command_receive(&self, client: &AsyncClient, connection: EventLoop) -> Result<()> {
         let command_topic = self.command_topic();
         let poller = RetryPoller::new(connection);
         loop {
             let n = poller.poll().await.context("Failed to poll mqtt")?;
-            if let Event::Incoming(Incoming::Publish(publish)) = n {
-                if publish.topic != command_topic {
-                    continue;
+            match n {
+                Event::Incoming(Incoming::ConnAck(ConnAck {
+                    code: ConnectReturnCode::Success,
+                    ..
+                })) => {
+                    self.try_send_config_and_subscribe(client)
+                        .context("Initializing MQTT resources")?;
                 }
-                println!("Received command");
-
-                let message: MqttMessage = match serde_json::from_slice(&publish.payload) {
-                    Ok(m) => m,
-                    Err(err) => {
-                        error!("Failed to parse incoming message: {}", err);
+                Event::Incoming(Incoming::Publish(publish)) => {
+                    if publish.topic != command_topic {
                         continue;
                     }
-                };
-                println!("Message: {:?}", message);
-                match message {
-                    MqttMessage::DisplayDuration(duration) => {
-                        let duration = Duration::from_secs(duration);
-                        self.control
-                            .send(ControlCommand::ConfigChanged(SettingsPatch {
-                                display_duration: Some(duration),
-                                ..Default::default()
-                            }))
-                            .context("Failed to send control command")?;
-                    }
-                    MqttMessage::DisplayEnabled(false) => {
-                        self.control
-                            .send(ControlCommand::DisplayOff)
-                            .context("Failed to send control command")?;
-                    }
-                    MqttMessage::DisplayEnabled(true) => {
-                        self.control
-                            .send(ControlCommand::DisplayOn)
-                            .context("Failed to send control command")?;
-                    }
-                    MqttMessage::NextSlide => {
-                        self.control
-                            .send(ControlCommand::NextSlide)
-                            .context("Failed to send control command")?;
-                    }
+                    self.handle_mqtt_message(publish)
+                        .await
+                        .context("Error when processing MQTT message")?
                 }
+                _ => {}
             }
         }
+    }
+
+    async fn handle_mqtt_message(&self, publish: Publish) -> Result<()> {
+        let message: MqttMessage = match serde_json::from_slice(&publish.payload) {
+            Ok(m) => m,
+            Err(err) => {
+                error!("Failed to parse incoming message: {}", err);
+                return Ok(());
+            }
+        };
+        debug!("MQTT Message: {:?}", message);
+        match message {
+            MqttMessage::DisplayDuration(duration) => {
+                let duration = Duration::from_secs(duration);
+                self.control
+                    .send(ControlCommand::ConfigChanged(SettingsPatch {
+                        display_duration: Some(duration),
+                        ..Default::default()
+                    }))
+                    .context("Failed to send control command")?;
+            }
+            MqttMessage::DisplayEnabled(false) => {
+                self.control
+                    .send(ControlCommand::DisplayOff)
+                    .context("Failed to send control command")?;
+            }
+            MqttMessage::DisplayEnabled(true) => {
+                self.control
+                    .send(ControlCommand::DisplayOn)
+                    .context("Failed to send control command")?;
+            }
+            MqttMessage::NextSlide => {
+                self.control
+                    .send(ControlCommand::NextSlide)
+                    .context("Failed to send control command")?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -313,8 +329,7 @@ impl Interface for MqttInterface {
 
         try_join!(
             self.state_send(&client),
-            self.config_send(&client),
-            self.command_receive(connection),
+            self.command_receive(&client, connection),
         )
         .context("in MQTT interface")?;
         Ok(())
