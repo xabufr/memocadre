@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use config::Config;
 use directories::ProjectDirs;
 use log::{debug, warn};
+use struct_patch::Merge;
 
 use crate::configuration::{AppConfig, Settings, SettingsPatch};
 
@@ -70,7 +71,14 @@ impl ConfigProvider {
             } else {
                 SettingsPatch::default()
             };
-            let merged_patch = existing_patch + settings.clone();
+            let dir = dynamic_settings_path.parent();
+            if let Some(dir) = dir {
+                if !dir.exists() {
+                    std::fs::create_dir_all(dir)
+                        .context("Cannot create directories for dynamic settings file")?;
+                }
+            }
+            let merged_patch = existing_patch.merge(settings.clone());
             let writer = std::fs::File::create(dynamic_settings_path)
                 .context("Cannot create dynamic settings file to save settings override")?;
             serde_json::to_writer(writer, &merged_patch)
@@ -184,7 +192,7 @@ debug:
   show_fps: true
 "#;
         let settings_dir = gen_settings_from_str(settings).unwrap();
-        let settings = r#"{"display_duration":"51s"}"#;
+        let settings = r#"{"display_duration":"51s","debug":{"show_fps":true}}"#;
         let overload_dir = gen_settings_from_str(settings).unwrap();
 
         let provider = ConfigProvider {
