@@ -80,7 +80,7 @@ mod tests {
     use super::ConfigProvider;
 
     #[gtest]
-    fn test_load_settings() {
+    fn test_load_default_settings() {
         let settings = "";
         let settings_dir = gen_settings_from_str(settings).unwrap();
 
@@ -94,7 +94,7 @@ mod tests {
                 .to_string(),
         };
         let settings = provider.load_settings().unwrap();
-        expect_that!(settings.transition_duration, eq(Duration::from_millis(500)));
+        expect_that!(settings.debug.show_fps, eq(false));
     }
 
     #[gtest]
@@ -114,6 +114,53 @@ mod tests {
         };
         let settings = provider.load_settings().unwrap();
         expect_that!(settings.transition_duration, eq(Duration::from_millis(500)));
+    }
+
+    #[gtest]
+    fn test_load_existing_settings() {
+        let settings = r#"---
+debug:
+  show_fps: true
+"#;
+        let settings_dir = gen_settings_from_str(settings).unwrap();
+
+        let provider = ConfigProvider {
+            dynamic_settings_path: None,
+            settings_path: settings_dir
+                .path()
+                .join("settings.yaml")
+                .to_str()
+                .unwrap()
+                .to_string(),
+        };
+        let settings = provider.load_settings().unwrap();
+        expect_that!(settings.debug.show_fps, eq(true));
+    }
+
+    #[gtest]
+    fn test_load_existing_settings_overloaded() {
+        let settings = r#"---
+debug:
+  show_fps: true
+"#;
+        let settings_dir = gen_settings_from_str(settings).unwrap();
+        let settings = r#"---
+debug:
+    show_fps: false
+"#;
+        let overload_dir = gen_settings_from_str(settings).unwrap();
+
+        let provider = ConfigProvider {
+            dynamic_settings_path: Some(overload_dir.path().join("settings.yaml")),
+            settings_path: settings_dir
+                .path()
+                .join("settings.yaml")
+                .to_str()
+                .unwrap()
+                .to_string(),
+        };
+        let settings = provider.load_settings().unwrap();
+        expect_that!(settings.debug.show_fps, eq(false));
     }
 
     fn gen_settings_from_str(s: &str) -> Result<TempDir, anyhow::Error> {
