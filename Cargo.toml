@@ -56,7 +56,7 @@ winit = { version = "0.30.8", default-features = false, features = ["x11"], opti
 
 [dev-dependencies]
 faux = "0.1.12"
-googletest = "0.13.0"
+googletest = "0.14"
 temp-dir = "0.1.16"
 
 [features]
