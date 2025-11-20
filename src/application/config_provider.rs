@@ -28,7 +28,7 @@ impl ConfigProvider {
         let settings_path = std::env::var("SETTINGS_PATH").unwrap_or("settings".to_string());
         ConfigProvider {
             dynamic_settings_path,
-            settings_path: settings_path,
+            settings_path,
         }
     }
 

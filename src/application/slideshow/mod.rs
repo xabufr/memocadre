@@ -21,6 +21,7 @@ use crate::{
     worker::PreloadedSlide,
 };
 
+#[allow(clippy::large_enum_variant)]
 pub enum Slideshow {
     None,
     Loading(LoadingSlide),
