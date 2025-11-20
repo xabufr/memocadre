@@ -123,7 +123,8 @@ MemoCadre uses **two** main configuration files:
      overlay, etc.
    - Can be overridden at runtime via APIs.
 
-You can override paths when running MemoCadre by setting:
+You can override paths when running MemoCadre by setting the following
+environment variables:
 
 ```bash
 # base app configuration
@@ -289,12 +290,13 @@ debug:
 
 ## Usage
 
-Once MemoCadre is installed and configured:
+You can run MemoCadre by specifying the config and settings paths via
+environment variables, for example to use local files in the current directory:
 
 ```bash
-CONFIG_PATH=/etc/memocadre/config.yaml \
-SETTINGS_PATH=/etc/memocadre/settings.yaml \
-memo-cadre
+CONFIG_PATH=./config.yaml \
+SETTINGS_PATH=./settings.yaml \
+memocadre
 ```
 
 At startup, MemoCadre:
@@ -314,76 +316,7 @@ At startup, MemoCadre:
 
 ## Installation
 
-### a) From a Debian package (ARMv6 / Raspberry Pi)
-
-The repository can generate an ARMv6 `.deb` package (for Raspberry Pi 1 / Zero).
-
-Typical workflow:
-
-1. **Build the ARMv6 binary and Debian package** on a build machine (often
-   x86_64) using cross-compilation.
-2. **Copy the `.deb` to the Raspberry Pi**.
-3. **Install** it using `dpkg -i`.
-
-Example commands (adjust file names/versions as needed):
-
-```bash
-# On the build machine
-just debian-armv6   # or the equivalent command from your Justfile
-
-# Then copy to the Raspberry Pi
-scp ./target/arm-unknown-linux-gnueabihf/debian/memo-cadre_0.1.0-1_armhf.deb pi@raspberrypi:~
-
-# On the Pi:
-ssh pi@raspberrypi
-sudo dpkg -i memo-cadre_0.1.0-1_armhf.deb
-```
-
-Update the `.deb` filename to match your actual build output.
-
----
-
-### b) Raspberry Pi installation example
-
-Example setup on a Raspberry Pi (Raspbian Bookworm):
-
-1. **Install minimal system dependencies:**
-
-   ```bash
-   sudo apt update
-   sudo apt install --assume-yes --no-install-recommends \
-     libgbm-dev \
-     libgl1-mesa-dri \
-     libgl1 \
-     ca-certificates
-   ```
-
-2. **Install the MemoCadre package** (see previous section on how to build/get
-   the `.deb`):
-
-   ```bash
-   sudo dpkg -i memo-cadre_0.1.0-1_armhf.deb
-   ```
-
-3. **Prepare configuration:**
-
-   ```bash
-   sudo mkdir -p /etc/memocadre
-   # Provide your own config.yaml and settings.yaml or copy from examples if packaged
-   sudo chown -R pi:pi /etc/memocadre
-   ```
-
-4. **Edit `/etc/memocadre/config.yaml` and `/etc/memocadre/settings.yaml`**.
-
-5. **Run MemoCadre:**
-   ```bash
-   CONFIG_PATH=/etc/memocadre/config.yaml \
-   SETTINGS_PATH=/etc/memocadre/settings.yaml \
-   memo-cadre
-   ```
-
-You can then configure a `systemd` service so MemoCadre starts automatically at
-boot for a fully autonomous photo frame.
+<!-- TODO -->
 
 ---
 
@@ -464,62 +397,43 @@ environment with the correct libraries (OpenGL, X11, GBM, etc.).
 ### 3. ARMv6 cross-compilation (Raspberry Pi 1 / Zero)
 
 The repo includes build files (Docker/Containerfile, Justfile, etc.) for
-cross-compiling to ARMv6.
+cross-compiling to ARMv6 using `cross`:
 
-General idea:
+```bash
+just debian-armv6
+```
 
-1. Use a base image (e.g. Debian bookworm) + an ARMv6 cross-compiler toolchain.
-2. Install Rust + `cross` (or a manually configured toolchain).
-3. Build:
-   ```bash
-   cross build --target arm-unknown-linux-gnueabihf --release --no-default-features --features drm
-   ```
-4. Generate a `.deb` with `cargo-deb`:
-   ```bash
-   cargo deb --target=arm-unknown-linux-gnueabihf --no-build --no-strip
-   ```
-
-Concrete scripts and arguments are documented in the repository’s build files;
-adapt them to your environment.
+Results (binary and Debian package) will be in
+`target/arm-unknown-linux-gnueabihf/debian/` and
+`target/arm-unknown-linux-gnueabihf/release/`.
 
 ---
 
 ## Local testing
 
-The project includes unit tests (for slide rendering, background calculation,
-caption formatting, etc.).
-
-Run all tests:
+The project includes some unit tests (sadly not for the graphics parts, but
+thankfully some logic is still easily testable).
 
 ```bash
 cargo test
 ```
 
-Or restrict to a specific module, for example:
-
-```bash
-cargo test slideshow
-```
-
 To visually test the app on your development machine:
 
 1. Set up a test Immich instance (local or remote).
-2. Create a minimal `/etc/memocadre/config.yaml` and
-   `/etc/memocadre/settings.yaml`.
+2. Create a minimal `.config.yaml` and `.settings.yaml`.
 3. Run MemoCadre with this config:
    ```bash
-   CONFIG_PATH=/etc/memocadre/config.yaml \
-   SETTINGS_PATH=/etc/memocadre/settings.yaml \
+   CONFIG_PATH=./config.yaml \
+   SETTINGS_PATH=./settings.yaml \
    cargo run
    ```
 
-With X11/Wayland available, a window will open and show the slideshow.  
-Without X11/Wayland (and with the DRM feature enabled), the app will try to use
-DRM/KMS for direct rendering.
+With X11/Wayland available, a window will open and show the slideshow.
 
 ---
 
 ## License
 
-This project is released under the **GPLv3** license.  
-See the [`LICENSE`](LICENSE) file for details.
+This project is released under the **GPLv3** license. See the
+[`LICENSE`](LICENSE) file for details.
