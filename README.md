@@ -1,4 +1,4 @@
-# PhotoKiosk
+# MemoCadre
 
 PhotoKiosk displays photos in a slideshow format,
 Perfect for digital picture frames, kiosks, and automated displays. 

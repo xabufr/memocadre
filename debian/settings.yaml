@@ -1,5 +1,5 @@
 ---
-# photo-kiosk settings file
+# memocadre settings file
 # Slideshow settings
 slideshow:
   display_duration: "30s" # Minimum time each photo is displayed before switching to the next. Format is a duration string (e.g., "10s", "1m", "2h"). Defaults to "30s".

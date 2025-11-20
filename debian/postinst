@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-USER="photo-kiosk"
+USER="memocadre"
 
 if ! id -u $USER &>/dev/null; then
     adduser --system --no-create-home --disabled-password $USER
 fi
 
-chown -R $USER /etc/photo-kiosk
+chown -R $USER /etc/memocadre
 
 #DEBHELPER#

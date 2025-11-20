@@ -1,5 +1,5 @@
 ---
-# photo-kiosk configuration file
+# memocadre configuration file
 
 # Where to fetch photos from
 sources:

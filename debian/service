@@ -1,13 +1,13 @@
 [Unit]
-Description=Start photo-kiosk using DRM/KMS
+Description=Start memocadre using DRM/KMS
 After=network.target
 
 [Service]
-Environment=CONFIG_PATH=/etc/photo-kiosk/config
-Environment=SETTINGS_PATH=/etc/photo-kiosk/settings
-ExecStart=/usr/bin/photo-kiosk
+Environment=CONFIG_PATH=/etc/memocadre/config
+Environment=SETTINGS_PATH=/etc/memocadre/settings
+ExecStart=/usr/bin/memocadre
 Group=video
-User=photo-kiosk
+User=memocadre
 Restart=always
 
 [Install]

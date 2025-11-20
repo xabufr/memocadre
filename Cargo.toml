@@ -1,5 +1,5 @@
 [package]
-name = "photo-kiosk"
+name = "memocadre"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0"
@@ -69,10 +69,10 @@ maintainer-scripts = "debian/"
 systemd-units = { enable = true }
 assets = [
   # binary
-  ["target/release/photo-kiosk", "/usr/bin/", "755"],
+  ["target/release/memocadre", "/usr/bin/", "755"],
   # config
-  ["debian/config.yaml", "etc/photo-kiosk/config.yaml", "600"],
-  ["debian/settings.yaml", "etc/photo-kiosk/settings.yaml", "600"],
+  ["debian/config.yaml", "etc/memocadre/config.yaml", "600"],
+  ["debian/settings.yaml", "etc/memocadre/settings.yaml", "600"],
 ]
 depends = [
     "libgbm1"
