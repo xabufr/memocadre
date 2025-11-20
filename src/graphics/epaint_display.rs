@@ -6,6 +6,7 @@ use std::{
 use anyhow::{Context, Result};
 use bytemuck::{Pod, Zeroable};
 use epaint::{
+    image::AlphaFromCoverage,
     text::{FontDefinitions, LayoutJob},
     Color32, Fonts, ImageData, Mesh, Shape, TessellationOptions, Tessellator, TextShape,
 };
@@ -182,7 +183,10 @@ impl TextContainerInner {
 
     fn update(&mut self, epaint: &mut EpaintDisplay) {
         if let Some(job) = self.next_layout.take() {
-            let galley = epaint.fonts.layout_job(job);
+            let galley = epaint
+                .fonts
+                .with_pixels_per_point(epaint.pixels_per_point)
+                .layout_job(job);
             self.shape = Some(TextShape::new([0., 0.].into(), galley, Color32::WHITE));
         }
         if self.is_dirty || epaint.atlas_updated {
@@ -214,8 +218,8 @@ impl EpaintDisplay {
         let pixels_per_point: f32 = 1.;
         let max_texture_size = gl.capabilities().max_texture_size as usize;
         let fonts = Fonts::new(
-            pixels_per_point,
             max_texture_size,
+            AlphaFromCoverage::TwoCoverageMinusCoverageSq,
             FontDefinitions::default(),
         );
         let tesselator = Tessellator::new(
@@ -245,8 +249,10 @@ impl EpaintDisplay {
 
     pub fn begin_frame(&mut self) {
         self.atlas_updated = false;
-        self.fonts
-            .begin_pass(self.pixels_per_point, self.max_texture_size);
+        self.fonts.begin_pass(
+            self.max_texture_size,
+            AlphaFromCoverage::TwoCoverageMinusCoverageSq,
+        );
     }
 
     #[allow(dead_code)]
@@ -289,7 +295,10 @@ impl EpaintDisplay {
 
     fn update_container(&mut self, container: &mut TextContainerInner) {
         if let Some(job) = container.next_layout.take() {
-            let galley = self.fonts.layout_job(job);
+            let galley = self
+                .fonts
+                .with_pixels_per_point(self.pixels_per_point)
+                .layout_job(job);
             container.shape = Some(TextShape::new([0., 0.].into(), galley, Color32::WHITE));
         }
         if container.is_dirty || self.atlas_updated {
@@ -405,12 +414,21 @@ impl EpaintDisplay {
 
     fn convert_texture(image: &epaint::image::ImageData) -> Vec<u8> {
         match image {
-            ImageData::Font(font_image) => font_image
-                .srgba_pixels(None)
-                .flat_map(|c| c.to_array())
+            ImageData::Color(color_image) => color_image
+                .pixels
+                .iter()
+                .flat_map(|c| c.to_srgba_unmultiplied())
                 .collect(),
             _ => unimplemented!(),
         }
+
+        // match image {
+        //     ImageData::Font(font_image) => font_image
+        //         .srgba_pixels(None)
+        //         .flat_map(|c| c.to_array())
+        //         .collect(),
+        //     _ => unimplemented!(),
+        // }
     }
 
     fn new_vao(
