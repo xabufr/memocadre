@@ -39,7 +39,7 @@ impl MqttInterface {
         let id = std::env::var("MQTT_ID").unwrap_or_else(|_| match machine_uid::get() {
             Ok(id) => id,
             Err(err) => {
-                let def = "photokiosk".to_string();
+                let def = "memocadre".to_string();
                 warn!("Failed to get machine id: {}, defaulting to {}", err, def);
                 def
             }
@@ -54,7 +54,7 @@ impl MqttInterface {
     }
 
     fn topic(&self, kind: &str) -> String {
-        format!("homeassistant/device/photokiosk_{}/{}", self.id, kind)
+        format!("homeassistant/device/memocadre_{}/{}", self.id, kind)
     }
 
     fn command_topic(&self) -> String {
@@ -77,11 +77,11 @@ impl MqttInterface {
         let c = |c| self.component_id(c);
         json!({
             "device": {
-                "name": format!("PhotoKiosk {}", self.id),
+                "name": format!("MemoCadre {}", self.id),
                 "identifiers": [self.id],
             },
             "origin": {
-                "name": "PhotoKiosk",
+                "name": "MemoCadre",
                 "sw_version": "0.1.0",
             },
             "components": {
@@ -317,7 +317,7 @@ impl Interface for MqttInterface {
     async fn start(&self) -> Result<()> {
         info!("Starting MQTT interface");
         let mut mqtt_options = MqttOptions::new(
-            format!("photokiosk_{}", self.id),
+            format!("memocadre_{}", self.id),
             &self.config.host,
             self.config.port,
         );

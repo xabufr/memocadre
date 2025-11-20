@@ -18,7 +18,7 @@ impl ConfigProvider {
         let settings_path = std::env::var("DYNAMIC_SETTINGS_PATH");
         let dynamic_settings_path = if let Ok(path) = settings_path {
             Some(PathBuf::from(path))
-        } else if let Some(proj_dirs) = ProjectDirs::from("com", "xabufr", "photokiosk") {
+        } else if let Some(proj_dirs) = ProjectDirs::from("com", "xabufr", "memocadre") {
             Some(proj_dirs.config_dir().join("settings.yaml"))
         } else {
             warn!("Cannot find settings path");
