@@ -10,6 +10,8 @@ suitable for continuous operation on low-power hardware (like Raspberry Pi 1 /
 Zero). It supports running without a display server (using DRM/KMS) for embedded
 use cases and offers integration with home automation systems via MQTT/HTTP.
 
+![](docs/images/demo.gif)
+
 ---
 
 ## Quick start
