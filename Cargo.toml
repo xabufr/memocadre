@@ -50,7 +50,7 @@ serde_repr = "0.1.19"
 smart-default = "0.7.1"
 struct-patch = { version = "0.8.7", features = ["merge"] }
 thread-priority = "1.2.0"
-tokio = { version = "1.44.0", features = ["sync"] }
+tokio = { version = "1.44.2", features = ["sync"] }
 vek = { version = "0.17.1", features = ["bytemuck", "mint"] }
 winit = { version = "0.30.8", default-features = false, features = ["x11"], optional = true }
 
