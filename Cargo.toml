@@ -37,7 +37,7 @@ itertools = "0.14.0"
 log = "0.4.22"
 machine-uid = "0.5.3"
 memoffset = "0.9.1"
-micromap = "0.0.15"
+micromap = "0.1"
 minreq = { version = "2.13.0", features = ["https-rustls", "punycode", "json-using-serde"] }
 mint = "0.5.9"
 paste = "1.0.15"

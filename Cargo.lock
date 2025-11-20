@@ -1640,9 +1640,9 @@ dependencies = [
 
 [[package]]
 name = "micromap"
-version = "0.0.15"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5b72ada413a5bd6bc65d6eef149fdc5138298f3bb89653d1a521f0fea7f9c73"
+checksum = "18c087666f377f857b49564f8791b481260c67825d6b337e1e38ddf54a985a88"
 
 [[package]]
 name = "mime"
