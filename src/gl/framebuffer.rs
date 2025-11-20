@@ -55,7 +55,7 @@ impl FramebufferObject {
         }
     }
 
-    pub fn bind_guard(&self) -> FramebufferGuard {
+    pub fn bind_guard(&self) -> FramebufferGuard<'_> {
         let previous_viewport = self.gl.current_viewport();
         let texture = self.texture.as_ref().expect("Texture should be present");
         self.gl.set_viewport(Rect::new(

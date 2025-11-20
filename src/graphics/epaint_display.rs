@@ -419,16 +419,7 @@ impl EpaintDisplay {
                 .iter()
                 .flat_map(|c| c.to_srgba_unmultiplied())
                 .collect(),
-            _ => unimplemented!(),
         }
-
-        // match image {
-        //     ImageData::Font(font_image) => font_image
-        //         .srgba_pixels(None)
-        //         .flat_map(|c| c.to_array())
-        //         .collect(),
-        //     _ => unimplemented!(),
-        // }
     }
 
     fn new_vao(
