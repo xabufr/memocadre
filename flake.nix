@@ -22,7 +22,10 @@
           sha256 = "sha256-SJwZ8g0zF2WrKDVmHrVG3pD2RGoQeo24MEXnNx5FyuI=";
         };
         rustNightly = fenix.packages.${system}.complete;
-        rust = fenix.packages.${system}.combine [rustNightly.rustfmt rustStable];
+        rust = fenix.packages.${system}.combine [
+          rustNightly.rustfmt
+          rustStable
+        ];
 
         nativeLibs = [
           pkgs.libGL
@@ -42,6 +45,7 @@
               pkgs.cargo-deb
               pkgs.cargo-cross
               pkgs.just
+              pkgs.nodePackages.prettier
             ]
             ++ nativeLibs;
 
@@ -49,6 +53,7 @@
             export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath nativeLibs}:$LD_LIBRARY_PATH"
           '';
         };
+        formatter = pkgs.alejandra;
       }
     );
 }
