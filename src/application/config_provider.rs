@@ -97,9 +97,8 @@ mod tests {
     use googletest::{expect_that, gtest, prelude::eq};
     use temp_dir::TempDir;
 
-    use crate::configuration::SettingsPatch;
-
     use super::ConfigProvider;
+    use crate::configuration::SettingsPatch;
 
     #[gtest]
     fn test_load_default_settings() {
