@@ -49,5 +49,5 @@ jobs:
         run: |
           VERSION=${TAG#v}
           gh release upload "${TAG}" \
-            "target/arm-unknown-linux-gnueabihf/debian/memocadre_${VERSION}-1_armhf.deb#memocadre_raspbian" \
+            "target/arm-unknown-linux-gnueabihf/debian/memocadre_${VERSION}-1_armhf.deb#memocadre_raspbian.deb" \
             "target/arm-unknown-linux-gnueabihf/release/memocadre#memocadre_raspbian"
