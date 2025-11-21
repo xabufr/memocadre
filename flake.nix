@@ -7,15 +7,17 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    fenix,
-    flake-utils,
-  }:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      fenix,
+      flake-utils,
+    }:
     flake-utils.lib.eachDefaultSystem (
-      system: let
-        pkgs = import nixpkgs {inherit system;};
+      system:
+      let
+        pkgs = import nixpkgs { inherit system; };
 
         rustStable = fenix.packages.${system}.fromToolchainFile {
           file = ./rust-toolchain.toml;
@@ -37,10 +39,11 @@
           pkgs.mesa
           pkgs.libgbm
         ];
-      in {
-        devShells.default = pkgs.mkShell {
-          buildInputs =
-            [
+      in
+      {
+        devShells = {
+          default = pkgs.mkShell {
+            buildInputs = [
               rust
               pkgs.cargo-deb
               pkgs.cargo-cross
@@ -49,9 +52,18 @@
             ]
             ++ nativeLibs;
 
-          shellHook = ''
-            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath nativeLibs}:$LD_LIBRARY_PATH"
-          '';
+            shellHook = ''
+              export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath nativeLibs}:$LD_LIBRARY_PATH"
+            '';
+          };
+          cross = pkgs.mkShell {
+            buildInputs = [
+              pkgs.rustup
+              pkgs.cargo-deb
+              pkgs.cargo-cross
+              pkgs.just
+            ];
+          };
         };
         formatter = pkgs.alejandra;
       }
