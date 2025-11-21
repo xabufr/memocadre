@@ -9,3 +9,8 @@ build: debian-armv6
 deploy-armv6 TARGET: debian-armv6
   scp ./target/arm-unknown-linux-gnueabihf/debian/memocadre_0.1.0-1_armhf.deb {{ TARGET }}:~
   ssh {{ TARGET }} sudo dpkg -i '~/memocadre_0.1.0-1_armhf.deb'
+
+ci:
+  cargo fmt --check
+  cargo check
+  cargo test
