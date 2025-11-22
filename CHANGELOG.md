@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/xabufr/memocadre/compare/v0.2.0...v0.2.1) (2025-11-22)
+
+
+### Bug Fixes
+
+* nix fmt ([4138df3](https://github.com/xabufr/memocadre/commit/4138df32099d7774ddec8d3b93b5e9ff462345d4))
+
 ## [0.2.0](https://github.com/xabufr/memocadre/compare/v0.1.0...v0.2.0) (2025-11-21)
 
 
