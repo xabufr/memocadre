@@ -4,6 +4,7 @@ version = "0.2.0"
 edition = "2021"
 license = "GPL-3.0"
 authors = ["Thomas Loubiou <xabufr@gmail.com>"]
+description = "Slideshow application for digital picture frames, streaming photos from an Immich server with smooth, GPU‑accelerated rendering on low‑power devices"
 exclude = [
   "docs/*",
 ]
