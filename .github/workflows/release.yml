@@ -18,6 +18,29 @@ env:
   TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
 
 jobs:
+  release-crate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || '' }}
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: cachix/cachix-action@v16
+        with:
+          name: nix-community
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: build
+
+      - run: nix develop --command cargo publish --token
+        env:
+          TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+
   build-raspbian:
     runs-on: ubuntu-latest
     steps:
