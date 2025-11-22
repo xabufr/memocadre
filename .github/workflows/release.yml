@@ -37,9 +37,9 @@ jobs:
         with:
           shared-key: build
 
-      - run: nix develop --command cargo publish --token
+      - run: nix develop --command cargo publish
         env:
-          TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
   build-raspbian:
     runs-on: ubuntu-latest
