@@ -5,8 +5,15 @@ edition = "2021"
 license = "GPL-3.0"
 authors = ["Thomas Loubiou <xabufr@gmail.com>"]
 description = "Slideshow application for digital picture frames, streaming photos from an Immich server with smooth, GPU‑accelerated rendering on low‑power devices"
+repository = "https://github.com/xabufr/memocadre"
 exclude = [
   "docs/*",
+]
+keywords = [
+  "immich",
+  "raspberry-pi",
+  "digital-photo-frame",
+  "app"
 ]
 
 [profile.release]
