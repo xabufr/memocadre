@@ -324,7 +324,7 @@ impl EpaintDisplay {
                     self.update_container(&mut container.borrow_mut());
                     i += 1;
                 }
-                _ => {
+                None => {
                     self.containers.swap_remove(i);
                 }
             }
