@@ -39,7 +39,7 @@ impl ImmichRequest {
                     ..search_random_request.clone()
                 })
                 .context("Error while search next assets batch")?),
-            ImmichRequest::SmartSearch(ref mut request) => {
+            ImmichRequest::SmartSearch(request) => {
                 request.page = request.page.map(|p| p.saturating_add(1));
                 Ok(client
                     .smart_search(SmartSearchRequest {

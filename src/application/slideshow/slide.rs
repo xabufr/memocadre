@@ -2,8 +2,8 @@ use std::time::Instant;
 
 use anyhow::{Context, Result};
 use epaint::{
-    text::{LayoutJob, TextFormat},
     Color32, FontId, Pos2, RectShape,
+    text::{LayoutJob, TextFormat},
 };
 use vek::{Extent2, Rect, Vec2};
 
@@ -310,7 +310,7 @@ mod test {
     use crate::{
         configuration::{BlurBackground, ConfigLocale, OrientationName},
         gallery::ImageDetails,
-        gl::{texture::DetachedTexture, wrapper::mocked_gl, GlContext},
+        gl::{GlContext, texture::DetachedTexture, wrapper::mocked_gl},
         graphics::{Graphics, TextureRegion},
     };
 

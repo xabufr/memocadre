@@ -2,7 +2,7 @@ macro_rules! animated_properties {
     (
         $struct_name:ident {
            $(
-               $field_name:ident: $field_type:ty = $default:expr,
+               $field_name:ident: $field_type:ty = $default:expr_2021,
            )*
         }
     ) => {

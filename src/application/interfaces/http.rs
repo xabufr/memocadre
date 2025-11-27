@@ -2,9 +2,9 @@ use std::sync::mpsc;
 
 use anyhow::{Context, Result};
 use axum::{
+    Json, Router,
     http::StatusCode,
     routing::{get, patch},
-    Json, Router,
 };
 use log::info;
 use tokio::sync::watch;

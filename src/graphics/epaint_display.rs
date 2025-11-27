@@ -6,19 +6,19 @@ use std::{
 use anyhow::{Context, Result};
 use bytemuck::{Pod, Zeroable};
 use epaint::{
+    Color32, Fonts, ImageData, Mesh, Shape, TessellationOptions, Tessellator, TextShape,
     image::AlphaFromCoverage,
     text::{FontDefinitions, LayoutJob},
-    Color32, Fonts, ImageData, Mesh, Shape, TessellationOptions, Tessellator, TextShape,
 };
 use vek::{Extent2, Mat4, Rect, Vec2};
 
 use super::{Drawable, Graphics, SharedTexture2d};
 use crate::gl::{
+    BlendMode, DrawParameters, GlContext,
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
     shader::{Program, ProgramGuard},
     texture::{Texture, TextureFiltering, TextureFormat, TextureOptions, TextureWrapMode},
     vao::{BufferInfo, VertexArrayObject},
-    BlendMode, DrawParameters, GlContext,
 };
 
 pub struct EpaintDisplay {
@@ -319,11 +319,14 @@ impl EpaintDisplay {
         }
         let mut i = 0;
         while i < self.containers.len() {
-            if let Some(container) = self.containers[i].upgrade() {
-                self.update_container(&mut container.borrow_mut());
-                i += 1;
-            } else {
-                self.containers.swap_remove(i);
+            match self.containers[i].upgrade() {
+                Some(container) => {
+                    self.update_container(&mut container.borrow_mut());
+                    i += 1;
+                }
+                _ => {
+                    self.containers.swap_remove(i);
+                }
             }
         }
     }

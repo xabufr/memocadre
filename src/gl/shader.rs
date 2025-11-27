@@ -5,7 +5,7 @@ use glow::NativeProgram;
 use micromap::Map;
 use vek::{Extent2, Mat4, Vec2};
 
-use super::{wrapper::GlowContext, GlContext};
+use super::{GlContext, wrapper::GlowContext};
 
 type UniformLocation = glow::NativeUniformLocation;
 

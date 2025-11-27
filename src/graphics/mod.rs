@@ -21,8 +21,8 @@ pub use self::{
 use crate::{
     configuration::OrientationName,
     gl::{
-        texture::{DetachedTexture, Texture},
         GlContext,
+        texture::{DetachedTexture, Texture},
     },
 };
 

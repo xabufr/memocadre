@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, rc::Rc};
 
-use anyhow::{bail, Error, Result};
+use anyhow::{Error, Result, bail};
 use bytemuck::NoUninit;
 
 use super::GlContext;

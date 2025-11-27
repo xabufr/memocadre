@@ -4,9 +4,9 @@ use anyhow::{Error, Result};
 use bytemuck::NoUninit;
 
 use super::{
+    GlContext,
     buffer_object::{BufferObject, ElementBufferObject},
     wrapper::GlowContext,
-    GlContext,
 };
 
 // ----------------------------------------------------------------------------

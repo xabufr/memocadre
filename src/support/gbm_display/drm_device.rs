@@ -6,8 +6,8 @@ use std::{
 
 use anyhow::{Context as _, Result};
 use drm::control::{
-    self, connector, crtc, property::ValueType, Device as ControlDevice, ModeTypeFlags,
-    PageFlipFlags,
+    self, Device as ControlDevice, ModeTypeFlags, PageFlipFlags, connector, crtc,
+    property::ValueType,
 };
 use log::{error, warn};
 

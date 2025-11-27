@@ -4,7 +4,7 @@ use anyhow::{Error, Result};
 use image::{DynamicImage, GenericImageView};
 use vek::{Extent2, Rect};
 
-use super::{wrapper::GlowContext, GlContext};
+use super::{GlContext, wrapper::GlowContext};
 
 #[derive(Debug)]
 pub struct Texture {
@@ -263,24 +263,26 @@ impl Texture {
     }
 
     unsafe fn load_texture(gl: &GlowContext, image: &DynamicImage) -> Result<glow::Texture> {
-        let texture = gl.create_texture().map_err(Error::msg)?;
-        gl.bind_texture(TARGET, Some(texture));
-        // FIXME set in graphics init
-        gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
-        let image_data = image.to_rgb8().into_raw();
-        gl.tex_image_2d(
-            TARGET,
-            0,
-            glow::RGB as _,
-            image.width() as i32,
-            image.height() as i32,
-            0,
-            glow::RGB,
-            glow::UNSIGNED_BYTE,
-            glow::PixelUnpackData::Slice(Some(image_data.as_slice())),
-        );
-        gl.bind_texture(TARGET, None);
-        Ok(texture)
+        unsafe {
+            let texture = gl.create_texture().map_err(Error::msg)?;
+            gl.bind_texture(TARGET, Some(texture));
+            // FIXME set in graphics init
+            gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
+            let image_data = image.to_rgb8().into_raw();
+            gl.tex_image_2d(
+                TARGET,
+                0,
+                glow::RGB as _,
+                image.width() as i32,
+                image.height() as i32,
+                0,
+                glow::RGB,
+                glow::UNSIGNED_BYTE,
+                glow::PixelUnpackData::Slice(Some(image_data.as_slice())),
+            );
+            gl.bind_texture(TARGET, None);
+            Ok(texture)
+        }
     }
 
     pub fn bind(&self, channel: Option<u8>) {
