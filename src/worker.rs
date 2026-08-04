@@ -6,18 +6,18 @@ use std::{
 
 use anyhow::{Context, Result};
 use backon::{BlockingRetryable, ExponentialBuilder};
-use image::{imageops::FilterType, DynamicImage, GenericImageView};
+use image::{DynamicImage, GenericImageView, imageops::FilterType};
 use log::error;
-use thread_priority::{set_current_thread_priority, ThreadPriority};
+use thread_priority::{ThreadPriority, set_current_thread_priority};
 use tokio::sync::watch;
 use vek::Extent2;
 
 use crate::{
     configuration::{ImageFilter, Settings, Source},
-    gallery::{build_sources, Gallery, ImageDetails},
+    gallery::{Gallery, ImageDetails, build_sources},
     gl::{
-        texture::{DetachedTexture, Texture},
         FutureGlThreadContext, GlContext,
+        texture::{DetachedTexture, Texture},
     },
     graphics::ImageBlurr,
 };

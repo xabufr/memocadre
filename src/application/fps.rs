@@ -2,8 +2,8 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use epaint::{
-    text::{LayoutJob, TextFormat},
     Color32, FontId,
+    text::{LayoutJob, TextFormat},
 };
 use log::debug;
 

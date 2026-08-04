@@ -7,12 +7,12 @@ use super::Vertex2dUv;
 use crate::{
     configuration::BlurSettings,
     gl::{
+        GlContext,
         buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
         framebuffer::FramebufferObject,
         shader::{Program, ProgramGuard},
         texture::{Texture, TextureFormat},
         vao::{BufferInfo, VertexArrayObject},
-        GlContext,
     },
 };
 

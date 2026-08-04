@@ -3,7 +3,7 @@ use std::rc::Rc;
 use anyhow::{Error, Result};
 use vek::Rect;
 
-use super::{texture::Texture, GlContext};
+use super::{GlContext, texture::Texture};
 
 pub struct FramebufferGuard<'a> {
     previous_viewport: Rect<i32, i32>,

@@ -4,11 +4,11 @@ use anyhow::{Context, Result};
 use backon::{ExponentialBuilder, Retryable};
 use log::{debug, error, info, warn};
 use rumqttc::v5::{
-    mqttbytes::{
-        v5::{ConnAck, ConnectReturnCode, Publish},
-        QoS,
-    },
     AsyncClient, ConnectionError, Event, EventLoop, Incoming, MqttOptions,
+    mqttbytes::{
+        QoS,
+        v5::{ConnAck, ConnectReturnCode, Publish},
+    },
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;

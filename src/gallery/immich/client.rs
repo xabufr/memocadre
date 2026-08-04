@@ -1,6 +1,6 @@
 use std::num::NonZeroU32;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use chrono::{DateTime, Utc};
 use log::trace;
 use minreq::{Method, Request, Response};

@@ -1,14 +1,14 @@
 use std::rc::Rc;
 
 use anyhow::{Context, Result};
-use vek::{num_traits::Inv, Extent2, Mat4, Rect, Vec2};
+use vek::{Extent2, Mat4, Rect, Vec2, num_traits::Inv};
 
 use super::{Drawable, Graphics, SharedTexture2d, Vertex2dUv};
 use crate::gl::{
+    BlendMode, DrawParameters, GlContext,
     buffer_object::{BufferObject, BufferUsage, ElementBufferObject},
     shader::{Program, ProgramGuard},
     vao::{BufferInfo, VertexArrayObject},
-    BlendMode, DrawParameters, GlContext,
 };
 
 pub struct ImageDrawer {
