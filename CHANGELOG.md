@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/xabufr/memocadre/compare/v0.2.1...v0.2.2) (2026-08-04)
+
+
+### Bug Fixes
+
+* add missing Cargo.toml metadata ([#12](https://github.com/xabufr/memocadre/issues/12)) ([727960b](https://github.com/xabufr/memocadre/commit/727960bb1d0a45beb4bb685ea03a6a9ed8a304f7))
+* support Immich v3 asset responses ([#18](https://github.com/xabufr/memocadre/issues/18)) ([02e0ba1](https://github.com/xabufr/memocadre/commit/02e0ba1cecf02dc7450b4a5dd0724b84ee2e74e6))
+
 ## [0.2.1](https://github.com/xabufr/memocadre/compare/v0.2.0...v0.2.1) (2025-11-22)
 
 

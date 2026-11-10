@@ -15,9 +15,6 @@ pub struct AssetResponse {
     pub local_date_time: DateTime<Utc>,
     pub file_created_at: DateTime<Utc>,
     pub r#type: AssetType,
-    pub people: Vec<Person>,
-    #[serde(default = "Vec::default")]
-    pub unassigned_faces: Vec<Face>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -35,31 +32,6 @@ pub struct AlbumInfo {
 pub struct MemoryLaneElement {
     pub years_ago: i32,
     pub assets: Vec<AssetResponse>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-#[allow(dead_code)]
-pub struct Person {
-    pub name: String,
-    pub faces: Vec<Face>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-#[allow(dead_code)]
-pub struct Face {
-    pub id: String,
-    pub image_height: i32,
-    pub image_width: i32,
-    #[serde(rename = "boundingBoxX1")]
-    pub bounding_box_x1: i32,
-    #[serde(rename = "boundingBoxX2")]
-    pub bounding_box_x2: i32,
-    #[serde(rename = "boundingBoxY1")]
-    pub bounding_box_y1: i32,
-    #[serde(rename = "boundingBoxY2")]
-    pub bounding_box_y2: i32,
 }
 
 #[derive(Deserialize, Debug, Clone)]
